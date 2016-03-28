@@ -1,5 +1,5 @@
-#ifndef PL_FUNCTIONS_H
-#define PL_FUNCTIONS_H
+#ifndef DIFFERENTIAL_TOPOLOGY_PL_FUNCTIONS_H
+#define DIFFERENTIAL_TOPOLOGY_PL_FUNCTIONS_H
 
 #include <array>
 #include <dijkstra.h>
@@ -135,4 +135,4 @@ void geodesic_distance_pl_function(
 
 }
 
-#endif // PL_FUNCTIONS_H
+#endif // DIFFERENTIAL_TOPOLOGY_PL_FUNCTIONS_H
