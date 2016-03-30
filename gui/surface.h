@@ -40,12 +40,16 @@
 #include <rendering/shaders/vbo.h>
 
 #include <geometry/algos/bounding_box.h>
-
 #include <geometry/algos/ear_triangulation.h>
 
-#include "helper_functions.h"
+// perso functions
+#include <cgogn/geometry/algos/angle2.h>
+#include <cgogn/geometry/algos/area2.h>
+#include <cgogn/geometry/algos/length2.h>
+#include <cgogn/geometry/algos/curvature.h>
+#include <cgogn/helper_functions.h>
 
-#include "feature_points.h"
+#include <gui/feature_points.h>
 
 
 template <typename VEC3>
@@ -312,7 +316,7 @@ public:
 		EdgeAttributeHandler<Scalar> weight = map_.add_attribute<Scalar, Edge::ORBIT>("weight");
 		map_.foreach_cell([&](Edge e)
 		{
-			weight[e] = cgogn::edge_length<Vec3>(map_, e, vertex_position_);
+			weight[e] = cgogn::geometry::edge_length<Vec3>(map_, e, vertex_position_);
 		});
 
 		cgogn::geodesic_distance_pl_function<Scalar>(map_, d, weight, scalar);
@@ -356,7 +360,7 @@ public:
 		EdgeAttributeHandler<Scalar> weight = map_.add_attribute<Scalar, Edge::ORBIT>("weight");
 		map_.foreach_cell([&](Edge e)
 		{
-			weight[e] = cgogn::edge_length<Vec3>(map_, e, vertex_position_);
+			weight[e] = cgogn::geometry::edge_length<Vec3>(map_, e, vertex_position_);
 		});
 
 		//2. map the vertices to their geodesic distance to v0: find the vertex v1 that maximizes f0
@@ -444,6 +448,101 @@ public:
 		map_.remove_attribute(prev_v2);
 //		map_.remove_attribute(dist);
 //		map_.remove_attribute(prev);
+	}
+
+
+	void compute_curvature()
+	{
+		EdgeAttributeHandler<Scalar> edgeangle = map_.add_attribute<Scalar, Edge::ORBIT>("edgeangle");
+		EdgeAttributeHandler<Scalar> edgeaera = map_.add_attribute<Scalar, Edge::ORBIT>("edgeaera");
+
+		VertexAttributeHandler<Scalar> kmax = map_.add_attribute<Scalar, Vertex::ORBIT>("kmax");
+		VertexAttributeHandler<Scalar> kmin = map_.add_attribute<Scalar, Vertex::ORBIT>("kmin");
+		VertexAttributeHandler<Vec3> Kmax = map_.add_attribute<Vec3, Vertex::ORBIT>("Kmax");
+		VertexAttributeHandler<Vec3> Kmin = map_.add_attribute<Vec3, Vertex::ORBIT>("Kmin");
+		VertexAttributeHandler<Vec3> knormal = map_.add_attribute<Vec3, Vertex::ORBIT>("knormal");
+
+
+		cgogn::geometry::angle_between_face_normals<Vec3>(map_, vertex_position_, edgeangle);
+		cgogn::geometry::incident_faces_area<Vec3>(map_, vertex_position_, edgeaera);
+
+		Scalar meanEdgeLength = cgogn::geometry::mean_edge_length<Vec3>(map_, vertex_position_);
+
+		Scalar radius = Scalar(2.0) * meanEdgeLength;
+
+		cgogn::geometry::curvature_normal_cycles_projected<Vec3>(map_,radius, vertex_position_, vertex_normal_,edgeangle,edgeaera,kmax,kmin,Kmax,Kmin,knormal);
+
+
+		//compute kmean
+		VertexAttributeHandler<Scalar> kmean = map_.add_attribute<Scalar, Vertex::ORBIT>("kmean");
+
+		double min = std::numeric_limits<double>::max();
+		double max = std::numeric_limits<double>::min();
+
+		map_.foreach_cell([&](Vertex v)
+		{
+			kmean[v] = (kmin[v] + kmax[v]) / Scalar(2.0);
+			min = std::min(min, kmean[v]);
+			max = std::max(max, kmean[v]);
+		});
+
+		//update_color(kmean, min, max);
+
+		//compute kgaussian
+		VertexAttributeHandler<Scalar> kgaussian = map_.add_attribute<Scalar, Vertex::ORBIT>("kgaussian");
+
+		min = std::numeric_limits<double>::max();
+		max = std::numeric_limits<double>::min();
+
+		map_.foreach_cell([&](Vertex v)
+		{
+			kgaussian[v] = (kmin[v] * kmax[v]);
+			min = std::min(min, kgaussian[v]);
+			max = std::max(max, kgaussian[v]);
+		});
+
+		//update_color(kgaussian, min, max);
+
+		//compute kindex
+		VertexAttributeHandler<Scalar> k1 = map_.add_attribute<Scalar, Vertex::ORBIT>("k1");
+		VertexAttributeHandler<Scalar> k2 = map_.add_attribute<Scalar, Vertex::ORBIT>("k2");
+		VertexAttributeHandler<Scalar> kI = map_.add_attribute<Scalar, Vertex::ORBIT>("kI");
+
+		map_.foreach_cell([&](Vertex v)
+		{
+			k1[v] = kmean[v] + std::sqrt(kmean[v] * kmean[v] - kgaussian[v]);
+			k2[v] = kmean[v] - std::sqrt(kmean[v] * kmean[v] - kgaussian[v]);
+
+			if(k1[v] == k2[v])
+				kI[v] = 0.0;
+			else
+				kI[v] = (2 / M_PI) * std::atan((k1[v] + k2[v]) / (k1[v] - k2[v]));
+		});
+
+		min = std::numeric_limits<double>::max();
+		max = std::numeric_limits<double>::min();
+
+		map_.foreach_cell([&](Vertex v)
+		{
+			min = std::min(min, kI[v]);
+			max = std::max(max, kI[v]);
+		});
+
+		update_color(kI, min, max);
+
+		map_.remove_attribute(edgeangle);
+		map_.remove_attribute(edgeaera);
+		map_.remove_attribute(kmax);
+		map_.remove_attribute(kmin);
+		map_.remove_attribute(Kmax);
+		map_.remove_attribute(Kmin);
+		map_.remove_attribute(knormal);
+
+		map_.remove_attribute(kmean);
+		map_.remove_attribute(kgaussian);
+		map_.remove_attribute(k1);
+		map_.remove_attribute(k2);
+		map_.remove_attribute(kI);
 	}
 };
 

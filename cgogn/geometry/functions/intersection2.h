@@ -21,66 +21,51 @@
 *                                                                              *
 *******************************************************************************/
 
-#include <ui_viewer.h>
+#ifndef GEOMETRY_FUNCTIONS_INTERSECTION2_H_
+#define GEOMETRY_FUNCTIONS_INTERSECTION2_H_
 
-#include <QApplication>
-#include <QMatrix4x4>
-
-#include <qoglviewer.h>
-#include <QKeyEvent>
-
-#include <gui/surface.h>
-#include <gui/feature_points.h>
-#include <gui/graph.h>
-
-#include <geometry/algos/bounding_box.h>
-#include <rendering/drawer.h>
-
-#define DEFAULT_MESH_PATH CGOGN_STR(CGOGN_TEST_MESHES_PATH)
-
-class Viewer : public QOGLViewer
+namespace cgogn
 {
-public:
-	using Vec3 = Eigen::Vector3d;
-	using Scalar = Eigen::Vector3d::Scalar;
 
-public:
-	Viewer();
-	Viewer(const Viewer&) = delete;
-	Viewer& operator=(const Viewer&) = delete;
+namespace geometry
+{
 
-	virtual ~Viewer();
 
-	virtual void draw();
-	virtual void init();
+template <typename VEC3_T>
+bool is_point_in_sphere(const VEC3_T& point, const VEC3_T& center, const typename VEC3_T::Scalar& radius)
+{
+	return (point - center).norm() < radius;
+}
 
-	virtual void keyPressEvent(QKeyEvent *);
-	virtual void closeEvent(QCloseEvent *e);
+template <typename VEC3, typename MAP>
+bool intersection_sphere_edge(
+		const MAP& map,
+		const VEC3& center,
+		typename VEC3::Scalar radius,
+		typename MAP::Edge e,
+		const typename MAP::template VertexAttributeHandler<VEC3>& position,
+		typename VEC3::Scalar& alpha)
+{
+	using Vertex = typename MAP::Vertex;
+	using Scalar = typename VEC3::Scalar;
 
-	void import(const std::string& surfaceMesh);
+	const VEC3& p1 = position[Vertex(e.dart)];
+	const VEC3& p2 = position[Vertex(map.phi1(e))];
 
-private:
-	Surface<Vec3> surface_;
-	Surface<Vec3>::Vertex dglobal_;
+	if(cgogn::geometry::is_point_in_sphere(p1, center, radius) && !cgogn::geometry::is_point_in_sphere(p2, center, radius))
+	{
+		VEC3 p = p1 - center;
+		VEC3 qminusp = p2 - center - p;
+		Scalar s = p.dot(qminusp);
+		Scalar n2 = qminusp.squaredNorm();
+		alpha = (- s + sqrt(s*s + n2 * (radius*radius - p.squaredNorm()))) / n2;
+		return true ;
+	}
+	return false ;
+}
 
-	cgogn::geometry::BoundingBox<Vec3> bb_;
-	cgogn::rendering::Drawer* drawer_;
+} // namespace geometry
 
-	FeaturePoints feature_points_;
-	Graph reeb_graph_;
+} // namespace cgogn
 
-	bool surface_rendering_;
-	bool surface_phong_rendering_;
-	bool surface_flat_rendering_;
-	bool surface_vertices_rendering_;
-	bool surface_edge_rendering_;
-	bool surface_normal_rendering_;
-
-	bool bb_rendering_;
-
-	bool graph_vertices_rendering_;
-	bool graph_edges_rendering_;
-
-	bool feature_points_rendering_;
-
-};
+#endif // GEOMETRY_FUNCTIONS_INTERSECTION2_H_

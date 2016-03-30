@@ -3,7 +3,7 @@
 
 #include <vector>
 
-#include "differential_topology/pl_functions.h"
+#include <cgogn/differential_topology/pl_functions.h>
 #include <rendering/drawer.h>
 
 #include <core/cmap/cmap2.h>

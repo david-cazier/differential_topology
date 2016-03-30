@@ -21,66 +21,42 @@
 *                                                                              *
 *******************************************************************************/
 
-#include <ui_viewer.h>
+#ifndef GEOMETRY_FUNCTIONS_ANGLE_H_
+#define GEOMETRY_FUNCTIONS_ANGLE_H_
 
-#include <QApplication>
-#include <QMatrix4x4>
+#include <cmath>
 
-#include <qoglviewer.h>
-#include <QKeyEvent>
-
-#include <gui/surface.h>
-#include <gui/feature_points.h>
-#include <gui/graph.h>
-
-#include <geometry/algos/bounding_box.h>
-#include <rendering/drawer.h>
-
-#define DEFAULT_MESH_PATH CGOGN_STR(CGOGN_TEST_MESHES_PATH)
-
-class Viewer : public QOGLViewer
+namespace cgogn
 {
-public:
-	using Vec3 = Eigen::Vector3d;
-	using Scalar = Eigen::Vector3d::Scalar;
 
-public:
-	Viewer();
-	Viewer(const Viewer&) = delete;
-	Viewer& operator=(const Viewer&) = delete;
+namespace geometry
+{
 
-	virtual ~Viewer();
+/**
+ * cosinus of the angle formed by 2 vectors
+ */
+template <typename VEC3_T>
+inline typename VEC3_T::Scalar cos_angle(const VEC3_T& p1, const VEC3_T& p2)
+{
+    typename VEC3_T::Scalar np1 = p1.norm2();
+    typename VEC3_T::Scalar np2 = p2.norm2();
 
-	virtual void draw();
-	virtual void init();
+    typename VEC3_T::Scalar res = p1.dot(p2) / std::sqrt(np1 * np2);
+    return res > VEC3_T::Scalar(1.0) ? VEC3_T::Scalar(1.0) : (res < VEC3_T::Scalar(-1.0) ? VEC3_T::Scalar(-1.0) : res);
+}
 
-	virtual void keyPressEvent(QKeyEvent *);
-	virtual void closeEvent(QCloseEvent *e);
+/**
+ * angle formed by 2 vectors
+ */
+template <typename VEC3_T>
+inline typename VEC3_T::Scalar angle(const VEC3_T& p1, const VEC3_T& p2)
+{
+		return std::acos(cos_angle(p1,p2)) ;
+}
 
-	void import(const std::string& surfaceMesh);
 
-private:
-	Surface<Vec3> surface_;
-	Surface<Vec3>::Vertex dglobal_;
+} // namespace geometry
 
-	cgogn::geometry::BoundingBox<Vec3> bb_;
-	cgogn::rendering::Drawer* drawer_;
+} // namespace cgogn
 
-	FeaturePoints feature_points_;
-	Graph reeb_graph_;
-
-	bool surface_rendering_;
-	bool surface_phong_rendering_;
-	bool surface_flat_rendering_;
-	bool surface_vertices_rendering_;
-	bool surface_edge_rendering_;
-	bool surface_normal_rendering_;
-
-	bool bb_rendering_;
-
-	bool graph_vertices_rendering_;
-	bool graph_edges_rendering_;
-
-	bool feature_points_rendering_;
-
-};
+#endif // GEOMETRY_FUNCTIONS_ANGLE_H_

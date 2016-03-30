@@ -2,20 +2,20 @@
 #define DIFFERENTIAL_TOPOLOGY_PL_FUNCTIONS_H
 
 #include <array>
-#include <dijkstra.h>
+#include <cgogn/dijkstra.h>
 
 namespace cgogn
 {
 
-template <typename VEC3_T, typename MAP>
-inline typename VEC3_T::Scalar edge_length(const MAP& map, typename MAP::Edge e, const typename MAP::template VertexAttributeHandler<VEC3_T>& position)
-{
-    using Vertex = typename MAP::Vertex;
+//template <typename VEC3_T, typename MAP>
+//inline typename VEC3_T::Scalar edge_length(const MAP& map, typename MAP::Edge e, const typename MAP::template VertexAttributeHandler<VEC3_T>& position)
+//{
+//    using Vertex = typename MAP::Vertex;
 
-    VEC3_T vec = position[Vertex(map.phi1(e))];
-    vec -= position[Vertex(e)];
-    return vec.norm();
-}
+//    VEC3_T vec = position[Vertex(map.phi1(e))];
+//    vec -= position[Vertex(e)];
+//    return vec.norm();
+//}
 
 
 enum CriticalVertexType: unsigned int

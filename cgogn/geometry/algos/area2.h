@@ -21,66 +21,56 @@
 *                                                                              *
 *******************************************************************************/
 
-#include <ui_viewer.h>
+#ifndef GEOMETRY_ALGOS_AREA2_H_
+#define GEOMETRY_ALGOS_AREA2_H_
 
-#include <QApplication>
-#include <QMatrix4x4>
+#include <cmath>
 
-#include <qoglviewer.h>
-#include <QKeyEvent>
+#include <geometry/types/geometry_traits.h>
+#include <geometry/algos/area.h>
 
-#include <gui/surface.h>
-#include <gui/feature_points.h>
-#include <gui/graph.h>
-
-#include <geometry/algos/bounding_box.h>
-#include <rendering/drawer.h>
-
-#define DEFAULT_MESH_PATH CGOGN_STR(CGOGN_TEST_MESHES_PATH)
-
-class Viewer : public QOGLViewer
+namespace cgogn
 {
-public:
-	using Vec3 = Eigen::Vector3d;
-	using Scalar = Eigen::Vector3d::Scalar;
 
-public:
-	Viewer();
-	Viewer(const Viewer&) = delete;
-	Viewer& operator=(const Viewer&) = delete;
+namespace geometry
+{
 
-	virtual ~Viewer();
 
-	virtual void draw();
-	virtual void init();
+template <typename VEC3_T, typename MAP>
+inline typename VEC3_T::Scalar incident_faces_area(
+		const MAP& map,
+		const typename MAP::Edge e,
+		const typename MAP::template VertexAttributeHandler<VEC3_T>& position)
+{
+	using Scalar = typename VEC3_T::Scalar;
+	using Face = typename MAP::Face;
 
-	virtual void keyPressEvent(QKeyEvent *);
-	virtual void closeEvent(QCloseEvent *e);
+	Scalar area(0) ;
 
-	void import(const std::string& surfaceMesh);
+	map.foreach_incident_face(e, [&] (Face f)
+	{
+		area += cgogn::geometry::convex_face_area<VEC3_T, MAP>(map, f, position) / map.codegree(f) ;
+	});
 
-private:
-	Surface<Vec3> surface_;
-	Surface<Vec3>::Vertex dglobal_;
+	return area ;
+}
 
-	cgogn::geometry::BoundingBox<Vec3> bb_;
-	cgogn::rendering::Drawer* drawer_;
+template <typename VEC3_T, typename MAP>
+inline void incident_faces_area(
+		const MAP& map,
+		const typename MAP::template VertexAttributeHandler<VEC3_T>& position,
+		typename MAP::template EdgeAttributeHandler<typename VEC3_T::Scalar>& edge_area)
+{
+	using Edge = typename MAP::Edge;
 
-	FeaturePoints feature_points_;
-	Graph reeb_graph_;
+	map.foreach_cell([&] (Edge e)
+	{
+		edge_area[e] = incident_faces_area<VEC3_T, MAP>(map, e, position);
+	});
+}
 
-	bool surface_rendering_;
-	bool surface_phong_rendering_;
-	bool surface_flat_rendering_;
-	bool surface_vertices_rendering_;
-	bool surface_edge_rendering_;
-	bool surface_normal_rendering_;
+}
 
-	bool bb_rendering_;
+}
 
-	bool graph_vertices_rendering_;
-	bool graph_edges_rendering_;
-
-	bool feature_points_rendering_;
-
-};
+#endif // GEOMETRY_ALGOS_AREA2_H_

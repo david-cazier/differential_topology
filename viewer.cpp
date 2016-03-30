@@ -176,6 +176,11 @@ void Viewer::keyPressEvent(QKeyEvent *ev)
 			surface_.morse_function(feature_points_);
 			break;
 		}
+		case Qt::Key_3:
+		{
+			surface_.compute_curvature();
+			break;
+		}
 		default:
 			break;
 	}

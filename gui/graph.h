@@ -1,7 +1,7 @@
 #ifndef GRAPH_H
 #define GRAPH_H
 
-#include "differential_topology/reeb_graph.h"
+#include <cgogn/differential_topology/reeb_graph.h>
 #include <rendering/drawer.h>
 
 #include <geometry/types/eigen.h>

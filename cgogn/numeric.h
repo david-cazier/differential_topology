@@ -21,66 +21,74 @@
 *                                                                              *
 *******************************************************************************/
 
-#include <ui_viewer.h>
+#ifndef CORE_UTILS_NUMERIC_H_
+#define CORE_UTILS_NUMERIC_H_
 
-#include <QApplication>
-#include <QMatrix4x4>
 
-#include <qoglviewer.h>
-#include <QKeyEvent>
+#include <cstdint>
+#include <cmath>
+#include <algorithm>
 
-#include <gui/surface.h>
-#include <gui/feature_points.h>
-#include <gui/graph.h>
-
-#include <geometry/algos/bounding_box.h>
-#include <rendering/drawer.h>
-
-#define DEFAULT_MESH_PATH CGOGN_STR(CGOGN_TEST_MESHES_PATH)
-
-class Viewer : public QOGLViewer
+namespace cgogn
 {
-public:
-	using Vec3 = Eigen::Vector3d;
-	using Scalar = Eigen::Vector3d::Scalar;
 
-public:
-	Viewer();
-	Viewer(const Viewer&) = delete;
-	Viewer& operator=(const Viewer&) = delete;
+//\todo move the entire numerics namespace to numeric.h
+//\todo move functions in precision.h to numeric.h
+namespace numeric
+{
 
-	virtual ~Viewer();
+template <typename F, typename I>
+inline F scale_expand_within_0_1(const F x, const I n)
+{
+		for (I i = 1; i <= n; i++)
+				x = F((1.0 - cos(M_PI * x)) / 2.0);
+		for (I i = -1; i >= n; i--)
+				x = F(acos(1.0 - 2.0 * x) / M_PI);
+		return x;
+}
 
-	virtual void draw();
-	virtual void init();
+template <typename F, typename I>
+inline F scale_expand_towards_1(const F x, const I n)
+{
+		for (I i = 1; i <= n; i++)
+				x = F(sin(x * M_PI / 2.0));
+		for (I i = -1; i >= n; i--)
+				x = F(asin(x) * 2.0 / M_PI);
+		return x;
+}
 
-	virtual void keyPressEvent(QKeyEvent *);
-	virtual void closeEvent(QCloseEvent *e);
+template <typename F>
+inline F scale_to_0_1(const F x, const F min, const F max)
+{
+  return (x - min) / (max - min);
+}
 
-	void import(const std::string& surfaceMesh);
+template <typename F>
+inline F scale_and_clamp_to_0_1(const F x, const F min, const F max)
+{
+		F v = (x - min) / (max - min);
+		return v < 0.0f ? 0.0f : (v > 1.0f ? 1.0f : v);
+}
 
-private:
-	Surface<Vec3> surface_;
-	Surface<Vec3>::Vertex dglobal_;
+template <typename F>
+inline void scale_centering_around_0(F& min, F& max)
+{
+		F new_max = std::max(max, -min);
+		min = std::min(min, -max);
+		max = new_max;
+}
 
-	cgogn::geometry::BoundingBox<Vec3> bb_;
-	cgogn::rendering::Drawer* drawer_;
+template <typename F>
+inline F scale_to_0_1_around_one_half(const F x, const F min, const F max)
+{
+		F ma = std::max(max, -min);
+		F mi = std::min(min, -max);
+		return (x - mi) / (ma - mi);
+}
 
-	FeaturePoints feature_points_;
-	Graph reeb_graph_;
+} // namespace numerics
 
-	bool surface_rendering_;
-	bool surface_phong_rendering_;
-	bool surface_flat_rendering_;
-	bool surface_vertices_rendering_;
-	bool surface_edge_rendering_;
-	bool surface_normal_rendering_;
+} // namespace cgogn
 
-	bool bb_rendering_;
+#endif // CORE_UTILS_NUMERIC_H_
 
-	bool graph_vertices_rendering_;
-	bool graph_edges_rendering_;
-
-	bool feature_points_rendering_;
-
-};

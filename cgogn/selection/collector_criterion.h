@@ -21,66 +21,67 @@
 *                                                                              *
 *******************************************************************************/
 
-#include <ui_viewer.h>
+#ifndef SELECTION_COLLECTOR_CRITERION_H_
+#define SELECTION_COLLECTOR_CRITERION_H_
 
-#include <QApplication>
-#include <QMatrix4x4>
+#include <core/basic/dart.h>
 
-#include <qoglviewer.h>
-#include <QKeyEvent>
+namespace cgogn
+{
 
-#include <gui/surface.h>
-#include <gui/feature_points.h>
-#include <gui/graph.h>
+namespace selection
+{
 
-#include <geometry/algos/bounding_box.h>
-#include <rendering/drawer.h>
-
-#define DEFAULT_MESH_PATH CGOGN_STR(CGOGN_TEST_MESHES_PATH)
-
-class Viewer : public QOGLViewer
+class CollectorCriterion
 {
 public:
-	using Vec3 = Eigen::Vector3d;
-	using Scalar = Eigen::Vector3d::Scalar;
+	CollectorCriterion() {}
+	virtual ~CollectorCriterion() {}
+	virtual void init(Dart center) = 0;
+	virtual bool is_inside(Dart d) = 0;
+};
 
-public:
-	Viewer();
-	Viewer(const Viewer&) = delete;
-	Viewer& operator=(const Viewer&) = delete;
+// tests if the distance between vertices is below some threshold
+template <typename VEC3, typename MAP>
+class CollectorCriterion_VertexWithinSphere : public CollectorCriterion
+{
+	using Vertex = typename MAP::Vertex;
+	using Edge = typename MAP::Edge;
+	using Face = typename MAP::Face;
 
-	virtual ~Viewer();
+	template <typename T>
+	using VertexAttributeHandler = typename MAP::template VertexAttributeHandler<T>;
+	template <typename T>
+	using EdgeAttributeHandler = typename MAP::template EdgeAttributeHandler<T>;
 
-	virtual void draw();
-	virtual void init();
-
-	virtual void keyPressEvent(QKeyEvent *);
-	virtual void closeEvent(QCloseEvent *e);
-
-	void import(const std::string& surfaceMesh);
+	using Scalar = typename VEC3::Scalar;
 
 private:
-	Surface<Vec3> surface_;
-	Surface<Vec3>::Vertex dglobal_;
+	const VertexAttributeHandler<VEC3>& vertexPositions;
+	Scalar threshold;
 
-	cgogn::geometry::BoundingBox<Vec3> bb_;
-	cgogn::rendering::Drawer* drawer_;
+public:
+	VEC3 centerPosition;
 
-	FeaturePoints feature_points_;
-	Graph reeb_graph_;
+public:
+	CollectorCriterion_VertexWithinSphere(const VertexAttributeHandler<VEC3>& p, Scalar th) :
+		vertexPositions(p), threshold(th)//, centerPosition(0)
+	{}
 
-	bool surface_rendering_;
-	bool surface_phong_rendering_;
-	bool surface_flat_rendering_;
-	bool surface_vertices_rendering_;
-	bool surface_edge_rendering_;
-	bool surface_normal_rendering_;
+	void init(Dart center)
+	{
+		centerPosition = vertexPositions[Vertex(center)];
+	}
 
-	bool bb_rendering_;
-
-	bool graph_vertices_rendering_;
-	bool graph_edges_rendering_;
-
-	bool feature_points_rendering_;
-
+	bool is_inside(Dart d)
+	{
+		return (vertexPositions[Vertex(d)] - centerPosition).norm() < threshold ;
+	}
 };
+
+
+} //namespace selection
+
+} // namespace cgogn
+
+#endif // SELECTION_COLLECTOR_CRITERION_H_
