@@ -486,8 +486,6 @@ public:
 			max = std::max(max, kmean[v]);
 		});
 
-		//update_color(kmean, min, max);
-
 		//compute kgaussian
 		VertexAttributeHandler<Scalar> kgaussian = map_.add_attribute<Scalar, Vertex::ORBIT>("kgaussian");
 
@@ -500,8 +498,6 @@ public:
 			min = std::min(min, kgaussian[v]);
 			max = std::max(max, kgaussian[v]);
 		});
-
-		//update_color(kgaussian, min, max);
 
 		//compute kindex
 		VertexAttributeHandler<Scalar> k1 = map_.add_attribute<Scalar, Vertex::ORBIT>("k1");
@@ -529,6 +525,33 @@ public:
 		});
 
 		update_color(kI, min, max);
+
+		//build a metric to feed dijkstra
+		Scalar avg_e(0);
+		Scalar avg_ki(0);
+		uint32 nbe = 0;
+
+		map_.foreach_cell([&](Edge e)
+		{
+			avg_e = cgogn::geometry::edge_length<Vec3>(map_,e,vertex_position_);
+			avg_ki = kI[Vertex(e)] + KI[Vertex(map_.phi1(e))];
+			++nbe;
+		});
+		avg_e /= nbe;
+		avg_ki /= nbe;
+
+		EdgeAttributeHandler<Scalar> me = map_.add_attribute<Scalar, Edge::ORBIT>("me");
+
+		map_.foreach_cell([&](Edge e)
+		{
+			Scalar diffKI = kI[e] - kI[map_.phi1(e)];
+
+			Scalar w(0.0);
+			if(kI[e] < 0.0 && kI[map_.phi1(e)] < 0.0)
+				w = 0.05;
+
+			me[e] = (cgogn::geometry::vector_from<Vec3>(map_,e.dart,position) / avg_e) + (w * (diffKI / avg_ki));
+		});
 
 		map_.remove_attribute(edgeangle);
 		map_.remove_attribute(edgeaera);
