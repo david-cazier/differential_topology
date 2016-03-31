@@ -50,7 +50,7 @@ bool intersection_sphere_edge(
 	using Scalar = typename VEC3::Scalar;
 
 	const VEC3& p1 = position[Vertex(e.dart)];
-	const VEC3& p2 = position[Vertex(map.phi1(e))];
+	const VEC3& p2 = position[Vertex(map.phi1(e.dart))];
 
 	if(cgogn::geometry::is_point_in_sphere(p1, center, radius) && !cgogn::geometry::is_point_in_sphere(p2, center, radius))
 	{

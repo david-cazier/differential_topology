@@ -117,7 +117,7 @@ void curvature_normal_cycle_projected(
 	selection::CollectorCriterion_VertexWithinSphere<VEC3, MAP> crit(position, radius);
 	selection::Collector_Vertices<VEC3, MAP> neigh(map, crit);
 
-	neigh.collectAll(v) ;
+	neigh.collectAll(v.dart) ;
 
 	Matrix3s tensor = Matrix3s::Zero();
 	//compute normal cycles tensor

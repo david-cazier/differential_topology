@@ -208,7 +208,7 @@ public:
 		unsigned int i = 0;
 		while (i < this->insideVertices.size())
 		{
-			Dart end = this->insideVertices[i];
+			Dart end = this->insideVertices[i].dart;
 			Dart e = end;
 			do
 			{
@@ -266,7 +266,7 @@ public:
 		unsigned int i = 0;
 		while (i < this->insideVertices.size())
 		{
-			Dart end = this->insideVertices[i];
+			Dart end = this->insideVertices[i].dart;
 			Dart e = end;
 			do
 			{

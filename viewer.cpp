@@ -173,12 +173,13 @@ void Viewer::keyPressEvent(QKeyEvent *ev)
 		case Qt::Key_2:
 		{
 			feature_points_.clear();
-			surface_.morse_function(feature_points_);
+			surface_.edge_length_weighted_morse_function(feature_points_);
 			break;
 		}
 		case Qt::Key_3:
 		{
-			surface_.compute_curvature();
+			feature_points_.clear();
+			surface_.curvature_weighted_morse_function(feature_points_);
 			break;
 		}
 		default:

@@ -122,18 +122,23 @@ public:
 	}
 
 
-	template <typename T>
-	inline T surface_centroid(VertexAttributeHandler<T>& attribute)
+	template <typename T, typename MAP>
+	inline T surface_centroid(MAP& map, VertexAttributeHandler<T>& attribute)
 	{
 		T result;
 		result.setZero();
 		unsigned int count = 0;
 
-		for(auto& v : attribute)
+//		for(auto& v : attribute)
+//		{
+//			result += v;
+//			++count;
+//		}
+		map.foreach_cell([&](typename MAP::Vertex v)
 		{
-			result += v;
+			result += attribute[v];
 			++count;
-		}
+		});
 
 		result /= typename T::Scalar(count);
 
@@ -339,9 +344,28 @@ public:
 		map_.remove_attribute(weight);
 	}
 
-	void morse_function(FeaturePoints& fp)
+
+	void edge_length_weighted_morse_function(FeaturePoints& fp)
 	{
-		Vec3 barycenter = surface_centroid<Vec3>(vertex_position_);
+
+		EdgeAttributeHandler<Scalar> weight = map_.add_attribute<Scalar, Edge::ORBIT>("weight");
+		map_.foreach_cell([&](Edge e)
+		{
+			weight[e] = cgogn::geometry::edge_length<Vec3>(map_, e, vertex_position_);
+		});
+
+		morse_function(fp,weight);
+	}
+
+	void curvature_weighted_morse_function(FeaturePoints& fp)
+	{
+		compute_curvature();
+		morse_function(fp, edge_metric_);
+	}
+
+	void morse_function(FeaturePoints& fp, EdgeAttributeHandler<Scalar>& weight)
+	{
+		Vec3 barycenter = surface_centroid<Vec3>(map_, vertex_position_);
 
 		//1. compute v0: the vertex whose distance to the barycenter of map is minimal
 		Scalar dist_v0 = std::numeric_limits<Scalar>::max();
@@ -358,12 +382,6 @@ public:
 				dist_v0 = dist;
 				v0 = v;
 			}
-		});
-
-		EdgeAttributeHandler<Scalar> weight = map_.add_attribute<Scalar, Edge::ORBIT>("weight");
-		map_.foreach_cell([&](Edge e)
-		{
-			weight[e] = cgogn::geometry::edge_length<Vec3>(map_, e, vertex_position_);
 		});
 
 		//2. map the vertices to their geodesic distance to v0: find the vertex v1 that maximizes f0
@@ -413,34 +431,8 @@ public:
 				dist_v3 = dist;
 		});
 
-		//TEST
-		fp.extract_intersection<Vec3>(map_, f1, f2, vertex_position_);
-
-//		//5 check critical vertices for f1 an f2
-//		std::vector<cgogn::Dart> vertices_f1;
-//		cgogn::extract_feature_points<Scalar>(map_, f1, vertices_f1);
-//		std::vector<cgogn::Dart> vertices_f2;
-//		cgogn::extract_feature_points<Scalar>(map_, f2, vertices_f2);
-
-//		//6. Intersection F1, F2
-//		std::vector<Vertex> vertices_f;
-//		VertexAttributeHandler<Scalar> dist = map_.add_attribute<Scalar, Vertex::ORBIT>("dist");
-//		VertexAttributeHandler<cgogn::Dart> prev = map_.add_attribute<cgogn::Dart, Vertex::ORBIT>("prev");
-
-//		for (std::vector<cgogn::Dart>::iterator it = vertices_f1.begin(); it !=vertices_f1.end(); ++it)
-//		{
-//			cgogn::dijkstra_compute_normalized_paths<Scalar>(map_, weight, Vertex(*it), dist, prev);
-
-//			// search if dist < threshold
-//			for(unsigned int i = 0 ; i < vertices_f2.size() ; ++i)
-//			{
-//				if(dist[Vertex(vertices_f2[i])] < 0.05)
-//				{
-//					//std::cout << "yes! " << std::endl;
-//					vertices_f.push_back(CVertex(vertices_f2[i]));
-//				}
-//			}
-//		}
+		//5 check critical vertices of the intersection of f1 and f2
+		fp.extract_intersection<Vec3>(map_, f1, f2, vertex_position_, weight);
 
 		map_.remove_attribute(weight);
 		map_.remove_attribute(f0);
@@ -449,8 +441,7 @@ public:
 		map_.remove_attribute(prev_v1);
 		map_.remove_attribute(f2);
 		map_.remove_attribute(prev_v2);
-//		map_.remove_attribute(dist);
-//		map_.remove_attribute(prev);
+
 	}
 
 
@@ -530,31 +521,31 @@ public:
 		update_color(kI, min, max);
 
 		//build a metric to feed dijkstra
-//		Scalar avg_e(0);
-//		Scalar avg_ki(0);
-//		cgogn::numerics::uint32 nbe = 0;
+		Scalar avg_e(0);
+		Scalar avg_ki(0);
+		cgogn::numerics::uint32 nbe = 0;
 
-//		map_.foreach_cell([&](Edge e)
-//		{
-//			avg_e = cgogn::geometry::edge_length<Vec3>(map_,e,vertex_position_);
-//			avg_ki = kI[Vertex(e)] + kI[Vertex(map_.phi1(e))];
-//			++nbe;
-//		});
-//		avg_e /= nbe;
-//		avg_ki /= nbe;
+		map_.foreach_cell([&](Edge e)
+		{
+			avg_e = cgogn::geometry::edge_length<Vec3>(map_,e,vertex_position_);
+			avg_ki = kI[Vertex(e.dart)] + kI[Vertex(map_.phi1(e.dart))];
+			++nbe;
+		});
+		avg_e /= nbe;
+		avg_ki /= nbe;
 
-//		edge_metric_ = map_.add_attribute<Scalar, Edge::ORBIT>("edge_metric");
+		edge_metric_ = map_.add_attribute<Scalar, Edge::ORBIT>("edge_metric");
 
-//		map_.foreach_cell([&](Edge e)
-//		{
-//			Scalar diffKI = kI[Vertex(e)] - kI[Vertex(map_.phi1(e))];
+		map_.foreach_cell([&](Edge e)
+		{
+			Scalar diffKI = kI[Vertex(e.dart)] - kI[Vertex(map_.phi1(e.dart))];
 
-//			Scalar w(0.0);
-//			if(kI[Vertex(e)] < 0.0 && kI[Vertex(map_.phi1(e))] < 0.0)
-//				w = 0.05;
+			Scalar w(0.0);
+			if(kI[Vertex(e.dart)] < 0.0 && kI[Vertex(map_.phi1(e.dart))] < 0.0)
+				w = 0.05;
 
-//			me[e] = (cgogn::geometry::edge_length<Vec3>(map_,e,vertex_position_) / avg_e) + (w * (diffKI / avg_ki));
-//		});
+			edge_metric_[e] = (cgogn::geometry::edge_length<Vec3>(map_,e,vertex_position_) / avg_e) + (w * (diffKI / avg_ki));
+		});
 
 		map_.remove_attribute(edgeangle);
 		map_.remove_attribute(edgeaera);

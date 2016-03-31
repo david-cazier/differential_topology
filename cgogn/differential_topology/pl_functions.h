@@ -51,7 +51,7 @@ CriticalVertex critical_vertex_type(
     int up = 0;
     int down = 0;
 
-    Dart vit = v;
+	Dart vit = v.dart;
     T previous;
     do
     {
@@ -66,7 +66,7 @@ CriticalVertex critical_vertex_type(
 
         vit = map.phi2(map.phi_1(vit));
     }
-    while(vit != v);
+	while(vit != v.dart);
 
     //si on a fait le tour sans aucune variation, toutes les valeurs autour
     //du sommet ont le meme signe, soit +, soit -

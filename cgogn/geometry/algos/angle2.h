@@ -44,13 +44,13 @@ inline typename VEC3_T::Scalar angle_between_face_normals(
     using Vertex = typename MAP::Vertex;
 	using Face = typename MAP::Face;
 
-    if(map.is_boundary(e))
+	if(map.is_boundary(e.dart))
         return Scalar(0) ;
 
     Vertex v1(e.dart);
-	Vertex v2(map.phi2(e));
-	const VEC3_T n1 = face_normal<VEC3_T, MAP>(map, Face(v1), position);
-	const VEC3_T n2 = face_normal<VEC3_T, MAP>(map, Face(v2), position);
+	Vertex v2(map.phi2(e.dart));
+	const VEC3_T n1 = face_normal<VEC3_T, MAP>(map, Face(v1.dart), position);
+	const VEC3_T n2 = face_normal<VEC3_T, MAP>(map, Face(v2.dart), position);
 
 	VEC3_T edge = position[v2] - position[v1] ;
     edge.normalize() ;

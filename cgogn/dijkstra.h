@@ -71,7 +71,7 @@ void dijkstra_compute_paths(
 
       map.foreach_adjacent_vertex_through_edge(Vertex(u), [&](Vertex v)
       {
-           double distance_through_u = dist + weight[Edge(v)];
+		   double distance_through_u = dist + weight[Edge(v.dart)];
            if(distance_through_u < min_distance[v])
            {
                vertex_queue.erase(std::make_pair(min_distance[v], v.dart.index));
