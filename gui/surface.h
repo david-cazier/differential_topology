@@ -26,7 +26,7 @@
 #define SURFACE_H
 
 #include <core/cmap/cmap2.h>
-
+#include <core/utils/definitions.h>
 #include <io/map_import.h>
 
 #include <rendering/map_render.h>
@@ -73,6 +73,8 @@ public:
 	VertexAttributeHandler<Vec3> vertex_position_;
 	VertexAttributeHandler<Vec3> vertex_normal_;
 
+	EdgeAttributeHandler<Scalar> edge_metric_;
+
 	cgogn::rendering::MapRender* render_;
 
 	cgogn::rendering::VBO* vbo_pos_;
@@ -92,6 +94,7 @@ public:
 		map_(),
 		vertex_position_(),
 		vertex_normal_(),
+		edge_metric_(),
 		render_(nullptr),
 		vbo_pos_(nullptr),
 		vbo_norm_(nullptr),
@@ -204,7 +207,7 @@ public:
 		shader_phong_->set_vao(0, vbo_pos_, vbo_norm_, vbo_color_);
 		shader_phong_->bind();
 		//	shader_phong_->set_ambiant_color(QColor(5,5,5));
-		//	shader_phong_->set_double_side(true);
+		//shader_phong_->set_double_side(true);
 		//	shader_phong_->set_specular_color(QColor(255,255,255));
 		//	shader_phong_->set_specular_coef(10.0);
 		shader_phong_->release();
@@ -527,31 +530,31 @@ public:
 		update_color(kI, min, max);
 
 		//build a metric to feed dijkstra
-		Scalar avg_e(0);
-		Scalar avg_ki(0);
-		uint32 nbe = 0;
+//		Scalar avg_e(0);
+//		Scalar avg_ki(0);
+//		cgogn::numerics::uint32 nbe = 0;
 
-		map_.foreach_cell([&](Edge e)
-		{
-			avg_e = cgogn::geometry::edge_length<Vec3>(map_,e,vertex_position_);
-			avg_ki = kI[Vertex(e)] + KI[Vertex(map_.phi1(e))];
-			++nbe;
-		});
-		avg_e /= nbe;
-		avg_ki /= nbe;
+//		map_.foreach_cell([&](Edge e)
+//		{
+//			avg_e = cgogn::geometry::edge_length<Vec3>(map_,e,vertex_position_);
+//			avg_ki = kI[Vertex(e)] + kI[Vertex(map_.phi1(e))];
+//			++nbe;
+//		});
+//		avg_e /= nbe;
+//		avg_ki /= nbe;
 
-		EdgeAttributeHandler<Scalar> me = map_.add_attribute<Scalar, Edge::ORBIT>("me");
+//		edge_metric_ = map_.add_attribute<Scalar, Edge::ORBIT>("edge_metric");
 
-		map_.foreach_cell([&](Edge e)
-		{
-			Scalar diffKI = kI[e] - kI[map_.phi1(e)];
+//		map_.foreach_cell([&](Edge e)
+//		{
+//			Scalar diffKI = kI[Vertex(e)] - kI[Vertex(map_.phi1(e))];
 
-			Scalar w(0.0);
-			if(kI[e] < 0.0 && kI[map_.phi1(e)] < 0.0)
-				w = 0.05;
+//			Scalar w(0.0);
+//			if(kI[Vertex(e)] < 0.0 && kI[Vertex(map_.phi1(e))] < 0.0)
+//				w = 0.05;
 
-			me[e] = (cgogn::geometry::vector_from<Vec3>(map_,e.dart,position) / avg_e) + (w * (diffKI / avg_ki));
-		});
+//			me[e] = (cgogn::geometry::edge_length<Vec3>(map_,e,vertex_position_) / avg_e) + (w * (diffKI / avg_ki));
+//		});
 
 		map_.remove_attribute(edgeangle);
 		map_.remove_attribute(edgeaera);

@@ -110,20 +110,19 @@ private:
 
     void build()
     {
-        foreach_cell([&](Face f){
+//        foreach_cell([&](Face f){
 
-            Vertex v0(f);
-            Vertex v1(map_.phi1(f));
-            Vertex v2(map_.phi_1(f));
+//            Vertex v0(f);
+//            Vertex v1(map_.phi1(f));
+//            Vertex v2(map_.phi_1(f));
 
-            stream_triangle(v0, scalar_field_[v0],
-                           v1, scalar_field_[v1],
-                           v2, scalar_field_[v2]);
-        });
+//            stream_triangle(v0, scalar_field_[v0],
+//                           v1, scalar_field_[v1],
+//                           v2, scalar_field_[v2]);
+//        });
 
         close_stream();
 
-        return 0;
     }
 
     /**
