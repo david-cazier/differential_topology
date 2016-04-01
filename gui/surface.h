@@ -225,8 +225,16 @@ public:
 		render_->init_primitives<Vec3>(map_, cgogn::rendering::TRIANGLES, vertex_position_);
 	}
 
-	void update_color(VertexAttributeHandler<Scalar> scalar, Scalar min, Scalar max)
+	void update_color(VertexAttributeHandler<Scalar> scalar)
 	{
+		double min = std::numeric_limits<double>::max();
+		double max = std::numeric_limits<double>::min();
+		for(auto& v : scalar)
+		{
+			min = std::min(min, v);
+			max = std::max(max, v);
+		}
+
 		cgogn::rendering::update_vbo(scalar, *vbo_color_,[min, max] (const Scalar& n) -> std::array<float,3>
 		{
 				return cgogn::color_map_blue_green_red(cgogn::scale_to_0_1(n, min, max));
@@ -302,14 +310,7 @@ public:
 
 		cgogn::height_pl_function<Vec3>(map_, vertex_position_, scalar);
 
-		double min = std::numeric_limits<double>::max();
-		double max = std::numeric_limits<double>::min();
-		for(auto& v : scalar)
-		{
-			min = std::min(min, v);
-			max = std::max(max, v);
-		}
-		update_color(scalar, min, max);
+		update_color(scalar);
 
 		fp.extract<Vec3>(map_, scalar, vertex_position_);
 
@@ -329,14 +330,7 @@ public:
 
 		cgogn::geodesic_distance_pl_function<Scalar>(map_, d, weight, scalar);
 
-		double min = std::numeric_limits<double>::max();
-		double max = std::numeric_limits<double>::min();
-		for(auto& v : scalar)
-		{
-			min = std::min(min, v);
-			max = std::max(max, v);
-		}
-		update_color(scalar, min, max);
+		update_color(scalar);
 
 		fp.extract<Vec3>(map_, scalar, vertex_position_);
 
@@ -434,6 +428,51 @@ public:
 		//5 check critical vertices of the intersection of f1 and f2
 		fp.extract_intersection<Vec3>(map_, f1, f2, vertex_position_, weight);
 
+
+		//ETape 2:
+
+		//1 initial function with Feature vertices as seeds
+		VertexAttributeHandler<Scalar> min_dist = map_.add_attribute<Scalar, Vertex::ORBIT>("min_dist");
+		VertexAttributeHandler<Vertex> min_source = map_.add_attribute<Vertex, Vertex::ORBIT>("min_source");
+		cgogn::dijkstra_compute_normalized_paths<Scalar>(map_, weight, fp.vertices_, min_dist, min_source);
+
+		VertexAttributeHandler<Scalar> fI = map_.add_attribute<Scalar, Vertex::ORBIT>("fI");
+		map_.foreach_cell([&] (Vertex v)
+		{
+			fI[v] = 1 - min_dist[v];
+		});
+
+
+		//2. function perturbation
+
+		//sort the vertices of map_ by increasing values of fI
+		std::vector<std::pair<float, Vertex>> sorted_v;
+		map_.foreach_cell([&] (Vertex v)
+		{
+			sorted_v.push_back(std::pair<float,Vertex>(fI[v] ,v));
+		});
+
+		std::sort(sorted_v.begin(), sorted_v.end(), [] (const std::pair<float, Vertex>& pair1, const std::pair<float, Vertex>& pair2) {
+			return pair1.first < pair2.first;
+		});
+
+		std::uint32_t nb_v = map_.nb_cells<Vertex::ORBIT>();
+		VertexAttributeHandler<Scalar> fpo = map_.add_attribute<Scalar, Vertex::ORBIT>("fpo");
+
+		for(unsigned int i = 0 ; i < sorted_v.size() ; ++i)
+		{
+			Vertex vit = sorted_v[i].second;
+			fpo[vit] = (i+1) / nb_v;
+		}
+
+		update_color(fpo);
+
+
+//		map_.foreach_cell([&] (Vertex v)
+//		{
+//			fpo[v] = //std::distance(sorted_v.begin(), sorted_v[v]) / nb_v;
+//		});
+
 		map_.remove_attribute(weight);
 		map_.remove_attribute(f0);
 		map_.remove_attribute(prev_v0);
@@ -441,7 +480,9 @@ public:
 		map_.remove_attribute(prev_v1);
 		map_.remove_attribute(f2);
 		map_.remove_attribute(prev_v2);
-
+		map_.remove_attribute(min_dist);
+		map_.remove_attribute(min_source);
+		map_.remove_attribute(fI);
 	}
 
 
@@ -509,16 +550,7 @@ public:
 				kI[v] = (2 / M_PI) * std::atan((k1[v] + k2[v]) / (k1[v] - k2[v]));
 		});
 
-		min = std::numeric_limits<double>::max();
-		max = std::numeric_limits<double>::min();
-
-		map_.foreach_cell([&](Vertex v)
-		{
-			min = std::min(min, kI[v]);
-			max = std::max(max, kI[v]);
-		});
-
-		update_color(kI, min, max);
+		update_color(kI);
 
 		//build a metric to feed dijkstra
 		Scalar avg_e(0);

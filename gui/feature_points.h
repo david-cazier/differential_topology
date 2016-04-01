@@ -137,6 +137,25 @@ public:
 		drawer_->end_list();
 	}
 
+	template <typename VEC3>
+	void minimize_distance(CMap2::VertexAttributeHandler<typename VEC3::Scalar> distances)
+	{
+		using Scalar = typename VEC3::Scalar;
+
+		Scalar dist = std::numeric_limits<Scalar>::max();
+		Scalar distmin;
+		Vertex vmin;
+
+		for(std::vector<Vertex>::iterator it = vertices_.begin(); it != vertices_.end(); ++it)
+		{
+			if(distances[*it] < dist)
+			{
+				distmin = distances[*it];
+				vmin = *it;
+			}
+		}
+	}
+
 	void draw(const QMatrix4x4& proj, const QMatrix4x4& view)
 	{
 		drawer_->call_list(proj,view);
