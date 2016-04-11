@@ -24,15 +24,15 @@
 #ifndef GEOMETRY_ALGOS_CURVATOR_H_
 #define GEOMETRY_ALGOS_CURVATOR_H_
 
-#include <core/basic/cell.h>
+#include <cgogn/core/basic/cell.h>
 
-#include <geometry/types/geometry_traits.h>
-#include <geometry/types/eigen.h>
+#include <cgogn/geometry/types/geometry_traits.h>
+#include <cgogn/geometry/types/eigen.h>
 
+#include <cgogn/geometry/algos/length.h>
+#include <cgogn/geometry/functions/intersection.h>
 
-#include <cgogn/geometry/algos/length2.h>
 #include <cgogn/selection/collector.h>
-#include <cgogn/geometry/functions/intersection2.h>
 
 namespace cgogn
 {
@@ -97,15 +97,15 @@ void curvature_normal_cycle_projected(
 		const MAP& map,
 		const typename MAP::Vertex v,
 		const typename VEC3::Scalar radius,
-		const typename MAP::template VertexAttributeHandler<VEC3>& position,
-		const typename MAP::template VertexAttributeHandler<VEC3>& normal,
-		const typename MAP::template EdgeAttributeHandler<typename VEC3::Scalar>& edgeangle,
-		const typename MAP::template EdgeAttributeHandler<typename VEC3::Scalar>& edgearea,
-		typename MAP::template VertexAttributeHandler<typename VEC3::Scalar>& kmax,
-		typename MAP::template VertexAttributeHandler<typename VEC3::Scalar>& kmin,
-		typename MAP::template VertexAttributeHandler<VEC3>& Kmax,
-		typename MAP::template VertexAttributeHandler<VEC3>& Kmin,
-		typename MAP::template VertexAttributeHandler<VEC3>& Knormal)
+		const typename MAP::template VertexAttribute<VEC3>& position,
+		const typename MAP::template VertexAttribute<VEC3>& normal,
+		const typename MAP::template EdgeAttribute<typename VEC3::Scalar>& edgeangle,
+		const typename MAP::template EdgeAttribute<typename VEC3::Scalar>& edgearea,
+		typename MAP::template VertexAttribute<typename VEC3::Scalar>& kmax,
+		typename MAP::template VertexAttribute<typename VEC3::Scalar>& kmin,
+		typename MAP::template VertexAttribute<VEC3>& Kmax,
+		typename MAP::template VertexAttribute<VEC3>& Kmin,
+		typename MAP::template VertexAttribute<VEC3>& Knormal)
 {
 	using Scalar = typename VEC3::Scalar;
 	using Matrix3s = Eigen::Matrix<Scalar, 3, 3>;
@@ -132,7 +132,7 @@ void curvature_normal_cycle_projected(
 	for (Dart d : neigh.getBorder())
 	{
 		Scalar alpha;
-		cgogn::geometry::intersection_sphere_edge<VEC3, MAP>(neigh.getMap(), crit.centerPosition, radius, Edge(d), position, alpha);
+		cgogn::geometry::intersection_sphere_edge<VEC3>(crit.centerPosition, radius, position[Vertex(d)], position[Vertex(map.phi1(d))], alpha);
 		VEC3 ev = cgogn::geometry::vector_from<VEC3,MAP>(neigh.getMap(), d, position);
 		tensor += ev * ev.transpose() * edgeangle[Edge(d)] * (1.0f / ev.norm()) * alpha;
 	}
@@ -157,15 +157,15 @@ template <typename VEC3, typename MAP>
 void curvature_normal_cycles_projected(
 		const MAP& map,
 		const typename VEC3::Scalar radius,
-		const typename MAP::template VertexAttributeHandler<VEC3>& position,
-		const typename MAP::template VertexAttributeHandler<VEC3>& normal,
-		const typename MAP::template EdgeAttributeHandler<typename VEC3::Scalar>& edgeangle,
-		const typename MAP::template EdgeAttributeHandler<typename VEC3::Scalar>& edgearea,
-		typename MAP::template VertexAttributeHandler<typename VEC3::Scalar>& kmax,
-		typename MAP::template VertexAttributeHandler<typename VEC3::Scalar>& kmin,
-		typename MAP::template VertexAttributeHandler<VEC3>& Kmax,
-		typename MAP::template VertexAttributeHandler<VEC3>& Kmin,
-		typename MAP::template VertexAttributeHandler<VEC3>& Knormal)
+		const typename MAP::template VertexAttribute<VEC3>& position,
+		const typename MAP::template VertexAttribute<VEC3>& normal,
+		const typename MAP::template EdgeAttribute<typename VEC3::Scalar>& edgeangle,
+		const typename MAP::template EdgeAttribute<typename VEC3::Scalar>& edgearea,
+		typename MAP::template VertexAttribute<typename VEC3::Scalar>& kmax,
+		typename MAP::template VertexAttribute<typename VEC3::Scalar>& kmin,
+		typename MAP::template VertexAttribute<VEC3>& Kmax,
+		typename MAP::template VertexAttribute<VEC3>& Kmin,
+		typename MAP::template VertexAttribute<VEC3>& Knormal)
 {
 	map.foreach_cell([&] (typename MAP::Vertex v)
 	{

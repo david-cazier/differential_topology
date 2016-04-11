@@ -41,10 +41,10 @@ namespace cgogn
 template <typename T, typename MAP>
 void dijkstra_compute_paths(
 		MAP& map,
-		const typename MAP::template EdgeAttributeHandler<T>& weight,
+		const typename MAP::template EdgeAttribute<T>& weight,
 		const typename MAP::Vertex source,
-		typename MAP::template VertexAttributeHandler<T>& min_distance,
-		typename MAP::template VertexAttributeHandler<Dart>& previous)
+		typename MAP::template VertexAttribute<T>& min_distance,
+		typename MAP::template VertexAttribute<Dart>& previous)
 {
 	using Vertex = typename MAP::Vertex;
 	using Edge = typename MAP::Edge;
@@ -88,10 +88,10 @@ void dijkstra_compute_paths(
 template <typename T, typename MAP>
 void dijkstra_compute_paths(
 		MAP& map,
-		const typename MAP::template EdgeAttributeHandler<T>& weight,
+		const typename MAP::template EdgeAttribute<T>& weight,
 		const std::vector<typename MAP::Vertex> sources,
-		typename MAP::template VertexAttributeHandler<T>& min_distance,
-		typename MAP::template VertexAttributeHandler<typename MAP::Vertex>& min_source)
+		typename MAP::template VertexAttribute<T>& min_distance,
+		typename MAP::template VertexAttribute<typename MAP::Vertex>& min_source)
 {
 	using Vertex = typename MAP::Vertex;
 	using Edge = typename MAP::Edge;
@@ -138,10 +138,10 @@ void dijkstra_compute_paths(
 template <typename T, typename MAP>
 void dijkstra_compute_normalized_paths(
 		MAP& map,
-		const typename MAP::template EdgeAttributeHandler<T>& weight,
+		const typename MAP::template EdgeAttribute<T>& weight,
 		const std::vector<typename MAP::Vertex> sources,
-		typename MAP::template VertexAttributeHandler<T>& min_distance,
-		typename MAP::template VertexAttributeHandler<typename MAP::Vertex>& min_source)
+		typename MAP::template VertexAttribute<T>& min_distance,
+		typename MAP::template VertexAttribute<typename MAP::Vertex>& min_source)
 {
 	dijkstra_compute_paths<T>(map, weight, sources, min_distance, min_source);
 
@@ -163,10 +163,10 @@ void dijkstra_compute_normalized_paths(
 template <typename T, typename MAP>
 void dijkstra_compute_normalized_paths(
 		MAP& map,
-		const typename MAP::template EdgeAttributeHandler<T>& weight,
+		const typename MAP::template EdgeAttribute<T>& weight,
 		const typename MAP::Vertex source,
-		typename MAP::template VertexAttributeHandler<T>& min_distance,
-		typename MAP::template VertexAttributeHandler<Dart>& previous)
+		typename MAP::template VertexAttribute<T>& min_distance,
+		typename MAP::template VertexAttribute<Dart>& previous)
 {
 	dijkstra_compute_paths<T>(map, weight, source, min_distance, previous);
 
@@ -187,7 +187,7 @@ void dijkstra_compute_normalized_paths(
 
 template <typename T, typename MAP>
 Dart argmin(MAP& map,
-			const typename MAP::template VertexAttributeHandler<T>& attribut)
+			const typename MAP::template VertexAttribute<T>& attribut)
 {
 	using Vertex = typename MAP::Vertex;
 
@@ -205,7 +205,7 @@ Dart argmin(MAP& map,
 
 template <typename T, typename MAP>
 Dart argmin(std::map<unsigned int, Dart> v,
-			const typename MAP::template VertexAttributeHandler<T>& attribut)
+			const typename MAP::template VertexAttribute<T>& attribut)
 {
 	using Vertex = typename MAP::Vertex;
 
@@ -226,8 +226,8 @@ Dart argmin(std::map<unsigned int, Dart> v,
 template <typename T, typename MAP>
 void dijkstra_compute_perturbated_function(
 		MAP& map,
-		const typename MAP::template VertexAttributeHandler<T>& f,
-		typename MAP::template VertexAttributeHandler<T>& f_pertubated)
+		const typename MAP::template VertexAttribute<T>& f,
+		typename MAP::template VertexAttribute<T>& f_pertubated)
 {
 	using Vertex = typename MAP::Vertex ;
 
@@ -263,7 +263,7 @@ void dijkstra_compute_perturbated_function(
 template <typename MAP>
 void dijkstra_compute_shortest_path_to(
 		const typename MAP::Vertex v,
-		const typename MAP::template VertexAttributeHandler< typename MAP::Vertex>& previous,
+		const typename MAP::template VertexAttribute< typename MAP::Vertex>& previous,
 		std::vector<Dart>& path)
 {
 	using Vertex = typename MAP::Vertex;

@@ -8,7 +8,7 @@ namespace cgogn
 {
 
 //template <typename VEC3_T, typename MAP>
-//inline typename VEC3_T::Scalar edge_length(const MAP& map, typename MAP::Edge e, const typename MAP::template VertexAttributeHandler<VEC3_T>& position)
+//inline typename VEC3_T::Scalar edge_length(const MAP& map, typename MAP::Edge e, const typename MAP::template VertexAttribute<VEC3_T>& position)
 //{
 //    using Vertex = typename MAP::Vertex;
 
@@ -44,7 +44,7 @@ template <typename T, typename MAP>
 CriticalVertex critical_vertex_type(
         MAP& map,
         const typename MAP::Vertex v,
-        const typename MAP::template VertexAttributeHandler<T>& scalar_field)
+        const typename MAP::template VertexAttribute<T>& scalar_field)
 {
     using Vertex = typename MAP::Vertex;
     T center = scalar_field[v];
@@ -92,7 +92,7 @@ CriticalVertex critical_vertex_type(
 template <typename T, typename MAP>
 void extract_feature_points(
         MAP& map,
-        const typename MAP::template VertexAttributeHandler<T>& scalar_field,
+        const typename MAP::template VertexAttribute<T>& scalar_field,
         std::vector<typename MAP::Vertex>& vertices)
 {
     map.foreach_cell([&](typename MAP::Vertex v)
@@ -110,8 +110,8 @@ void extract_feature_points(
 template <typename T, typename MAP>
 void height_pl_function(
         MAP& map,
-        const typename MAP::template VertexAttributeHandler<T>& position,
-        typename MAP::template VertexAttributeHandler<typename T::Scalar>& scalar_field)
+        const typename MAP::template VertexAttribute<T>& position,
+        typename MAP::template VertexAttribute<typename T::Scalar>& scalar_field)
 {
     map.foreach_cell([&] (typename MAP::Vertex v)
     {
@@ -123,12 +123,12 @@ template <typename T, typename MAP>
 void geodesic_distance_pl_function(
         MAP& map,
         const typename MAP::Vertex v,
-        const typename MAP::template EdgeAttributeHandler<T>& weight,
-        typename MAP::template VertexAttributeHandler<T>& scalar_field)
+        const typename MAP::template EdgeAttribute<T>& weight,
+        typename MAP::template VertexAttribute<T>& scalar_field)
 {
     //previous visited vertices for each vertex until v
     using Vertex = typename MAP::Vertex;
-    typename MAP::template VertexAttributeHandler<Dart> previous = map.template add_attribute<Dart, Vertex::ORBIT>("previous");
+    typename MAP::template VertexAttribute<Dart> previous = map.template add_attribute<Dart, Vertex::ORBIT>("previous");
     cgogn::dijkstra_compute_paths<T>(map, weight, v, scalar_field, previous);
     map.remove_attribute(previous);
 }

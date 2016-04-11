@@ -24,7 +24,7 @@
 #ifndef UNDIRECTED_GRAPH_H
 #define UNDIRECTED_GRAPH_H
 
-#include <core/cmap/map_base.h>
+#include <cgogn/core/cmap/map_base.h>
 
 
 namespace cgogn
@@ -58,11 +58,11 @@ public:
     using ChunkArrayContainer = typename Inherit::template ChunkArrayContainer<T>;
 
     template <typename T, Orbit ORBIT>
-    using AttributeHandler = typename Inherit::template AttributeHandler<T, ORBIT>;
+	using Attribute = typename Inherit::template Attribute<T, ORBIT>;
     template <typename T>
-    using VertexAttributeHandler = AttributeHandler<T, Vertex::ORBIT>;
+	using VertexAttribute = Attribute<T, Vertex::ORBIT>;
     template <typename T>
-    using EdgeAttributeHandler = AttributeHandler<T, Edge::ORBIT>;
+	using EdgeAttribute = Attribute<T, Edge::ORBIT>;
 
     using DartMarker = typename cgogn::DartMarker<Self>;
     using DartMarkerStore = typename cgogn::DartMarkerStore<Self>;
@@ -273,7 +273,7 @@ public:
     }
 
 protected:
-    inline Dart connect_vertices_topo(Vertex v1, Vertex v2)
+	inline Vertex connect_vertices_topo(Vertex v1, Vertex v2)
     {
         set_isolated(v1.dart, false);
         set_isolated(v2.dart, false);

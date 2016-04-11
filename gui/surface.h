@@ -25,27 +25,31 @@
 #ifndef SURFACE_H
 #define SURFACE_H
 
-#include <core/cmap/cmap2.h>
-#include <core/utils/definitions.h>
-#include <io/map_import.h>
+#include <cgogn/core/cmap/cmap2.h>
+#include <cgogn/core/utils/definitions.h>
+#include <cgogn/io/map_import.h>
 
-#include <rendering/map_render.h>
+#include <cgogn/rendering/map_render.h>
 
-#include <geometry/algos/normal.h>
+#include <cgogn/geometry/algos/normal.h>
 
-#include <rendering/shaders/shader_simple_color.h>
-#include <rendering/shaders/shader_flat.h>
-#include <rendering/shaders/shader_phong.h>
-#include <rendering/shaders/shader_vector_per_vertex.h>
-#include <rendering/shaders/vbo.h>
+#include <cgogn/rendering/shaders/shader_simple_color.h>
+#include <cgogn/rendering/shaders/shader_flat.h>
+#include <cgogn/rendering/shaders/shader_phong.h>
+#include <cgogn/rendering/shaders/shader_vector_per_vertex.h>
+#include <cgogn/rendering/shaders/vbo.h>
 
-#include <geometry/algos/bounding_box.h>
-#include <geometry/algos/ear_triangulation.h>
+#include <cgogn/geometry/algos/angle.h>
+#include <cgogn/geometry/algos/area.h>
+#include <cgogn/geometry/algos/length.h>
+#include <cgogn/geometry/algos/bounding_box.h>
+#include <cgogn/geometry/algos/ear_triangulation.h>
+
+#include <cgogn/core/utils/numerics.h>
+
 
 // perso functions
-#include <cgogn/geometry/algos/angle2.h>
-#include <cgogn/geometry/algos/area2.h>
-#include <cgogn/geometry/algos/length2.h>
+
 #include <cgogn/geometry/algos/curvature.h>
 #include <cgogn/helper_functions.h>
 
@@ -63,17 +67,17 @@ public:
 	using Vertex = CMap2::Vertex;
 	using Edge = CMap2::Edge;
 	template<typename T>
-	using VertexAttributeHandler = CMap2::VertexAttributeHandler<T>;
+	using VertexAttribute = CMap2::VertexAttribute<T>;
 	template<typename T>
-	using EdgeAttributeHandler = CMap2::EdgeAttributeHandler<T>;
+	using EdgeAttribute = CMap2::EdgeAttribute<T>;
 
 public:
 	CMap2 map_;
 
-	VertexAttributeHandler<Vec3> vertex_position_;
-	VertexAttributeHandler<Vec3> vertex_normal_;
+	VertexAttribute<Vec3> vertex_position_;
+	VertexAttribute<Vec3> vertex_normal_;
 
-	EdgeAttributeHandler<Scalar> edge_metric_;
+	EdgeAttribute<Scalar> edge_metric_;
 
 	cgogn::rendering::MapRender* render_;
 
@@ -123,7 +127,7 @@ public:
 
 
 	template <typename T, typename MAP>
-	inline T surface_centroid(MAP& map, VertexAttributeHandler<T>& attribute)
+	inline T surface_centroid(MAP& map, VertexAttribute<T>& attribute)
 	{
 		T result;
 		result.setZero();
@@ -225,7 +229,7 @@ public:
 		render_->init_primitives<Vec3>(map_, cgogn::rendering::TRIANGLES, vertex_position_);
 	}
 
-	void update_color(VertexAttributeHandler<Scalar> scalar)
+	void update_color(VertexAttribute<Scalar> scalar)
 	{
 		double min = std::numeric_limits<double>::max();
 		double max = std::numeric_limits<double>::min();
@@ -237,7 +241,7 @@ public:
 
 		cgogn::rendering::update_vbo(scalar, *vbo_color_,[min, max] (const Scalar& n) -> std::array<float,3>
 		{
-				return cgogn::color_map_blue_green_red(cgogn::scale_to_0_1(n, min, max));
+				return cgogn::color_map_blue_green_red(cgogn::numerics::scale_to_0_1(n, min, max));
 		});
 	}
 
@@ -306,7 +310,7 @@ public:
 
 	void height_function(FeaturePoints& fp)
 	{
-		VertexAttributeHandler<Scalar> scalar = map_.add_attribute<Scalar, Vertex::ORBIT>("scalar");
+		VertexAttribute<Scalar> scalar = map_.add_attribute<Scalar, Vertex::ORBIT>("scalar");
 
 		cgogn::height_pl_function<Vec3>(map_, vertex_position_, scalar);
 
@@ -319,10 +323,10 @@ public:
 
 	void geodesic_distance_function(FeaturePoints& fp, Vertex d)
 	{
-		VertexAttributeHandler<Scalar> scalar = map_.add_attribute<Scalar, Vertex::ORBIT>("scalar");
+		VertexAttribute<Scalar> scalar = map_.add_attribute<Scalar, Vertex::ORBIT>("scalar");
 
 		//init cost function for edges
-		EdgeAttributeHandler<Scalar> weight = map_.add_attribute<Scalar, Edge::ORBIT>("weight");
+		EdgeAttribute<Scalar> weight = map_.add_attribute<Scalar, Edge::ORBIT>("weight");
 		map_.foreach_cell([&](Edge e)
 		{
 			weight[e] = cgogn::geometry::edge_length<Vec3>(map_, e, vertex_position_);
@@ -342,7 +346,7 @@ public:
 	void edge_length_weighted_morse_function(FeaturePoints& fp)
 	{
 
-		EdgeAttributeHandler<Scalar> weight = map_.add_attribute<Scalar, Edge::ORBIT>("weight");
+		EdgeAttribute<Scalar> weight = map_.add_attribute<Scalar, Edge::ORBIT>("weight");
 		map_.foreach_cell([&](Edge e)
 		{
 			weight[e] = cgogn::geometry::edge_length<Vec3>(map_, e, vertex_position_);
@@ -357,7 +361,7 @@ public:
 		morse_function(fp, edge_metric_);
 	}
 
-	void morse_function(FeaturePoints& fp, EdgeAttributeHandler<Scalar>& weight)
+	void morse_function(FeaturePoints& fp, EdgeAttribute<Scalar>& weight)
 	{
 		Vec3 barycenter = surface_centroid<Vec3>(map_, vertex_position_);
 
@@ -379,8 +383,8 @@ public:
 		});
 
 		//2. map the vertices to their geodesic distance to v0: find the vertex v1 that maximizes f0
-		VertexAttributeHandler<Scalar> f0 = map_.add_attribute<Scalar, Vertex::ORBIT>("f0");
-		VertexAttributeHandler<cgogn::Dart> prev_v0 = map_.add_attribute<cgogn::Dart, Vertex::ORBIT>("prev_v0");
+		VertexAttribute<Scalar> f0 = map_.add_attribute<Scalar, Vertex::ORBIT>("f0");
+		VertexAttribute<cgogn::Dart> prev_v0 = map_.add_attribute<cgogn::Dart, Vertex::ORBIT>("prev_v0");
 		cgogn::dijkstra_compute_paths<Scalar>(map_, weight, v0, f0, prev_v0);
 		Scalar dist_v1 = 0.0;
 		Vertex v1;
@@ -396,8 +400,8 @@ public:
 		});
 
 		//3. map the vertices to their geodesic distance to v1: find the vertex v2  that maximizes f1
-		VertexAttributeHandler<Scalar> f1 = map_.add_attribute<Scalar, Vertex::ORBIT>("f1");
-		VertexAttributeHandler<cgogn::Dart> prev_v1 = map_.add_attribute<cgogn::Dart, Vertex::ORBIT>("prev_v1");
+		VertexAttribute<Scalar> f1 = map_.add_attribute<Scalar, Vertex::ORBIT>("f1");
+		VertexAttribute<cgogn::Dart> prev_v1 = map_.add_attribute<cgogn::Dart, Vertex::ORBIT>("prev_v1");
 		cgogn::dijkstra_compute_paths<Scalar>(map_, weight, v1, f1, prev_v1);
 		Scalar dist_v2 = 0.0;
 		Vertex v2;
@@ -413,8 +417,8 @@ public:
 		});
 
 		//4. map the vertices to their geodesic distance to v2
-		VertexAttributeHandler<Scalar> f2 = map_.add_attribute<Scalar, Vertex::ORBIT>("f2");
-		VertexAttributeHandler<cgogn::Dart> prev_v2 = map_.add_attribute<cgogn::Dart, Vertex::ORBIT>("prev_v2");
+		VertexAttribute<Scalar> f2 = map_.add_attribute<Scalar, Vertex::ORBIT>("f2");
+		VertexAttribute<cgogn::Dart> prev_v2 = map_.add_attribute<cgogn::Dart, Vertex::ORBIT>("prev_v2");
 		cgogn::dijkstra_compute_paths<Scalar>(map_, weight, v2, f2, prev_v2);
 		Scalar dist_v3 = 0.0;
 		map_.foreach_cell([&](Vertex v)
@@ -432,11 +436,11 @@ public:
 		//ETape 2:
 
 		//1 initial function with Feature vertices as seeds
-		VertexAttributeHandler<Scalar> min_dist = map_.add_attribute<Scalar, Vertex::ORBIT>("min_dist");
-		VertexAttributeHandler<Vertex> min_source = map_.add_attribute<Vertex, Vertex::ORBIT>("min_source");
+		VertexAttribute<Scalar> min_dist = map_.add_attribute<Scalar, Vertex::ORBIT>("min_dist");
+		VertexAttribute<Vertex> min_source = map_.add_attribute<Vertex, Vertex::ORBIT>("min_source");
 		cgogn::dijkstra_compute_normalized_paths<Scalar>(map_, weight, fp.vertices_, min_dist, min_source);
 
-		VertexAttributeHandler<Scalar> fI = map_.add_attribute<Scalar, Vertex::ORBIT>("fI");
+		VertexAttribute<Scalar> fI = map_.add_attribute<Scalar, Vertex::ORBIT>("fI");
 		map_.foreach_cell([&] (Vertex v)
 		{
 			fI[v] = 1 - min_dist[v];
@@ -457,7 +461,7 @@ public:
 		});
 
 		std::uint32_t nb_v = map_.nb_cells<Vertex::ORBIT>();
-		VertexAttributeHandler<Scalar> fpo = map_.add_attribute<Scalar, Vertex::ORBIT>("fpo");
+		VertexAttribute<Scalar> fpo = map_.add_attribute<Scalar, Vertex::ORBIT>("fpo");
 
 		for(unsigned int i = 0 ; i < sorted_v.size() ; ++i)
 		{
@@ -488,14 +492,14 @@ public:
 
 	void compute_curvature()
 	{
-		EdgeAttributeHandler<Scalar> edgeangle = map_.add_attribute<Scalar, Edge::ORBIT>("edgeangle");
-		EdgeAttributeHandler<Scalar> edgeaera = map_.add_attribute<Scalar, Edge::ORBIT>("edgeaera");
+		EdgeAttribute<Scalar> edgeangle = map_.add_attribute<Scalar, Edge::ORBIT>("edgeangle");
+		EdgeAttribute<Scalar> edgeaera = map_.add_attribute<Scalar, Edge::ORBIT>("edgeaera");
 
-		VertexAttributeHandler<Scalar> kmax = map_.add_attribute<Scalar, Vertex::ORBIT>("kmax");
-		VertexAttributeHandler<Scalar> kmin = map_.add_attribute<Scalar, Vertex::ORBIT>("kmin");
-		VertexAttributeHandler<Vec3> Kmax = map_.add_attribute<Vec3, Vertex::ORBIT>("Kmax");
-		VertexAttributeHandler<Vec3> Kmin = map_.add_attribute<Vec3, Vertex::ORBIT>("Kmin");
-		VertexAttributeHandler<Vec3> knormal = map_.add_attribute<Vec3, Vertex::ORBIT>("knormal");
+		VertexAttribute<Scalar> kmax = map_.add_attribute<Scalar, Vertex::ORBIT>("kmax");
+		VertexAttribute<Scalar> kmin = map_.add_attribute<Scalar, Vertex::ORBIT>("kmin");
+		VertexAttribute<Vec3> Kmax = map_.add_attribute<Vec3, Vertex::ORBIT>("Kmax");
+		VertexAttribute<Vec3> Kmin = map_.add_attribute<Vec3, Vertex::ORBIT>("Kmin");
+		VertexAttribute<Vec3> knormal = map_.add_attribute<Vec3, Vertex::ORBIT>("knormal");
 
 
 		cgogn::geometry::angle_between_face_normals<Vec3>(map_, vertex_position_, edgeangle);
@@ -509,7 +513,7 @@ public:
 
 
 		//compute kmean
-		VertexAttributeHandler<Scalar> kmean = map_.add_attribute<Scalar, Vertex::ORBIT>("kmean");
+		VertexAttribute<Scalar> kmean = map_.add_attribute<Scalar, Vertex::ORBIT>("kmean");
 
 		double min = std::numeric_limits<double>::max();
 		double max = std::numeric_limits<double>::min();
@@ -522,7 +526,7 @@ public:
 		});
 
 		//compute kgaussian
-		VertexAttributeHandler<Scalar> kgaussian = map_.add_attribute<Scalar, Vertex::ORBIT>("kgaussian");
+		VertexAttribute<Scalar> kgaussian = map_.add_attribute<Scalar, Vertex::ORBIT>("kgaussian");
 
 		min = std::numeric_limits<double>::max();
 		max = std::numeric_limits<double>::min();
@@ -535,9 +539,9 @@ public:
 		});
 
 		//compute kindex
-		VertexAttributeHandler<Scalar> k1 = map_.add_attribute<Scalar, Vertex::ORBIT>("k1");
-		VertexAttributeHandler<Scalar> k2 = map_.add_attribute<Scalar, Vertex::ORBIT>("k2");
-		VertexAttributeHandler<Scalar> kI = map_.add_attribute<Scalar, Vertex::ORBIT>("kI");
+		VertexAttribute<Scalar> k1 = map_.add_attribute<Scalar, Vertex::ORBIT>("k1");
+		VertexAttribute<Scalar> k2 = map_.add_attribute<Scalar, Vertex::ORBIT>("k2");
+		VertexAttribute<Scalar> kI = map_.add_attribute<Scalar, Vertex::ORBIT>("kI");
 
 		map_.foreach_cell([&](Vertex v)
 		{
@@ -597,7 +601,7 @@ public:
 
 //	//PL morse function
 //	//vertex_f -> feature vertices
-//	CVertexAttributeHandler<Scalar> fI = map_.add_attribute<Scalar, CVertex::ORBIT>("fI");
+//	CVertexAttribute<Scalar> fI = map_.add_attribute<Scalar, CVertex::ORBIT>("fI");
 
 //	map_.foreach_cell([&](Vertex v)
 //	{
@@ -619,7 +623,7 @@ public:
 //	});
 
 //	//pertubation of fI
-//	CVertexAttributeHandler<Scalar> f = map_.add_attribute<Scalar, CVertex::ORBIT>("f");
+//	CVertexAttribute<Scalar> f = map_.add_attribute<Scalar, CVertex::ORBIT>("f");
 //	cgogn::dijkstra_compute_perturbated_function<Scalar>(map_, fI, f);
 
 

@@ -28,11 +28,11 @@
 #include <QOpenGLBuffer>
 #include <QOpenGLFunctions>
 
-#include <core/cmap/map_base.h> // impossible to include directly attribute_handler.h !
-#include <geometry/algos/ear_triangulation.h>
-#include <rendering/drawer.h>
+#include <cgogn/core/cmap/map_base.h> // impossible to include directly attribute_handler.h !
+#include <cgogn/geometry/algos/ear_triangulation.h>
+#include <cgogn/rendering/drawer.h>
 
-#include <rendering/shaders/vbo.h>
+#include <cgogn/rendering/shaders/vbo.h>
 
 namespace cgogn
 {
@@ -98,7 +98,7 @@ public:
 		}
 
 		template <typename VEC3, typename MAP>
-		void init_primitives(MAP& m, DrawingType prim, const typename MAP::template VertexAttributeHandler<VEC3>& position)
+		void init_primitives(MAP& m, DrawingType prim, const typename MAP::template VertexAttribute<VEC3>& position)
 		{
 				std::vector<unsigned int> table_indices;
 

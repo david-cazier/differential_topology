@@ -24,12 +24,12 @@
 #ifndef SELECTION_COLLECTOR_H_
 #define SELECTION_COLLECTOR_H_
 
-#include <core/basic/dart.h>
-#include <core/basic/cell_marker.h>
+#include <cgogn/core/basic/dart.h>
+#include <cgogn/core/basic/cell_marker.h>
+
+#include <cgogn/geometry/functions/intersection.h>
 
 #include <cgogn/selection/collector_criterion.h>
-
-#include <cgogn/geometry/functions/intersection2.h>
 
 namespace cgogn
 {
@@ -46,9 +46,9 @@ protected:
 	using Face = typename MAP::Face;
 
 	template <typename T>
-	using VertexAttributeHandler = typename MAP::template VertexAttributeHandler<T>;
+	using VertexAttribute = typename MAP::template VertexAttribute<T>;
 	template <typename T>
-	using EdgeAttributeHandler = typename MAP::template EdgeAttributeHandler<T>;
+	using EdgeAttribute = typename MAP::template EdgeAttribute<T>;
 
 	using Scalar = typename VEC3::Scalar;
 
@@ -135,19 +135,19 @@ public:
 	inline unsigned int getNbInsideFaces() const { assert(isInsideCollected || !"getNbInsideFaces: inside cells have not been collected.") ; return insideFaces.size(); }
 	inline unsigned int getNbBorder() const { return border.size(); }
 
-	virtual Scalar computeArea(const VertexAttributeHandler<VEC3>& /*pos*/)
+	virtual Scalar computeArea(const VertexAttribute<VEC3>& /*pos*/)
 	{
 		assert(!"Warning: Collector<PFP>::computeArea() should be overloaded in non-virtual derived classes");
 		return 0.0;
 	}
 
-	virtual Scalar computeArea(const VertexAttributeHandler<VEC3>& /*pos*/, const EdgeAttributeHandler<Scalar>& /*edgearea*/)
+	virtual Scalar computeArea(const VertexAttribute<VEC3>& /*pos*/, const EdgeAttribute<Scalar>& /*edgearea*/)
 	{
 		assert(!"Warning: Collector<PFP>::computeArea() should be overloaded in non-virtual derived classes");
 		return 0.0;
 	}
 
-	virtual Scalar borderEdgeRatio(Dart /*d*/, const VertexAttributeHandler<VEC3>& /*pos*/)
+	virtual Scalar borderEdgeRatio(Dart /*d*/, const VertexAttribute<VEC3>& /*pos*/)
 	{
 		assert(!"Warning: Collector<PFP>::borderEdgeRatio() should be overloaded in non-virtual derived classes");
 		return 1.0;
@@ -174,9 +174,9 @@ class Collector_Vertices : public Collector<VEC3, MAP>
 	using Face = typename MAP::Face;
 
 	template <typename T>
-	using VertexAttributeHandler = typename Inherit::template VertexAttributeHandler<T>;
+	using VertexAttribute = typename Inherit::template VertexAttribute<T>;
 	template <typename T>
-	using EdgeAttributeHandler = typename Inherit::template EdgeAttributeHandler<T>;
+	using EdgeAttribute = typename Inherit::template EdgeAttribute<T>;
 
 	using Scalar = typename Inherit::Scalar;
 
@@ -295,7 +295,7 @@ public:
 		this->insideVertices.clear();
 	}
 
-	Scalar computeArea(const VertexAttributeHandler<VEC3>& pos, const EdgeAttributeHandler<Scalar>& edgearea, Scalar radius)
+	Scalar computeArea(const VertexAttribute<VEC3>& pos, const EdgeAttribute<Scalar>& edgearea, const Scalar radius)
 	{
 		assert(this->isInsideCollected || !"computeArea: inside cells have not been collected.") ;
 
@@ -309,7 +309,7 @@ public:
 		for (Dart d : this->border)
 		{
 			Scalar alpha;
-			cgogn::geometry::intersection_sphere_edge<VEC3, MAP>(this->map, centerPosition, radius, Edge(d), pos, alpha);
+			cgogn::geometry::intersection_sphere_edge<VEC3>(centerPosition, radius, pos[Vertex(d)], pos[Vertex(this->map.phi1(d))], alpha);
 			area += alpha * edgearea[Edge(d)];
 		}
 

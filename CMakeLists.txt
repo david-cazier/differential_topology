@@ -22,20 +22,14 @@ set(HEADER_FILES
         cgogn/undirected_graph.h
         cgogn/graph_render.h
         cgogn/helper_functions.h
-	cgogn/numeric.h
 
         cgogn/differential_topology/pl_functions.h
-        #cgogn/differential_topology/reeb_graph.h
+        cgogn/differential_topology/reeb_graph.h
 
 	cgogn/selection/collector_criterion.h
 	cgogn/selection/collector.h
 
-	cgogn/geometry/functions/angle.h
-	cgogn/geometry/functions/intersection2.h
-        cgogn/geometry/algos/length2.h
-        cgogn/geometry/algos/angle2.h
 	cgogn/geometry/algos/curvature.h
-        cgogn/geometry/algos/area2.h
         
 	gui/surface.h
         gui/feature_points.h
@@ -55,7 +49,7 @@ set(SOURCE_FILES
 # 	)
 
 include_directories(
-        ${CGOGN_ROOT_DIR}/cgogn
+        ${CGOGN_ROOT_DIR}
         ${CGOGN_ROOT_DIR}/thirdparty/libQGLViewer/QOGLViewer
         ${CGOGN_ROOT_DIR}/thirdparty/eigen-3.2.8
         ${CGOGN_ROOT_DIR}/thirdparty/TinyXml2

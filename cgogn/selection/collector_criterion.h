@@ -24,7 +24,7 @@
 #ifndef SELECTION_COLLECTOR_CRITERION_H_
 #define SELECTION_COLLECTOR_CRITERION_H_
 
-#include <core/basic/dart.h>
+#include <cgogn/core/basic/dart.h>
 
 namespace cgogn
 {
@@ -50,21 +50,21 @@ class CollectorCriterion_VertexWithinSphere : public CollectorCriterion
 	using Face = typename MAP::Face;
 
 	template <typename T>
-	using VertexAttributeHandler = typename MAP::template VertexAttributeHandler<T>;
+	using VertexAttribute = typename MAP::template VertexAttribute<T>;
 	template <typename T>
-	using EdgeAttributeHandler = typename MAP::template EdgeAttributeHandler<T>;
+	using EdgeAttribute = typename MAP::template EdgeAttribute<T>;
 
 	using Scalar = typename VEC3::Scalar;
 
 private:
-	const VertexAttributeHandler<VEC3>& vertexPositions;
+	const VertexAttribute<VEC3>& vertexPositions;
 	Scalar threshold;
 
 public:
 	VEC3 centerPosition;
 
 public:
-	CollectorCriterion_VertexWithinSphere(const VertexAttributeHandler<VEC3>& p, Scalar th) :
+	CollectorCriterion_VertexWithinSphere(const VertexAttribute<VEC3>& p, Scalar th) :
 		vertexPositions(p), threshold(th)//, centerPosition(0)
 	{}
 

@@ -2,10 +2,10 @@
 #define GRAPH_H
 
 #include <cgogn/differential_topology/reeb_graph.h>
-#include <rendering/drawer.h>
+#include <cgogn/rendering/drawer.h>
 
-#include <geometry/types/eigen.h>
-#include <core/cmap/cmap2.h>
+#include <cgogn/geometry/types/eigen.h>
+#include <cgogn/core/cmap/cmap2.h>
 
 
 class Graph

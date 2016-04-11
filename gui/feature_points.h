@@ -4,9 +4,9 @@
 #include <vector>
 
 #include <cgogn/differential_topology/pl_functions.h>
-#include <rendering/drawer.h>
+#include <cgogn/rendering/drawer.h>
 
-#include <core/cmap/cmap2.h>
+#include <cgogn/core/cmap/cmap2.h>
 
 
 class FeaturePoints
@@ -18,7 +18,7 @@ public:
 	using Vertex = CMap2::Vertex;
 
 	template <typename T>
-	using VertexAttributeHandler = CMap2::VertexAttributeHandler<T>;
+	using VertexAttribute = CMap2::VertexAttribute<T>;
 
 	std::vector<Vertex> vertices_;
 	cgogn::rendering::Drawer* drawer_;
@@ -46,8 +46,8 @@ public:
 
 	template <typename VEC3>
 	void extract(CMap2& map,
-				 CMap2::VertexAttributeHandler<typename VEC3::Scalar> scalar,
-				 CMap2::VertexAttributeHandler<VEC3> position)
+				 CMap2::VertexAttribute<typename VEC3::Scalar> scalar,
+				 CMap2::VertexAttribute<VEC3> position)
 	{
 		cgogn::extract_feature_points<typename VEC3::Scalar>(map, scalar, vertices_);
 
@@ -65,10 +65,10 @@ public:
 
 	template <typename VEC3>
 	void extract_intersection(CMap2& map,
-							  CMap2::VertexAttributeHandler<typename VEC3::Scalar> scalar1,
-							  CMap2::VertexAttributeHandler<typename VEC3::Scalar> scalar2,
-							  CMap2::VertexAttributeHandler<VEC3> position,
-							  CMap2::EdgeAttributeHandler<typename VEC3::Scalar> weight)
+							  CMap2::VertexAttribute<typename VEC3::Scalar> scalar1,
+							  CMap2::VertexAttribute<typename VEC3::Scalar> scalar2,
+							  CMap2::VertexAttribute<VEC3> position,
+							  CMap2::EdgeAttribute<typename VEC3::Scalar> weight)
 	{
 		using Scalar = typename VEC3::Scalar;
 ////		std::vector<cgogn::Dart> vertices_f1;
@@ -105,8 +105,8 @@ public:
 		cgogn::extract_feature_points<Scalar>(map, scalar2, vertices_f2);
 
 		//6. Intersection F1, F2
-		VertexAttributeHandler<Scalar> dist = map.add_attribute<Scalar, Vertex::ORBIT>("dist");
-		VertexAttributeHandler<cgogn::Dart> prev = map.add_attribute<cgogn::Dart, Vertex::ORBIT>("prev");
+		VertexAttribute<Scalar> dist = map.add_attribute<Scalar, Vertex::ORBIT>("dist");
+		VertexAttribute<cgogn::Dart> prev = map.add_attribute<cgogn::Dart, Vertex::ORBIT>("prev");
 
 		for (std::vector<Vertex>::iterator it = vertices_f1.begin(); it !=vertices_f1.end(); ++it)
 		{
@@ -138,7 +138,7 @@ public:
 	}
 
 	template <typename VEC3>
-	void minimize_distance(CMap2::VertexAttributeHandler<typename VEC3::Scalar> distances)
+	void minimize_distance(CMap2::VertexAttribute<typename VEC3::Scalar> distances)
 	{
 		using Scalar = typename VEC3::Scalar;
 

@@ -4,10 +4,10 @@
 namespace cgogn
 {
 
-inline float scale_to_0_1(float x, float min, float max)
-{
-    return (x - min) / (max - min);
-}
+//inline float scale_to_0_1(float x, float min, float max)
+//{
+//    return (x - min) / (max - min);
+//}
 
 
 inline std::array<float,3> color_map_blue_green_red(float x)

@@ -33,8 +33,8 @@
 #include <gui/feature_points.h>
 #include <gui/graph.h>
 
-#include <geometry/algos/bounding_box.h>
-#include <rendering/drawer.h>
+#include <cgogn/geometry/algos/bounding_box.h>
+#include <cgogn/rendering/drawer.h>
 
 #define DEFAULT_MESH_PATH CGOGN_STR(CGOGN_TEST_MESHES_PATH)
 
