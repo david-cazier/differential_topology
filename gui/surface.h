@@ -28,6 +28,8 @@
 #include <cgogn/core/cmap/cmap2.h>
 #include <cgogn/core/utils/definitions.h>
 #include <cgogn/io/map_import.h>
+#include <cgogn/io/map_export.h>
+
 
 #include <cgogn/rendering/map_render.h>
 
@@ -54,6 +56,8 @@
 #include <cgogn/helper_functions.h>
 
 #include <gui/feature_points.h>
+
+#include <cgogn/differential_topology/reeb_graph.h>
 
 
 template <typename VEC3>
@@ -92,6 +96,9 @@ public:
 	cgogn::rendering::ShaderPhong* shader_phong_;
 	cgogn::rendering::ShaderPointSprite* shader_point_sprite_;
 
+
+	cgogn::ReebGraph<Scalar, CMap2>* reeb_graph_;
+
 public:
 
 	Surface():
@@ -109,7 +116,9 @@ public:
 		shader_normal_(nullptr),
 		shader_phong_(nullptr),
 		shader_point_sprite_(nullptr)
-	{}
+	{
+		reeb_graph_ = new cgogn::ReebGraph<Scalar, CMap2>(map_);
+	}
 
 	~Surface()
 	{
@@ -123,6 +132,7 @@ public:
 		delete shader_normal_;
 		delete shader_phong_;
 		delete shader_point_sprite_;
+		delete reeb_graph_;
 	}
 
 
@@ -318,6 +328,9 @@ public:
 
 		fp.extract<Vec3>(map_, scalar, vertex_position_);
 
+
+		reeb_graph_->compute(scalar);
+
 		map_.remove_attribute(scalar);
 	}
 
@@ -342,7 +355,6 @@ public:
 		map_.remove_attribute(weight);
 	}
 
-
 	void edge_length_weighted_morse_function(FeaturePoints& fp)
 	{
 
@@ -353,6 +365,8 @@ public:
 		});
 
 		morse_function(fp,weight);
+
+		map_.remove_attribute(weight);
 	}
 
 	void curvature_weighted_morse_function(FeaturePoints& fp)
@@ -360,6 +374,8 @@ public:
 		compute_curvature();
 		morse_function(fp, edge_metric_);
 	}
+
+	/********************/
 
 	void morse_function(FeaturePoints& fp, EdgeAttribute<Scalar>& weight)
 	{
@@ -442,7 +458,7 @@ public:
 
 		VertexAttribute<Scalar> fI = map_.add_attribute<Scalar, Vertex::ORBIT>("fI");
 		map_.foreach_cell([&] (Vertex v)
-		{
+		{			
 			fI[v] = 1 - min_dist[v];
 		});
 
@@ -466,16 +482,12 @@ public:
 		for(unsigned int i = 0 ; i < sorted_v.size() ; ++i)
 		{
 			Vertex vit = sorted_v[i].second;
-			fpo[vit] = (i+1) / nb_v;
+			fpo[vit] = cgogn::numerics::float32(i) / cgogn::numerics::float32(nb_v);
 		}
 
 		update_color(fpo);
 
-
-//		map_.foreach_cell([&] (Vertex v)
-//		{
-//			fpo[v] = //std::distance(sorted_v.begin(), sorted_v[v]) / nb_v;
-//		});
+		cgogn::io::export_vtp<Vec3>(map_, vertex_position_, fI, "test.vtp");
 
 		map_.remove_attribute(weight);
 		map_.remove_attribute(f0);

@@ -418,8 +418,8 @@ protected:
 
         switch (ORBIT)
         {
-            case Orbit::PHI2: foreach_dart_of_PHI2(c, f); break;
-            case Orbit::PHI21: foreach_dart_of_PHI21(c, f); break;
+			case Orbit::PHI2: foreach_dart_of_PHI2(c.dart, f); break;
+			case Orbit::PHI21: foreach_dart_of_PHI21(c.dart, f); break;
             case Orbit::DART:
             case Orbit::PHI1:
             case Orbit::PHI1_PHI2:

@@ -168,6 +168,7 @@ void Viewer::keyPressEvent(QKeyEvent *ev)
 			feature_points_.clear();
 			dglobal_ = Surface<Vec3>::Vertex(cgogn::Dart(1000));
 			surface_.geodesic_distance_function(feature_points_, dglobal_);
+			reeb_graph_.set(surface_.reeb_graph_);
 			break;
 		}
 		case Qt::Key_2:
