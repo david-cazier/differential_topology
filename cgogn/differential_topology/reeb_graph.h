@@ -70,7 +70,8 @@ private:
 
 	NodeAttribute<Vertex> corresponding_vertex_;
 	NodeAttribute<Scalar> function_value_;
-//	NodeAttribute<VEC3> node_positions_;
+	NodeAttribute<bool> is_finalized_;
+	//	NodeAttribute<VEC3> node_positions_;
 	ArcAttribute<Edges> intersecting_edges_;
 
 	Scalar minimum_value_;
@@ -82,29 +83,27 @@ public:
 	{
 		corresponding_vertex_ = graph_.add_attribute<Vertex, Node::ORBIT>("corresponding_vertex");
 		function_value_ = graph_.add_attribute<Scalar, Node::ORBIT>("function_value");
-//		node_positions_ = graph_.add_attribute<VEC3, Node::ORBIT>("node_positions");
+		is_finalized_ = graph_.add_attribute<bool, Node::ORBIT>("is_finalized");
+		//		node_positions_ = graph_.add_attribute<VEC3, Node::ORBIT>("node_positions");
 		intersecting_edges_ = graph_.add_attribute<Edges, Arc::ORBIT>("intersecting_edges");
 
 
 		highest_arc_ = map_.template add_attribute<Arc, Edge::ORBIT>("highest_arc");
-		node_link_ = map.template add_attribute<Node, Vertex::ORBIT>("node_link");
-
-		graph_.foreach_cell([&] (Arc n)
-		{
-
-		});
+		node_link_ = map_.template add_attribute<Node, Vertex::ORBIT>("node_link");
 	}
+
 
 	void compute(VertexAttribute<Scalar>& scalar_field)
 	{
 		EdgeMarker em_(map_);
 
-
+		//addMeshVertex()
 		map_.foreach_cell([&] (Vertex v)
 		{
 			create_node(v, scalar_field[v]);
 		});
 
+		//addMeshTriangle
 		map_.foreach_cell([&] (Face f)
 		{
 			map_.foreach_incident_edge(f, [&] (Edge e)
@@ -124,13 +123,13 @@ public:
 			Edge e1(map_.phi1(f.dart));
 			Edge e2(map_.phi_1(f.dart));
 
-//			marge_paths(e0,e1,e2);
+			//			marge_paths(e0,e1,e2);
 
-//			map_.foreach_incident(f, [&] (Edge e)
-//			{
-//				//if all vertices in e are finalized
-//				//remove_edge(e);
-//			});
+			//			map_.foreach_incident(f, [&] (Edge e)
+			//			{
+			//				//if all vertices in e are finalized
+			//				//remove_edge(e);
+			//			});
 		});
 	}
 
@@ -152,10 +151,15 @@ public:
 
 		corresponding_vertex_[n] = v;
 		function_value_[n] = w;
+		is_finalized_.set_value(n, false);
 
-//		highest_arc_[Edge(v.dart)] = n;
+		//		highest_arc_[Edge(v.dart)] = n;
 
 		node_link_[v] = n;
+
+		minimum_value_ = std::min(minimum_value_, w);
+		maximum_value_ = std::max(maximum_value_, w);
+
 	}
 
 	void create_arc(Edge e)
