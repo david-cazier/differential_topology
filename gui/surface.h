@@ -143,11 +143,11 @@ public:
 		result.setZero();
 		unsigned int count = 0;
 
-//		for(auto& v : attribute)
-//		{
-//			result += v;
-//			++count;
-//		}
+		//		for(auto& v : attribute)
+		//		{
+		//			result += v;
+		//			++count;
+		//		}
 		map.foreach_cell([&](typename MAP::Vertex v)
 		{
 			result += attribute[v];
@@ -172,14 +172,14 @@ public:
 		vbo_color_ = new cgogn::rendering::VBO(3);
 		cgogn::rendering::update_vbo(vertex_normal_, *vbo_color_,[] (const Vec3& n) -> std::array<float,3>
 		{
-				return {float(std::abs(n[0])), float(std::abs(n[1])), float(std::abs(n[2]))};
+			return {float(std::abs(n[0])), float(std::abs(n[1])), float(std::abs(n[2]))};
 		});
 
 		// fill a sphere size vbo
 		vbo_sphere_sz_ = new cgogn::rendering::VBO(1);
 		cgogn::rendering::update_vbo(vertex_normal_, *vbo_sphere_sz_,[&] (const Vec3& n) -> float
 		{
-				return bb.diag_size()/1000.0 * (1.0 + 2.0*std::abs(n[2]));
+			return bb.diag_size()/1000.0 * (1.0 + 2.0*std::abs(n[2]));
 		});
 
 		render_ = new cgogn::rendering::MapRender();
@@ -251,7 +251,7 @@ public:
 
 		cgogn::rendering::update_vbo(scalar, *vbo_color_,[min, max] (const Scalar& n) -> std::array<float,3>
 		{
-				return cgogn::color_map_blue_green_red(cgogn::numerics::scale_to_0_1(n, min, max));
+			return cgogn::color_map_blue_green_red(cgogn::numerics::scale_to_0_1(n, min, max));
 		});
 	}
 
@@ -328,7 +328,6 @@ public:
 
 		fp.extract<Vec3>(map_, scalar, vertex_position_);
 
-
 		reeb_graph_->compute(scalar);
 
 		map_.remove_attribute(scalar);
@@ -338,7 +337,6 @@ public:
 	{
 		VertexAttribute<Scalar> scalar = map_.add_attribute<Scalar, Vertex::ORBIT>("scalar");
 
-		//init cost function for edges
 		EdgeAttribute<Scalar> weight = map_.add_attribute<Scalar, Edge::ORBIT>("weight");
 		map_.foreach_cell([&](Edge e)
 		{
@@ -400,8 +398,8 @@ public:
 
 		//2. map the vertices to their geodesic distance to v0: find the vertex v1 that maximizes f0
 		VertexAttribute<Scalar> f0 = map_.add_attribute<Scalar, Vertex::ORBIT>("f0");
-		VertexAttribute<cgogn::Dart> prev_v0 = map_.add_attribute<cgogn::Dart, Vertex::ORBIT>("prev_v0");
-		cgogn::dijkstra_compute_paths<Scalar>(map_, weight, v0, f0, prev_v0);
+		VertexAttribute<Vertex> prev_v0 = map_.add_attribute<Vertex, Vertex::ORBIT>("prev_v0");
+		cgogn::dijkstra_compute_paths<Scalar>(map_, weight, {v0}, f0, prev_v0);
 		Scalar dist_v1 = 0.0;
 		Vertex v1;
 		map_.foreach_cell([&](Vertex v)
@@ -417,8 +415,8 @@ public:
 
 		//3. map the vertices to their geodesic distance to v1: find the vertex v2  that maximizes f1
 		VertexAttribute<Scalar> f1 = map_.add_attribute<Scalar, Vertex::ORBIT>("f1");
-		VertexAttribute<cgogn::Dart> prev_v1 = map_.add_attribute<cgogn::Dart, Vertex::ORBIT>("prev_v1");
-		cgogn::dijkstra_compute_paths<Scalar>(map_, weight, v1, f1, prev_v1);
+		VertexAttribute<Vertex> prev_v1 = map_.add_attribute<Vertex, Vertex::ORBIT>("prev_v1");
+		cgogn::dijkstra_compute_paths<Scalar>(map_, weight, {v1}, f1, prev_v1);
 		Scalar dist_v2 = 0.0;
 		Vertex v2;
 		map_.foreach_cell([&](Vertex v)
@@ -434,8 +432,8 @@ public:
 
 		//4. map the vertices to their geodesic distance to v2
 		VertexAttribute<Scalar> f2 = map_.add_attribute<Scalar, Vertex::ORBIT>("f2");
-		VertexAttribute<cgogn::Dart> prev_v2 = map_.add_attribute<cgogn::Dart, Vertex::ORBIT>("prev_v2");
-		cgogn::dijkstra_compute_paths<Scalar>(map_, weight, v2, f2, prev_v2);
+		VertexAttribute<Vertex> prev_v2 = map_.add_attribute<Vertex, Vertex::ORBIT>("prev_v2");
+		cgogn::dijkstra_compute_paths<Scalar>(map_, weight, {v2}, f2, prev_v2);
 		Scalar dist_v3 = 0.0;
 		map_.foreach_cell([&](Vertex v)
 		{
@@ -458,7 +456,7 @@ public:
 
 		VertexAttribute<Scalar> fI = map_.add_attribute<Scalar, Vertex::ORBIT>("fI");
 		map_.foreach_cell([&] (Vertex v)
-		{			
+		{
 			fI[v] = 1 - min_dist[v];
 		});
 
