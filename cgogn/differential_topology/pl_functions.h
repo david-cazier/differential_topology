@@ -20,87 +20,78 @@ namespace cgogn
 
 enum CriticalVertexType: unsigned int
 {
-    REGULAR = 0,
-    MAXIMUM = 1,
-    MINIMUM = 2,
-    SADDLE = 4,
-    UNKNOWN = 8
+	REGULAR = 0,
+	MAXIMUM = 1,
+	MINIMUM = 2,
+	SADDLE = 4,
+	UNKNOWN = 8
 };
 
-struct CriticalVertex {
+struct CriticalVertex
+{
+	unsigned int n_;
+	CriticalVertexType v_;
 
-    unsigned int n_;
-    CriticalVertexType v_;
+	inline CriticalVertex(CriticalVertexType v): v_(v), n_(0)
+	{}
 
-    inline CriticalVertex(CriticalVertexType v): v_(v), n_(0)
-    {}
-
-    inline CriticalVertex(CriticalVertexType v, unsigned int n) : v_(v), n_(n)
-    {}
+	inline CriticalVertex(CriticalVertexType v, unsigned int n) : v_(v), n_(n)
+	{}
 };
 
 // f stands for general piecewise linear function
 template <typename T, typename MAP>
 CriticalVertex critical_vertex_type(
-        MAP& map,
-        const typename MAP::Vertex v,
-        const typename MAP::template VertexAttribute<T>& scalar_field)
+		MAP& map,
+		const typename MAP::Vertex v,
+		const typename MAP::template VertexAttribute<T>& scalar_field)
 {
-    using Vertex = typename MAP::Vertex;
-    T center = scalar_field[v];
-    int up = 0;
-    int down = 0;
+	using Vertex = typename MAP::Vertex;
+	T center = scalar_field[v];
+	int up = 0;
+	int down = 0;
 
 	Dart vit = v.dart;
-    T previous;
-    do
-    {
-        Dart opv = map.phi1(vit);
-        T current = scalar_field[Vertex(map.phi1(opv))];
-        previous = scalar_field[Vertex(opv)];
+	T previous = scalar_field[Vertex(map.phi2(v.dart))];
 
-        if(current < center && previous > center)
-            ++down;
-        if(current > center && previous < center)
-            ++up;
+	map.foreach_adjacent_vertex_through_edge(v, [&] (Vertex u)
+	{
+		T current = scalar_field[u];
+		if(current < center && previous > center)
+			++down;
+		if(current > center && previous < center)
+			++up;
+		previous = current;
+	});
 
-        vit = map.phi2(map.phi_1(vit));
-    }
-	while(vit != v.dart);
+	// si on a fait le tour sans aucune variation, c'est un extremum local
+	if(up == 0 && down == 0 && previous > center)
+		return CriticalVertex(CriticalVertexType::MINIMUM);
 
-    //si on a fait le tour sans aucune variation, toutes les valeurs autour
-    //du sommet ont le meme signe, soit +, soit -
+	if(up == 0 && down == 0 && previous < center)
+		return CriticalVertex(CriticalVertexType::MAXIMUM);
 
-    if(up == 0 && previous > center)
-        ++up;
+	if(up == 1 && down == 1)
+		return CriticalVertex(CriticalVertexType::REGULAR);
 
-    if(down == 0 && previous < center)
-        ++down;
+	if (up == down)
+		return CriticalVertex(CriticalVertexType::SADDLE, up);
 
-    if(up == down && down == 1)
-        return CriticalVertex(CriticalVertexType::REGULAR);
-    else if(up == 1 && down == 0)
-        return CriticalVertex(CriticalVertexType::MAXIMUM);
-    else if(up == 0 && down == 1)
-        return CriticalVertex(CriticalVertexType::MINIMUM);
-    else if (up == down)
-        return CriticalVertex(CriticalVertexType::SADDLE, up);
-
-    return CriticalVertex(CriticalVertexType::UNKNOWN);
+	return CriticalVertex(CriticalVertexType::UNKNOWN);
 }
 
 template <typename T, typename MAP>
 void extract_feature_points(
-        MAP& map,
-        const typename MAP::template VertexAttribute<T>& scalar_field,
-        std::vector<typename MAP::Vertex>& vertices)
+		MAP& map,
+		const typename MAP::template VertexAttribute<T>& scalar_field,
+		std::vector<typename MAP::Vertex>& vertices)
 {
-    map.foreach_cell([&](typename MAP::Vertex v)
-    {
-        CriticalVertex i = critical_vertex_type<T>(map,v,scalar_field);
-        if(i.v_ == CriticalVertexType::MAXIMUM || i.v_ == CriticalVertexType::MINIMUM)
-            vertices.push_back(v);
-    });
+	map.foreach_cell([&](typename MAP::Vertex v)
+	{
+		CriticalVertex i = critical_vertex_type<T>(map,v,scalar_field);
+		if(i.v_ == CriticalVertexType::MAXIMUM || i.v_ == CriticalVertexType::MINIMUM)
+			vertices.push_back(v);
+	});
 }
 
 /**
@@ -109,28 +100,28 @@ void extract_feature_points(
  */
 template <typename T, typename MAP>
 void height_pl_function(
-        MAP& map,
-        const typename MAP::template VertexAttribute<T>& position,
-        typename MAP::template VertexAttribute<typename T::Scalar>& scalar_field)
+		MAP& map,
+		const typename MAP::template VertexAttribute<T>& position,
+		typename MAP::template VertexAttribute<typename T::Scalar>& scalar_field)
 {
-    map.foreach_cell([&] (typename MAP::Vertex v)
-    {
-       scalar_field[v] = position[v][0];
-    });
+	map.foreach_cell([&] (typename MAP::Vertex v)
+	{
+		scalar_field[v] = position[v][0];
+	});
 }
 
 template <typename T, typename MAP>
 void geodesic_distance_pl_function(
-        MAP& map,
-        const typename MAP::Vertex v,
-        const typename MAP::template EdgeAttribute<T>& weight,
-        typename MAP::template VertexAttribute<T>& scalar_field)
+		MAP& map,
+		const typename MAP::Vertex v,
+		const typename MAP::template EdgeAttribute<T>& weight,
+		typename MAP::template VertexAttribute<T>& distance_to_source)
 {
-    //previous visited vertices for each vertex until v
-    using Vertex = typename MAP::Vertex;
-    typename MAP::template VertexAttribute<Dart> previous = map.template add_attribute<Dart, Vertex::ORBIT>("previous");
-    cgogn::dijkstra_compute_paths<T>(map, weight, v, scalar_field, previous);
-    map.remove_attribute(previous);
+	using Vertex = typename MAP::Vertex;
+	typename MAP::template VertexAttribute<Vertex> path_to_source = map.template add_attribute<Vertex, Vertex::ORBIT>("path_to_source");
+
+	cgogn::dijkstra_compute_paths<T>(map, weight, {v}, distance_to_source, path_to_source);
+	map.remove_attribute(path_to_source);
 }
 
 }

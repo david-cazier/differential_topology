@@ -51,16 +51,21 @@ public:
 	{
 		cgogn::extract_feature_points<typename VEC3::Scalar>(map, scalar, vertices_);
 
-		drawer_->new_list();
-		drawer_->ball_size(0.015f);
-		drawer_->begin(GL_POINTS);
-		drawer_->color3f(1.0f, 1.0f, 1.0f);
-		for (std::vector<Vertex>::iterator it = vertices_.begin(); it != vertices_.end(); ++it)
-		{
-				drawer_->vertex3fv(position[*it]);
+		if (!vertices_.empty()) {
+			cgogn::geometry::BoundingBox<VEC3> bbox;
+			cgogn::geometry::compute_bounding_box(position, bbox);
+
+			drawer_->new_list();
+			drawer_->ball_size(bbox.max_size()/50.0f);
+			drawer_->begin(GL_POINTS);
+			drawer_->color3f(1.0f, 1.0f, 1.0f);
+			for (std::vector<Vertex>::iterator it = vertices_.begin(); it != vertices_.end(); ++it)
+			{
+					drawer_->vertex3fv(position[*it]);
+			}
+			drawer_->end();
+			drawer_->end_list();
 		}
-		drawer_->end();
-		drawer_->end_list();
 	}
 
 	template <typename VEC3>
@@ -106,11 +111,12 @@ public:
 
 		//6. Intersection F1, F2
 		VertexAttribute<Scalar> dist = map.add_attribute<Scalar, Vertex::ORBIT>("dist");
-		VertexAttribute<cgogn::Dart> prev = map.add_attribute<cgogn::Dart, Vertex::ORBIT>("prev");
+		VertexAttribute<Vertex> prev = map.add_attribute<Vertex, Vertex::ORBIT>("prev");
 
 		for (std::vector<Vertex>::iterator it = vertices_f1.begin(); it !=vertices_f1.end(); ++it)
 		{
-			cgogn::dijkstra_compute_normalized_paths<Scalar>(map, weight, *it, dist, prev);
+			const std::vector<Vertex> sources = {*it};
+			cgogn::dijkstra_compute_normalized_paths<Scalar>(map, weight, sources, dist, prev);
 
 			// search if dist < threshold
 			for(unsigned int i = 0 ; i < vertices_f2.size() ; ++i)

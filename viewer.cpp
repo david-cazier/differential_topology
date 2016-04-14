@@ -37,7 +37,7 @@ Viewer::Viewer() :
 	surface_normal_rendering_(false),
 	graph_vertices_rendering_(false),
 	graph_edges_rendering_(false),
-	feature_points_rendering_(false),
+	feature_points_rendering_(true),
 	bb_rendering_(true)
 {}
 
