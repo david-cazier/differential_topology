@@ -24,14 +24,19 @@
 #ifndef DIFFERENTIAL_TOPOLOGY_REEB_GRAPH_H_
 #define DIFFERENTIAL_TOPOLOGY_REEB_GRAPH_H_
 
-#include "../undirected_graph.h"
+#include "../directed_graph.h"
 
 namespace cgogn
 {
 
-template <typename Scalar, typename MAP>
+template <typename VEC3 , typename MAP>
 class ReebGraph
 {
+public:
+
+	using Vec3 = VEC3;
+	using Scalar = typename Vec3::Scalar;
+
 	using Vertex = typename MAP::Vertex;
 	using Edge = typename MAP::Edge;
 	using Face = typename MAP::Face;
@@ -42,28 +47,34 @@ class ReebGraph
 
 	using EdgeMarker = typename MAP::template CellMarker<Edge::ORBIT>;
 
-	using UGraph = UndirectedGraph<cgogn::DefaultMapTraits>;
-	using Node = UGraph::Vertex ;
-	using Arc = UGraph::Edge;
+	using DGraph = DirectedGraph<cgogn::DefaultMapTraits>;
+	using Node = DGraph::Vertex ;
+	using Arc = DGraph::Edge;
 	template <typename T>
-	using NodeAttribute = typename UGraph::template VertexAttribute<T>;
+	using NodeAttribute = typename DGraph::template VertexAttribute<T>;
 	template <typename T>
-	using ArcAttribute = typename UGraph::template EdgeAttribute<T>;
+	using ArcAttribute = typename DGraph::template EdgeAttribute<T>;
 
 	using Edges = std::vector<Edge>;
 
-private:
 
+public:
+	DGraph graph_;
+
+private:
 	MAP& map_;
 
 	EdgeAttribute<Arc> highest_arc_;
+	VertexAttribute<Node> node_link_;
 
 
-	UGraph graph_;
 	NodeAttribute<Vertex> corresponding_vertex_;
 	NodeAttribute<Scalar> function_value_;
+//	NodeAttribute<VEC3> node_positions_;
 	ArcAttribute<Edges> intersecting_edges_;
 
+	Scalar minimum_value_;
+	Scalar maximum_value_;
 
 public:
 
@@ -71,9 +82,17 @@ public:
 	{
 		corresponding_vertex_ = graph_.add_attribute<Vertex, Node::ORBIT>("corresponding_vertex");
 		function_value_ = graph_.add_attribute<Scalar, Node::ORBIT>("function_value");
+//		node_positions_ = graph_.add_attribute<VEC3, Node::ORBIT>("node_positions");
 		intersecting_edges_ = graph_.add_attribute<Edges, Arc::ORBIT>("intersecting_edges");
 
+
 		highest_arc_ = map_.template add_attribute<Arc, Edge::ORBIT>("highest_arc");
+		node_link_ = map.template add_attribute<Node, Vertex::ORBIT>("node_link");
+
+		graph_.foreach_cell([&] (Arc n)
+		{
+
+		});
 	}
 
 	void compute(VertexAttribute<Scalar>& scalar_field)
@@ -115,6 +134,10 @@ public:
 		});
 	}
 
+	Vertex linked_vertex(Node n)
+	{
+		return node_link_[n];
+	}
 
 public:
 
@@ -131,11 +154,17 @@ public:
 		function_value_[n] = w;
 
 //		highest_arc_[Edge(v.dart)] = n;
+
+		node_link_[v] = n;
 	}
 
 	void create_arc(Edge e)
 	{
+		std::pair<Vertex,Vertex> v = map_.vertices(e);
+		Node n0 = node_link_[v.first];
+		Node n1 = node_link_[v.second];
 
+		graph_.connect_vertices(n0,n1);
 	}
 };
 
