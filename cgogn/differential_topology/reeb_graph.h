@@ -88,6 +88,11 @@ public:
 
 		highest_arc_ = map_.template add_attribute<Arc, Edge::ORBIT>("highest_arc");
 		node_link_ = map.template add_attribute<Node, Vertex::ORBIT>("node_link");
+
+		graph_.foreach_cell([&] (Arc n)
+		{
+
+		});
 	}
 
 	void compute(VertexAttribute<Scalar>& scalar_field)

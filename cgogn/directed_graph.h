@@ -49,7 +49,7 @@ protected:
 
 	bool filter_DART(Cell<Orbit::DART> c) const override
 	{
-		return !g_->is_isolated(c.dart);
+		return true;// !g_->is_isolated(c.dart);
 	}
 
 
@@ -105,6 +105,9 @@ protected:
     /// boundary marker shortcut
     ChunkArray<bool>* isolated_marker_;
 
+	IsolatedFilter<MAP_TRAITS, MAP_TYPE>* filter_;
+
+
     void init()
     {
         phi1_ = this->topology_.template add_attribute<Dart>("phi1");
@@ -112,6 +115,8 @@ protected:
         phi2_ = this->topology_.template add_attribute<Dart>("phi2");
 
         isolated_marker_ = this->topology_.template add_marker_attribute();
+
+		filter_ = new IsolatedFilter<MAP_TRAITS, MAP_TYPE>(this);
     }
 
 public:
@@ -121,7 +126,9 @@ public:
     }
 
 	~DirectedGraph_T() override
-	{}
+	{
+		delete filter_;
+	}
 
 	DirectedGraph_T(Self const&) = delete;
 	DirectedGraph_T(Self &&) = delete;
@@ -399,8 +406,7 @@ public:
     template <TraversalStrategy STRATEGY = TraversalStrategy::AUTO, typename FUNC>
     inline void foreach_cell(const FUNC& f) const
 	{
-		const IsolatedFilter<MAP_TRAITS, MAP_TYPE> filter_(this);
-		Inherit::template foreach_cell<STRATEGY>(f, filter_);
+		Inherit::template foreach_cell<STRATEGY>(f, CellFilters());// *filter_);
     }
 
 protected:
