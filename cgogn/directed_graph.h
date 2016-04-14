@@ -403,10 +403,10 @@ public:
         isolated_marker_->set_value(d.index, b);
     }
 
-    template <TraversalStrategy STRATEGY = TraversalStrategy::AUTO, typename FUNC>
+	template <typename FUNC>
     inline void foreach_cell(const FUNC& f) const
 	{
-		Inherit::template foreach_cell<STRATEGY>(f, CellFilters());// *filter_);
+		Inherit::foreach_cell(f, *filter_);
     }
 
 protected:
