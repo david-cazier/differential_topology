@@ -328,7 +328,7 @@ public:
 
 		fp.extract<Vec3>(map_, scalar, vertex_position_);
 
-		//reeb_graph_->compute(scalar);
+//		reeb_graph_->compute(scalar);
 
 		map_.remove_attribute(scalar);
 	}

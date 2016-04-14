@@ -25,8 +25,6 @@ set(HEADER_FILES
 		cgogn/directed_graph.h
 		cgogn/graph_render.h
 		cgogn/helper_functions.h
-		cgogn/graph_render.h
-		cgogn/helper_functions.h
 
 		cgogn/differential_topology/pl_functions.h
 		cgogn/differential_topology/reeb_graph.h
