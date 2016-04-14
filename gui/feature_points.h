@@ -51,21 +51,9 @@ public:
 	{
 		cgogn::extract_feature_points<typename VEC3::Scalar>(map, scalar, vertices_);
 
-		if (!vertices_.empty()) {
-			cgogn::geometry::BoundingBox<VEC3> bbox;
-			cgogn::geometry::compute_bounding_box(position, bbox);
-
-			drawer_->new_list();
-			drawer_->ball_size(bbox.max_size()/50.0f);
-			drawer_->begin(GL_POINTS);
-			drawer_->color3f(1.0f, 1.0f, 1.0f);
-			for (std::vector<Vertex>::iterator it = vertices_.begin(); it != vertices_.end(); ++it)
-			{
-					drawer_->vertex3fv(position[*it]);
-			}
-			drawer_->end();
-			drawer_->end_list();
-		}
+		drawer_->new_list();
+		this->draw(vertices_, position, 1.0f, 1.0f, 1.0f, 1.0f);
+		drawer_->end_list();
 	}
 
 	template <typename VEC3>
@@ -76,70 +64,56 @@ public:
 							  CMap2::EdgeAttribute<typename VEC3::Scalar> weight)
 	{
 		using Scalar = typename VEC3::Scalar;
-////		std::vector<cgogn::Dart> vertices_f1;
-//		cgogn::extract_feature_points<typename VEC3::Scalar>(map, scalar1, vertices_);
-//		drawer_->new_list();
-//		drawer_->ball_size(0.015f);
-//		drawer_->begin(GL_POINTS);
-//		drawer_->color3f(1.0f, 1.0f, 0.25f);
-//		for (std::vector<Vertex>::iterator it = vertices_.begin(); it != vertices_.end(); ++it)
-//		{
-//				drawer_->vertex3fv(position[*it]);
-//		}
-//		drawer_->end();
 
-
-//		vertices_.clear();
-
-////		std::vector<cgogn::Dart> vertices_f2;
-//		cgogn::extract_feature_points<typename VEC3::Scalar>(map, scalar2, vertices_);
-//		drawer_->ball_size(0.016f);
-//		drawer_->begin(GL_POINTS);
-//		drawer_->color3f(1.0f, 1.0f, 0.75f);
-//		for (std::vector<Vertex>::iterator it = vertices_.begin(); it != vertices_.end(); ++it)
-//		{
-//				drawer_->vertex3fv(position[*it]);
-//		}
-//		drawer_->end();
-
-//		drawer_->end_list();
+		drawer_->new_list();
 
 		std::vector<Vertex> vertices_f1;
 		cgogn::extract_feature_points<Scalar>(map, scalar1, vertices_f1);
+		this->draw(vertices_f1, position, 0.3f, 0.3f, 1.0f, 0.6f);
+
 		std::vector<Vertex> vertices_f2;
 		cgogn::extract_feature_points<Scalar>(map, scalar2, vertices_f2);
+		this->draw(vertices_f2, position, 0.3f, 1.0f, 0.3f, 0.6f);
 
 		//6. Intersection F1, F2
 		VertexAttribute<Scalar> dist = map.add_attribute<Scalar, Vertex::ORBIT>("dist");
 		VertexAttribute<Vertex> prev = map.add_attribute<Vertex, Vertex::ORBIT>("prev");
 
-		for (std::vector<Vertex>::iterator it = vertices_f1.begin(); it !=vertices_f1.end(); ++it)
+		// Remove from vertices_f2 the vertices that are too close to each other
+		std::vector<Vertex> vertices_f2_not_close;
+		while(!vertices_f2.empty())
 		{
-			const std::vector<Vertex> sources = {*it};
-			cgogn::dijkstra_compute_normalized_paths<Scalar>(map, weight, sources, dist, prev);
-
-			// search if dist < threshold
-			for(unsigned int i = 0 ; i < vertices_f2.size() ; ++i)
-			{
-				if(dist[vertices_f2[i]] < 0.05)
-				{
-					//std::cout << "yes! " << std::endl;
-					vertices_.push_back(vertices_f2[i]);
+			Vertex v = vertices_f2.back();
+			vertices_f2.pop_back();
+			if (!vertices_f2.empty()) {
+				cgogn::dijkstra_compute_normalized_paths<Scalar>(map, weight, vertices_f2, dist, prev);
+				std::cout << "1>" << dist[v];
+				if(dist[v] > Scalar(0.01)) {
+					vertices_f2_not_close.push_back(v);
+					std::cout << " +";
 				}
+				std::cout << std::endl;
 			}
 		}
+
+		// Remove from vertices_f2 the vertices that are too close to vertices of vertices_f1
+		cgogn::dijkstra_compute_normalized_paths<Scalar>(map, weight, vertices_f1, dist, prev);
+
+		// search if dist < threshold
+		for(auto& v: vertices_f2_not_close)
+		{
+			std::cout << "2>" << dist[v];
+			if(dist[v] < Scalar(0.2)) {
+				vertices_.push_back(v);
+				std::cout << " +";
+			}
+			std::cout << std::endl;
+		}
+
 		map.remove_attribute(dist);
 		map.remove_attribute(prev);
 
-		drawer_->new_list();
-		drawer_->ball_size(0.015f);
-		drawer_->begin(GL_POINTS);
-		drawer_->color3f(1.0f, 1.0f, 0.25f);
-		for (std::vector<Vertex>::iterator it = vertices_.begin(); it != vertices_.end(); ++it)
-		{
-			drawer_->vertex3fv(position[*it]);
-		}
-		drawer_->end();
+		this->draw(vertices_, position, 1.0f, 1.0f, 1.0f, 1.0f);
 		drawer_->end_list();
 	}
 
@@ -159,6 +133,26 @@ public:
 				distmin = distances[*it];
 				vmin = *it;
 			}
+		}
+	}
+
+	template <typename VEC3>
+	void draw(std::vector<Vertex> vertices,
+			  CMap2::VertexAttribute<VEC3> position,
+			  float r, float g, float b, float ratio)
+	{
+		if (!vertices.empty()) {
+			cgogn::geometry::BoundingBox<VEC3> bbox;
+			cgogn::geometry::compute_bounding_box(position, bbox);
+
+			drawer_->ball_size(ratio*bbox.max_size()/50.0f);
+			drawer_->begin(GL_POINTS);
+			drawer_->color3f(r, g, b);
+
+			for (auto& v: vertices)
+					drawer_->vertex3fv(position[v]);
+
+			drawer_->end();
 		}
 	}
 
