@@ -19,7 +19,7 @@ set(HEADER_FILES
 	viewer.h
 
 	cgogn/dijkstra.h
-        cgogn/undirected_graph.h
+        cgogn/directed_graph.h
         cgogn/graph_render.h
         cgogn/helper_functions.h
 

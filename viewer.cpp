@@ -74,8 +74,8 @@ void Viewer::draw()
 	if (surface_edge_rendering_)
 		surface_.draw_edges(proj,view);
 
-	if(graph_edges_rendering_)
-		reeb_graph_.draw(proj,view);
+//	if(graph_edges_rendering_)
+//		reeb_graph_.draw(proj,view);
 
 	glDisable(GL_BLEND);
 
@@ -95,7 +95,7 @@ void Viewer::init()
 
 	surface_.init(bb_);
 	feature_points_.init();
-	reeb_graph_.init();
+//	reeb_graph_.init();
 
 	// drawer for simple old-school g1 rendering
 	drawer_ = new cgogn::rendering::Drawer(this);
@@ -168,7 +168,7 @@ void Viewer::keyPressEvent(QKeyEvent *ev)
 			feature_points_.clear();
 			dglobal_ = Surface<Vec3>::Vertex(cgogn::Dart(1000));
 			surface_.geodesic_distance_function(feature_points_, dglobal_);
-			reeb_graph_.set(surface_.reeb_graph_);
+//			reeb_graph_.set(surface_.reeb_graph_, surface_.vertex_position_);
 			break;
 		}
 		case Qt::Key_2:

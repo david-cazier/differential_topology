@@ -21,17 +21,43 @@
 *                                                                              *
 *******************************************************************************/
 
-#ifndef UNDIRECTED_GRAPH_H
-#define UNDIRECTED_GRAPH_H
+#ifndef DIRECTED_GRAPH_H
+#define DIRECTED_GRAPH_H
 
 #include <cgogn/core/cmap/map_base.h>
-
+#include <cgogn/core/utils/masks.h>
 
 namespace cgogn
 {
 
 template <typename MAP_TRAITS, typename MAP_TYPE>
-class UndirectedGraph_T : public MapBase<MAP_TRAITS, MAP_TYPE>
+class DirectedGraph_T;
+
+template <typename MAP_TRAITS, typename MAP_TYPE>
+class IsolatedFilter : public CellFilters
+{
+private:
+	const DirectedGraph_T<MAP_TRAITS, MAP_TYPE>* g_;
+
+public:
+	IsolatedFilter(const DirectedGraph_T<MAP_TRAITS, MAP_TYPE>* g) : g_(g)
+	{}
+
+	virtual ~IsolatedFilter() {}
+
+protected:
+
+	bool filter_DART(Cell<Orbit::DART> c) const override
+	{
+		return !g_->is_isolated(c.dart);
+	}
+
+
+};
+
+
+template <typename MAP_TRAITS, typename MAP_TYPE>
+class DirectedGraph_T : public MapBase<MAP_TRAITS, MAP_TYPE>
 {
 public:
 
@@ -40,14 +66,14 @@ public:
     using MapTraits = MAP_TRAITS;
     using MapType = MAP_TYPE;
     using Inherit = MapBase<MAP_TRAITS, MAP_TYPE>;
-    using Self = UndirectedGraph_T<MAP_TRAITS, MAP_TYPE>;
+	using Self = DirectedGraph_T<MAP_TRAITS, MAP_TYPE>;
 
     friend class MapBase<MAP_TRAITS, MAP_TYPE>;
     friend class DartMarker_T<Self>;
     friend class cgogn::DartMarkerStore<Self>;
 
     using Vertex = Cell<Orbit::PHI21>;
-    using Edge = Cell<Orbit::PHI2>;
+	using Edge = Cell<Orbit::DART>;
 	using ConnectedComponent = Cell<Orbit::PHI1>;
 
     using IsolatedVertex = Vertex;
@@ -89,16 +115,16 @@ protected:
     }
 
 public:
-    UndirectedGraph_T() : Inherit()
+	DirectedGraph_T() : Inherit()
     {
         init();
     }
 
-    ~UndirectedGraph_T() override
-    {}
+	~DirectedGraph_T() override
+	{}
 
-    UndirectedGraph_T(Self const&) = delete;
-    UndirectedGraph_T(Self &&) = delete;
+	DirectedGraph_T(Self const&) = delete;
+	DirectedGraph_T(Self &&) = delete;
     Self& operator=(Self const&) = delete;
     Self& operator=(Self &&) = delete;
 
@@ -273,10 +299,10 @@ public:
     }
 
 protected:
-	inline Vertex connect_vertices_topo(Vertex v1, Vertex v2)
+	inline Dart connect_vertices_topo(Dart v1, Dart v2)
     {
-        set_isolated(v1.dart, false);
-        set_isolated(v2.dart, false);
+		set_isolated(v1, false);
+		set_isolated(v2, false);
 
         phi1_sew(v1, v2);
         phi2_unsew(v1);
@@ -291,7 +317,7 @@ public:
     {
         CGOGN_CHECK_CONCRETE_TYPE;
 
-        Edge e(connect_vertices_topo(v1, v2));
+		Edge e(connect_vertices_topo(v1.dart, v2.dart));
 
         if (this->template is_embedded<Edge>())
             this->new_orbit_embedding(e);
@@ -372,29 +398,17 @@ public:
 
     template <TraversalStrategy STRATEGY = TraversalStrategy::AUTO, typename FUNC>
     inline void foreach_cell(const FUNC& f) const
-    {
-        using CellType = typename function_traits<FUNC>::template arg<0>::type;
-        static const Orbit ORBIT = CellType::ORBIT;
-
-        switch(ORBIT)
-        {
-            case Orbit::PHI2 :
-                Inherit::template foreach_cell<STRATEGY>(f, [this](Dart d) { return !this->is_isolated(d); });
-                break;
-            default:
-                Inherit::template foreach_cell_nomask<STRATEGY>(f);
-                break;
-
-        }
+	{
+		const IsolatedFilter<MAP_TRAITS, MAP_TYPE> filter_(this);
+		Inherit::template foreach_cell<STRATEGY>(f, filter_);
     }
 
 protected:
 
     template <typename FUNC>
-    inline void foreach_dart_of_PHI2(Dart d, const FUNC& f) const
+	inline void foreach_dart_of_DART(Dart d, const FUNC& f) const
     {
-        f(d);
-        f(phi2(d));
+		f(d);
     }
 
     template <typename FUNC>
@@ -418,9 +432,9 @@ protected:
 
         switch (ORBIT)
         {
-			case Orbit::PHI2: foreach_dart_of_PHI2(c.dart, f); break;
+			case Orbit::DART: foreach_dart_of_DART(c.dart, f); break;
 			case Orbit::PHI21: foreach_dart_of_PHI21(c.dart, f); break;
-            case Orbit::DART:
+			case Orbit::PHI2:
             case Orbit::PHI1:
             case Orbit::PHI1_PHI2:
             case Orbit::PHI2_PHI3:
@@ -433,14 +447,14 @@ protected:
 };
 
 template <typename MAP_TRAITS>
-struct UndirectedGraphType
+struct DirectedGraphType
 {
-    using TYPE = UndirectedGraph_T<MAP_TRAITS, UndirectedGraphType<MAP_TRAITS>>;
+	using TYPE = DirectedGraph_T<MAP_TRAITS, DirectedGraphType<MAP_TRAITS>>;
 };
 
 template <typename MAP_TRAITS>
-using UndirectedGraph = UndirectedGraph_T<MAP_TRAITS, UndirectedGraphType<MAP_TRAITS>>;
+using DirectedGraph = DirectedGraph_T<MAP_TRAITS, DirectedGraphType<MAP_TRAITS>>;
 
 }
 
-#endif // UNDIRECTED_GRAPH_H
+#endif // DIRECTED_GRAPH_H

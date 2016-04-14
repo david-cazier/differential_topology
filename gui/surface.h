@@ -97,7 +97,7 @@ public:
 	cgogn::rendering::ShaderPointSprite* shader_point_sprite_;
 
 
-	cgogn::ReebGraph<Scalar, CMap2>* reeb_graph_;
+	cgogn::ReebGraph<Vec3, CMap2>* reeb_graph_;
 
 public:
 
@@ -117,7 +117,7 @@ public:
 		shader_phong_(nullptr),
 		shader_point_sprite_(nullptr)
 	{
-		reeb_graph_ = new cgogn::ReebGraph<Scalar, CMap2>(map_);
+		reeb_graph_ = new cgogn::ReebGraph<Vec3, CMap2>(map_);
 	}
 
 	~Surface()

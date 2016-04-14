@@ -34,14 +34,32 @@ public:
 		drawer_ = new cgogn::rendering::Drawer(ogl33_);
 	}
 
-	void set(cgogn::ReebGraph<Scalar, CMap2>* rg)
+	void set(cgogn::ReebGraph<Vec3, CMap2>* rg, cgogn::CMap2<cgogn::DefaultMapTraits>::VertexAttribute<Vec3> position)
 	{
+		using DGraph = cgogn::ReebGraph<Vec3, CMap2>::DGraph;
+		using Node = cgogn::ReebGraph<Vec3, CMap2>::Node;
+		using Arc = cgogn::ReebGraph<Vec3, CMap2>::Arc;
+
+		using Vertex = typename CMap2::Vertex;
+
 		//init le dessin
+		drawer_->new_list();
+		drawer_->ball_size(0.015f);
+		drawer_->begin(GL_POINTS);
+		rg->graph_.foreach_cell([&] (Node n)
+		{
+
+//			Vertex v = rg->linked_vertex(n);
+//			drawer_->vertex3fv(position[v]);
+		});
+		drawer_->end();
+		drawer_->end_list();
+
 	}
 
 	void draw(const QMatrix4x4& proj, const QMatrix4x4& view)
 	{
-		drawer_->call_list(proj,view);
+//		drawer_->call_list(proj,view);
 	}
 };
 
