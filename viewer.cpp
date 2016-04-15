@@ -93,8 +93,8 @@ void Viewer::init()
 {
 	glClearColor(0.1f,0.1f,0.3f,0.0f);
 
-	surface_.init(bb_);
-	feature_points_.init();
+	surface_.init();
+	feature_points_.init(bb_);
 //	reeb_graph_.init();
 
 	// drawer for simple old-school g1 rendering
@@ -208,8 +208,7 @@ void Viewer::closeEvent(QCloseEvent*)
 
 void Viewer::import(const std::string& surfaceMesh)
 {
-	surface_.import(surfaceMesh);
-	cgogn::geometry::compute_bounding_box(surface_.vertex_position_, bb_);
+	bb_ = surface_.import(surfaceMesh);
 
 	setSceneRadius(bb_.diag_size()/2.0);
 	Vec3 center = bb_.center();

@@ -8,11 +8,14 @@
 
 #include <cgogn/core/cmap/cmap2.h>
 
-
+template <typename VEC3>
 class FeaturePoints
 {
 
 public:
+	using Vec3 = VEC3;
+	using Scalar = typename Vec3::Scalar;
+
 	using Dart = cgogn::Dart;
 	using CMap2 = cgogn::CMap2<cgogn::DefaultMapTraits>;
 	using Vertex = CMap2::Vertex;
@@ -21,7 +24,10 @@ public:
 	using VertexAttribute = CMap2::VertexAttribute<T>;
 
 	std::vector<Vertex> vertices_;
+
 	cgogn::rendering::Drawer* drawer_;
+	cgogn::geometry::BoundingBox<Vec3> bb_;
+
 	QOpenGLFunctions_3_3_Core* ogl33_;
 
 	FeaturePoints(QOpenGLFunctions_3_3_Core* ogl33):
@@ -34,9 +40,10 @@ public:
 		delete drawer_;
 	}
 
-	void init()
+	void init(cgogn::geometry::BoundingBox<Vec3> bb)
 	{
 		drawer_ = new cgogn::rendering::Drawer(ogl33_);
+		bb_ = bb;
 	}
 
 	void clear()
@@ -54,28 +61,22 @@ public:
 		drawer_->end_list();
 	}
 
-	template <typename VEC3>
 	void extract(CMap2& map,
-				 CMap2::VertexAttribute<typename VEC3::Scalar> scalar,
-				 CMap2::VertexAttribute<VEC3> position)
+				 CMap2::VertexAttribute<Scalar> scalar,
+				 CMap2::VertexAttribute<Vec3> position)
 	{
-		using Scalar = typename VEC3::Scalar;
-
 		std::vector<Vertex> saddles;
 		cgogn::extract_critical_points<Scalar>(map, scalar, vertices_, saddles);
 		this->draw(vertices_, position, 1.0f, 1.0f, 1.0f, 1.0f);
 		this->draw(saddles, position, 1.0f, 0.8f, 0.2f, 0.6f);
 	}
 
-	template <typename VEC3>
 	void extract_intersection(CMap2& map,
-							  CMap2::VertexAttribute<typename VEC3::Scalar> scalar1,
-							  CMap2::VertexAttribute<typename VEC3::Scalar> scalar2,
-							  CMap2::VertexAttribute<VEC3> position,
-							  CMap2::EdgeAttribute<typename VEC3::Scalar> weight)
+							  CMap2::VertexAttribute<Scalar> scalar1,
+							  CMap2::VertexAttribute<Scalar> scalar2,
+							  CMap2::VertexAttribute<Vec3> position,
+							  CMap2::EdgeAttribute<Scalar> weight)
 	{
-		using Scalar = typename VEC3::Scalar;
-
 		std::vector<Vertex> vertices_f1;
 		cgogn::extract_extrema<Scalar>(map, scalar1, vertices_f1);
 		this->draw(vertices_f1, position, 0.3f, 0.3f, 1.0f, 0.6f);
@@ -117,11 +118,8 @@ public:
 		this->draw(vertices_, position, 1.0f, 1.0f, 1.0f, 1.0f);
 	}
 
-	template <typename VEC3>
-	void minimize_distance(CMap2::VertexAttribute<typename VEC3::Scalar> distances)
+	void minimize_distance(CMap2::VertexAttribute<Scalar> distances)
 	{
-		using Scalar = typename VEC3::Scalar;
-
 		Scalar dist = std::numeric_limits<Scalar>::max();
 		Scalar distmin;
 		Vertex vmin;
@@ -136,16 +134,12 @@ public:
 		}
 	}
 
-	template <typename VEC3>
 	void draw(std::vector<Vertex> vertices,
-			  CMap2::VertexAttribute<VEC3> position,
+			  CMap2::VertexAttribute<Vec3> position,
 			  float r, float g, float b, float ratio)
 	{
 		if (!vertices.empty()) {
-			cgogn::geometry::BoundingBox<VEC3> bbox;
-			cgogn::geometry::compute_bounding_box(position, bbox);
-
-			drawer_->ball_size(ratio*bbox.max_size()/50.0f);
+			drawer_->ball_size(ratio*bb_.max_size()/50.0f);
 			drawer_->begin(GL_POINTS);
 			drawer_->color3f(r, g, b);
 

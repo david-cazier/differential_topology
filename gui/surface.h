@@ -82,6 +82,8 @@ public:
 
 	EdgeAttribute<Scalar> edge_metric_;
 
+	cgogn::geometry::BoundingBox<Vec3> bb_;
+
 	cgogn::rendering::MapRender* render_;
 
 	cgogn::rendering::VBO* vbo_pos_;
@@ -159,7 +161,7 @@ public:
 	}
 
 
-	void init(cgogn::geometry::BoundingBox<Vec3>& bb)
+	void init(void)
 	{
 		vbo_pos_ = new cgogn::rendering::VBO(3);
 		cgogn::rendering::update_vbo(vertex_position_, *vbo_pos_);
@@ -178,7 +180,7 @@ public:
 		vbo_sphere_sz_ = new cgogn::rendering::VBO(1);
 		cgogn::rendering::update_vbo(vertex_normal_, *vbo_sphere_sz_,[&] (const Vec3& n) -> float
 		{
-			return bb.diag_size()/1000.0 * (1.0 + 2.0*std::abs(n[2]));
+			return bb_.diag_size()/1000.0 * (1.0 + 2.0*std::abs(n[2]));
 		});
 
 		render_ = new cgogn::rendering::MapRender();
@@ -190,7 +192,7 @@ public:
 		shader_point_sprite_->add_vao();
 		shader_point_sprite_->set_vao(0, vbo_pos_,vbo_color_,vbo_sphere_sz_);
 		shader_point_sprite_->bind();
-		shader_point_sprite_->set_size(bb.diag_size()/100.0);
+		shader_point_sprite_->set_size(bb_.diag_size()/100.0);
 		shader_point_sprite_->set_color(QColor(255,0,0));
 		shader_point_sprite_->release();
 
@@ -200,7 +202,6 @@ public:
 		shader_edge_->bind();
 		shader_edge_->set_color(QColor(255,255,0));
 		shader_edge_->release();
-
 
 		shader_flat_ = new cgogn::rendering::ShaderFlat;
 		shader_flat_->add_vao();
@@ -216,18 +217,17 @@ public:
 		shader_normal_->set_vao(0, vbo_pos_, vbo_norm_);
 		shader_normal_->bind();
 		shader_normal_->set_color(QColor(200,0,200));
-		shader_normal_->set_length(bb.diag_size()/50);
+		shader_normal_->set_length(bb_.diag_size()/50);
 		shader_normal_->release();
-
 
 		shader_phong_ = new cgogn::rendering::ShaderPhong(true);
 		shader_phong_->add_vao();
 		shader_phong_->set_vao(0, vbo_pos_, vbo_norm_, vbo_color_);
 		shader_phong_->bind();
-		//	shader_phong_->set_ambiant_color(QColor(5,5,5));
-		//shader_phong_->set_double_side(true);
-		//	shader_phong_->set_specular_color(QColor(255,255,255));
-		//	shader_phong_->set_specular_coef(10.0);
+//		shader_phong_->set_ambiant_color(QColor(5,5,5));
+//		shader_phong_->set_double_side(true);
+//		shader_phong_->set_specular_color(QColor(255,255,255));
+//		shader_phong_->set_specular_coef(10.0);
 		shader_phong_->release();
 	}
 
@@ -248,9 +248,10 @@ public:
 			max = std::max(max, v);
 		}
 
-		cgogn::rendering::update_vbo(scalar, *vbo_color_,[min, max] (const Scalar& n) -> std::array<float,3>
+		cgogn::rendering::update_vbo(scalar, *vbo_color_,
+									 [min, max] (const Scalar& n) -> std::array<float,3>
 		{
-			return cgogn::color_map_blue_green_red(cgogn::numerics::scale_to_0_1(n, min, max));
+			return cgogn::color_map_hash(cgogn::numerics::scale_to_0_1(n, min, max));
 		});
 	}
 
@@ -307,7 +308,7 @@ public:
 		shader_normal_->release();
 	}
 
-	void import(const std::string& filename)
+	cgogn::geometry::BoundingBox<Vec3> import(const std::string& filename)
 	{
 		cgogn::io::import_surface<Vec3>(map_, filename);
 
@@ -315,9 +316,12 @@ public:
 		vertex_normal_ = map_.add_attribute<Vec3, Vertex::ORBIT>("normal");
 
 		cgogn::geometry::compute_normal_vertices<Vec3>(map_, vertex_position_, vertex_normal_);
+		cgogn::geometry::compute_bounding_box(vertex_position_, bb_);
+
+		return bb_;
 	}
 
-	void height_function(FeaturePoints& fp)
+	void height_function(FeaturePoints<VEC3>& fp)
 	{
 		VertexAttribute<Scalar> scalar = map_.add_attribute<Scalar, Vertex::ORBIT>("scalar");
 
@@ -325,14 +329,14 @@ public:
 
 		update_color(scalar);
 
-		fp.extract<Vec3>(map_, scalar, vertex_position_);
+		fp.extract(map_, scalar, vertex_position_);
 
 		//reeb_graph_->compute(scalar);
 
 		map_.remove_attribute(scalar);
 	}
 
-	void geodesic_distance_function(FeaturePoints& fp, Vertex d)
+	void geodesic_distance_function(FeaturePoints<VEC3>& fp, Vertex d)
 	{
 		VertexAttribute<Scalar> scalar = map_.add_attribute<Scalar, Vertex::ORBIT>("scalar");
 
@@ -346,13 +350,13 @@ public:
 
 		update_color(scalar);
 
-		fp.extract<Vec3>(map_, scalar, vertex_position_);
+		fp.extract(map_, scalar, vertex_position_);
 
 		map_.remove_attribute(scalar);
 		map_.remove_attribute(weight);
 	}
 
-	void edge_length_weighted_morse_function(FeaturePoints& fp)
+	void edge_length_weighted_morse_function(FeaturePoints<VEC3>& fp)
 	{
 
 		EdgeAttribute<Scalar> weight = map_.add_attribute<Scalar, Edge::ORBIT>("weight");
@@ -366,7 +370,7 @@ public:
 		map_.remove_attribute(weight);
 	}
 
-	void curvature_weighted_morse_function(FeaturePoints& fp)
+	void curvature_weighted_morse_function(FeaturePoints<VEC3>& fp)
 	{
 		compute_curvature();
 		morse_function(fp, edge_metric_);
@@ -374,7 +378,7 @@ public:
 
 	/********************/
 
-	void morse_function(FeaturePoints& fp, EdgeAttribute<Scalar>& weight)
+	void morse_function(FeaturePoints<VEC3>& fp, EdgeAttribute<Scalar>& weight)
 	{
 		Vec3 barycenter = surface_centroid<Vec3>(map_, vertex_position_);
 
@@ -443,7 +447,7 @@ public:
 		});
 
 		//5 check critical vertices of the intersection of f1 and f2
-		fp.extract_intersection<Vec3>(map_, f1, f2, vertex_position_, weight);
+		fp.extract_intersection(map_, f1, f2, vertex_position_, weight);
 
 
 		//ETape 2:
