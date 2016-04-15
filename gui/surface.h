@@ -445,14 +445,7 @@ public:
 		VertexAttribute<Scalar> f2 = map_.add_attribute<Scalar, Vertex::ORBIT>("f2");
 		VertexAttribute<Vertex> prev_v2 = map_.add_attribute<Vertex, Vertex::ORBIT>("prev_v2");
 		cgogn::dijkstra_compute_paths<Scalar>(map_, weight, {v2}, f2, prev_v2);
-		Scalar dist_v3 = 0.0;
-		map_.foreach_cell([&](Vertex v)
-		{
-			Scalar dist = f2[v];
-
-			if(dist > dist_v3)
-				dist_v3 = dist;
-		});
+		map_.remove_attribute(prev_v2);
 
 		//5 check critical vertices of the intersection of f1 and f2
 		fp.extract_intersection(map_, f1, f2, vertex_position_, weight);
@@ -507,7 +500,6 @@ public:
 		map_.remove_attribute(f0);
 		map_.remove_attribute(f1);
 		map_.remove_attribute(f2);
-		map_.remove_attribute(prev_v2);
 		map_.remove_attribute(min_dist);
 		map_.remove_attribute(min_source);
 		map_.remove_attribute(fI);
