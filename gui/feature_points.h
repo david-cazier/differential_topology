@@ -44,16 +44,27 @@ public:
 		vertices_.clear();
 	}
 
+	void begin_draw()
+	{
+		drawer_->new_list();
+	}
+
+	void end_draw()
+	{
+		drawer_->end_list();
+	}
+
 	template <typename VEC3>
 	void extract(CMap2& map,
 				 CMap2::VertexAttribute<typename VEC3::Scalar> scalar,
 				 CMap2::VertexAttribute<VEC3> position)
 	{
-		cgogn::extract_feature_points<typename VEC3::Scalar>(map, scalar, vertices_);
+		using Scalar = typename VEC3::Scalar;
 
-		drawer_->new_list();
+		std::vector<Vertex> saddles;
+		cgogn::extract_critical_points<Scalar>(map, scalar, vertices_, saddles);
 		this->draw(vertices_, position, 1.0f, 1.0f, 1.0f, 1.0f);
-		drawer_->end_list();
+		this->draw(saddles, position, 1.0f, 0.8f, 0.2f, 0.6f);
 	}
 
 	template <typename VEC3>
@@ -65,19 +76,17 @@ public:
 	{
 		using Scalar = typename VEC3::Scalar;
 
-		drawer_->new_list();
-
 		std::vector<Vertex> vertices_f1;
-		cgogn::extract_feature_points<Scalar>(map, scalar1, vertices_f1);
+		cgogn::extract_extrema<Scalar>(map, scalar1, vertices_f1);
 		this->draw(vertices_f1, position, 0.3f, 0.3f, 1.0f, 0.6f);
 
 		std::vector<Vertex> vertices_f2;
-		cgogn::extract_feature_points<Scalar>(map, scalar2, vertices_f2);
+		cgogn::extract_extrema<Scalar>(map, scalar2, vertices_f2);
 		this->draw(vertices_f2, position, 0.3f, 1.0f, 0.3f, 0.6f);
 
 		//6. Intersection F1, F2
-		VertexAttribute<Scalar> dist = map.add_attribute<Scalar, Vertex::ORBIT>("dist");
-		VertexAttribute<Vertex> prev = map.add_attribute<Vertex, Vertex::ORBIT>("prev");
+		VertexAttribute<Scalar> dist_to_vertex = map.add_attribute<Scalar, Vertex::ORBIT>("dist_to_vertex");
+		VertexAttribute<Vertex> path_to_vertex = map.add_attribute<Vertex, Vertex::ORBIT>("path_to_vertex");
 
 		// Remove from vertices_f2 the vertices that are too close to each other
 		std::vector<Vertex> vertices_f2_not_close;
@@ -86,35 +95,26 @@ public:
 			Vertex v = vertices_f2.back();
 			vertices_f2.pop_back();
 			if (!vertices_f2.empty()) {
-				cgogn::dijkstra_compute_normalized_paths<Scalar>(map, weight, vertices_f2, dist, prev);
-				std::cout << "1>" << dist[v];
-				if(dist[v] > Scalar(0.01)) {
+				cgogn::dijkstra_compute_normalized_paths<Scalar>(map, weight, vertices_f2, dist_to_vertex, path_to_vertex);
+				if(dist_to_vertex[v] > Scalar(0.01))
 					vertices_f2_not_close.push_back(v);
-					std::cout << " +";
-				}
-				std::cout << std::endl;
 			}
 		}
 
 		// Remove from vertices_f2 the vertices that are too close to vertices of vertices_f1
-		cgogn::dijkstra_compute_normalized_paths<Scalar>(map, weight, vertices_f1, dist, prev);
+		cgogn::dijkstra_compute_normalized_paths<Scalar>(map, weight, vertices_f1, dist_to_vertex, path_to_vertex);
 
 		// search if dist < threshold
 		for(auto& v: vertices_f2_not_close)
 		{
-			std::cout << "2>" << dist[v];
-			if(dist[v] < Scalar(0.2)) {
+			if(dist_to_vertex[v] < Scalar(0.2))
 				vertices_.push_back(v);
-				std::cout << " +";
-			}
-			std::cout << std::endl;
 		}
 
-		map.remove_attribute(dist);
-		map.remove_attribute(prev);
+		map.remove_attribute(dist_to_vertex);
+		map.remove_attribute(path_to_vertex);
 
 		this->draw(vertices_, position, 1.0f, 1.0f, 1.0f, 1.0f);
-		drawer_->end_list();
 	}
 
 	template <typename VEC3>

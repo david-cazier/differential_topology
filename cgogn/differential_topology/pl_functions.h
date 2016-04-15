@@ -23,7 +23,7 @@ enum CriticalVertexType: unsigned int
 	REGULAR = 0,
 	MAXIMUM = 1,
 	MINIMUM = 2,
-	SADDLE = 4,
+	SADDLE  = 4,
 	UNKNOWN = 8
 };
 
@@ -47,50 +47,89 @@ CriticalVertex critical_vertex_type(
 		const typename MAP::template VertexAttribute<T>& scalar_field)
 {
 	using Vertex = typename MAP::Vertex;
-	T center = scalar_field[v];
+
+	Dart next = v.dart;
+	Dart prev;
+	T center  = scalar_field[v];
+	T previous;
 	int up = 0;
 	int down = 0;
 
-	Dart vit = v.dart;
-	T previous = scalar_field[Vertex(map.phi2(v.dart))];
-
-	map.foreach_adjacent_vertex_through_edge(v, [&] (Vertex u)
+	// Find a vertex whose scalar field value is distinct from the center
+	do
 	{
-		T current = scalar_field[u];
-		if(current < center && previous > center)
-			++down;
-		if(current > center && previous < center)
-			++up;
-		previous = current;
-	});
+		previous = scalar_field[Vertex(map.phi_1(next))];
+		prev = next;
+		next = map.phi1(map.phi2(next));
+	} while (next != v.dart && previous == center);
 
-	// si on a fait le tour sans aucune variation, c'est un extremum local
-	if(up == 0 && down == 0 && previous > center)
-		return CriticalVertex(CriticalVertexType::MINIMUM);
-
-	if(up == 0 && down == 0 && previous < center)
-		return CriticalVertex(CriticalVertexType::MAXIMUM);
-
-	if(up == 1 && down == 1)
+	if (next == v.dart)
 		return CriticalVertex(CriticalVertexType::REGULAR);
 
+	// Count the variation of the scalar field values around the vertex
+	// i.e. how many times the value becomes greater or lower than the center
+	next = prev;
+	do
+	{
+		T current = scalar_field[Vertex(map.phi2(next))];
+		if(current < center && previous > center)
+			++down;
+		else if(current > center && previous < center)
+			++up;
+		// Skip the vertex whose value is equal to the center
+		// (that alter the detection of variations)
+		if (current != center) previous = current;
+		next = map.phi1(map.phi2(next));
+	} while (next != prev);
+
+	// All values are greater than the center
+	if (up == 0 && down == 0 && previous > center)
+		return CriticalVertex(CriticalVertexType::MINIMUM);
+
+	// All values are lower than the center
+	if (up == 0 && down == 0 && previous < center)
+		return CriticalVertex(CriticalVertexType::MAXIMUM);
+
+	// A unique varation in both direction
+	if (up == 1 && down == 1)
+		return CriticalVertex(CriticalVertexType::REGULAR);
+
+	// More than one varation in both direction
 	if (up == down)
 		return CriticalVertex(CriticalVertexType::SADDLE, up);
 
+	std::cerr << "Warning: UNKNOW Critical Type" << std::endl;
 	return CriticalVertex(CriticalVertexType::UNKNOWN);
 }
 
 template <typename T, typename MAP>
-void extract_feature_points(
+void extract_extrema(
 		MAP& map,
 		const typename MAP::template VertexAttribute<T>& scalar_field,
-		std::vector<typename MAP::Vertex>& vertices)
+		std::vector<typename MAP::Vertex>& extema)
 {
 	map.foreach_cell([&](typename MAP::Vertex v)
 	{
 		CriticalVertex i = critical_vertex_type<T>(map,v,scalar_field);
-		if(i.v_ == CriticalVertexType::MAXIMUM || i.v_ == CriticalVertexType::MINIMUM)
-			vertices.push_back(v);
+		if (i.v_ == CriticalVertexType::MAXIMUM || i.v_ == CriticalVertexType::MINIMUM)
+			extema.push_back(v);
+	});
+}
+
+template <typename T, typename MAP>
+void extract_critical_points(
+		MAP& map,
+		const typename MAP::template VertexAttribute<T>& scalar_field,
+		std::vector<typename MAP::Vertex>& extrema,
+		std::vector<typename MAP::Vertex>& saddles)
+{
+	map.foreach_cell([&](typename MAP::Vertex v)
+	{
+		CriticalVertex i = critical_vertex_type<T>(map,v,scalar_field);
+		if (i.v_ == CriticalVertexType::MAXIMUM || i.v_ == CriticalVertexType::MINIMUM)
+			extrema.push_back(v);
+		else if (i.v_ == CriticalVertexType::SADDLE)
+			saddles.push_back(v);
 	});
 }
 

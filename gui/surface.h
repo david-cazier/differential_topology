@@ -59,7 +59,6 @@
 
 #include <cgogn/differential_topology/reeb_graph.h>
 
-
 template <typename VEC3>
 class Surface
 {
@@ -460,6 +459,12 @@ public:
 			fI[v] = 1 - min_dist[v];
 		});
 
+		// Show the dual of the Voronoi built from the found extrema
+		std::vector<Vertex> vertices_dual;
+		std::vector<Vertex> saddles;
+		cgogn::extract_critical_points<Scalar>(map_, min_dist, vertices_dual, saddles);
+		fp.draw(vertices_dual, vertex_position_, 1.0f, 0.2f, 0.2f, 0.8f);
+		fp.draw(saddles, vertex_position_, 1.0f, 0.8f, 0.2f, 0.6f);
 
 		//2. function perturbation
 
@@ -487,7 +492,6 @@ public:
 
 		cgogn::io::export_vtp<Vec3>(map_, vertex_position_, fI, "test.vtp");
 
-		map_.remove_attribute(weight);
 		map_.remove_attribute(f0);
 		map_.remove_attribute(prev_v0);
 		map_.remove_attribute(f1);
@@ -497,6 +501,7 @@ public:
 		map_.remove_attribute(min_dist);
 		map_.remove_attribute(min_source);
 		map_.remove_attribute(fI);
+		map_.remove_attribute(fpo);
 	}
 
 
@@ -606,6 +611,7 @@ public:
 		map_.remove_attribute(k1);
 		map_.remove_attribute(k2);
 		map_.remove_attribute(kI);
+		map_.remove_attribute(edge_metric_);
 	}
 };
 
