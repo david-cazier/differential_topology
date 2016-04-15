@@ -160,27 +160,35 @@ void Viewer::keyPressEvent(QKeyEvent *ev)
 		case Qt::Key_0:
 		{
 			feature_points_.clear();
+			feature_points_.begin_draw();
 			surface_.height_function(feature_points_);
+			feature_points_.end_draw();
 			break;
 		}
 		case Qt::Key_1:
 		{
 			feature_points_.clear();
+			feature_points_.begin_draw();
 			dglobal_ = Surface<Vec3>::Vertex(cgogn::Dart(1000));
 			surface_.geodesic_distance_function(feature_points_, dglobal_);
 //			reeb_graph_.set(surface_.reeb_graph_, surface_.vertex_position_);
+			feature_points_.end_draw();
 			break;
 		}
 		case Qt::Key_2:
 		{
 			feature_points_.clear();
+			feature_points_.begin_draw();
 			surface_.edge_length_weighted_morse_function(feature_points_);
+			feature_points_.end_draw();
 			break;
 		}
 		case Qt::Key_3:
 		{
 			feature_points_.clear();
+			feature_points_.begin_draw();
 			surface_.curvature_weighted_morse_function(feature_points_);
+			feature_points_.end_draw();
 			break;
 		}
 		default:
