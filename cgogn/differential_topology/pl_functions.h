@@ -7,16 +7,17 @@
 namespace cgogn
 {
 
-//template <typename VEC3_T, typename MAP>
-//inline typename VEC3_T::Scalar edge_length(const MAP& map, typename MAP::Edge e, const typename MAP::template VertexAttribute<VEC3_T>& position)
-//{
-//    using Vertex = typename MAP::Vertex;
+template <typename Scalar, typename MAP>
+struct EquivalenceClass
+{
+	using Vertex = typename MAP::Vertex;
+	using Edge = typename MAP::Edge;
 
-//    VEC3_T vec = position[Vertex(map.phi1(e))];
-//    vec -= position[Vertex(e)];
-//    return vec.norm();
-//}
-
+	Vertex vertex_;
+	Scalar value_;
+	std::vector<Vertex> vertices_;
+	std::vector<Edge> edges_;
+};
 
 enum CriticalVertexType: unsigned int
 {

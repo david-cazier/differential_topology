@@ -79,6 +79,8 @@ public:
 
 	VertexAttribute<Vec3> vertex_position_;
 	VertexAttribute<Vec3> vertex_normal_;
+	VertexAttribute<Scalar> fpo_;
+
 
 	EdgeAttribute<Scalar> edge_metric_;
 
@@ -106,6 +108,7 @@ public:
 		map_(),
 		vertex_position_(),
 		vertex_normal_(),
+		fpo_(),
 		edge_metric_(),
 		bb_(),
 		render_(nullptr),
@@ -376,7 +379,7 @@ public:
 
 		fp.extract(map_, scalar, vertex_position_);
 
-//		reeb_graph_->compute(scalar);
+		reeb_graph_->compute(scalar);
 
 		map_.remove_attribute(scalar);
 	}
@@ -489,17 +492,17 @@ public:
 		});
 
 		std::uint32_t nb_v = map_.nb_cells<Vertex::ORBIT>();
-		VertexAttribute<Scalar> fpo = map_.add_attribute<Scalar, Vertex::ORBIT>("fpo");
+		fpo_ = map_.add_attribute<Scalar, Vertex::ORBIT>("fpo");
 
 		for(unsigned int i = 0 ; i < sorted_v.size() ; ++i)
 		{
 			Vertex vit = sorted_v[i].second;
-			fpo[vit] = cgogn::numerics::float32(i) / cgogn::numerics::float32(nb_v);
+			fpo_[vit] = cgogn::numerics::float64(i) / cgogn::numerics::float64(nb_v);
 		}
 
-		update_color(fpo);
+		update_color(fpo_);
 
-		cgogn::io::export_vtp<Vec3>(map_, vertex_position_, fI, "test.vtp");
+//		cgogn::io::export_vtp<Vec3>(map_, vertex_position_, fI, "test.vtp");
 
 		map_.remove_attribute(f0);
 		map_.remove_attribute(f1);
@@ -507,7 +510,6 @@ public:
 		map_.remove_attribute(min_dist);
 		map_.remove_attribute(min_source);
 		map_.remove_attribute(fI);
-		map_.remove_attribute(fpo);
 	}
 
 

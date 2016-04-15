@@ -29,6 +29,7 @@
 #include <vector>
 #include <algorithm>
 
+#include "directed_graph.h"
 
 namespace cgogn
 {
@@ -107,38 +108,46 @@ void dijkstra_compute_normalized_paths(
 		d = (d - min_d) / (max_d - min_d);
 }
 
-template <typename T, typename MAP>
-Dart argmin(MAP& map,
-			const typename MAP::template VertexAttribute<T>& attribut)
+template <typename Scalar, typename MAP>
+typename MAP::Vertex argmin(
+		const MAP& map,
+		const typename MAP::template VertexAttribute<Scalar>& attribut)
 {
 	using Vertex = typename MAP::Vertex;
 
-	double min = std::numeric_limits<double>::infinity();
-	Dart d_min;
+	Scalar min = std::numeric_limits<Scalar>::infinity();
+	Vertex d_min;
 	map.foreach_cell([&] (Vertex v)
 	{
-		double cur = attribut[v];
+		Scalar cur = attribut[v];
 		if(cur < min)
+		{
 			d_min = v;
+			min = cur;
+		}
 	});
 
 	return d_min;
 }
 
-template <typename T, typename MAP>
-Dart argmin(std::map<unsigned int, Dart> v,
-			const typename MAP::template VertexAttribute<T>& attribut)
+template <typename Scalar, typename MAP>
+typename MAP::Vertex argmin(
+		const std::map<uint32, typename MAP::Vertex> v,
+		const typename MAP::template VertexAttribute<Scalar>& attribut)
 {
 	using Vertex = typename MAP::Vertex;
 
-	double min = std::numeric_limits<double>::infinity();
-	Dart d_min;
-	for(std::map<unsigned int, Dart>::iterator it = v.begin() ; it != v.end() ; ++it)
+	Scalar min = std::numeric_limits<Scalar>::infinity();
+	Vertex d_min;
+
+	for (auto it : v)
 	{
-		Dart v = it->second  ;
-		double cur = attribut[Vertex(v)];
+		Scalar cur = attribut[it.second];
 		if(cur < min)
-			d_min = v;
+		{
+			d_min = it.second;
+			min = cur;
+		}
 	}
 
 	return d_min;
@@ -200,6 +209,78 @@ void dijkstra_compute_shortest_path_to(
 	}
 
 	path.push_back(v);
+}
+
+
+template <typename Scalar, typename  MAP>
+void reeb_graph(
+		MAP& map,
+		const typename MAP::template VertexAttribute<Scalar>& f)
+		//DirectedGraph<DefaultMapTraits>& g)
+{
+	using Vertex = typename MAP::Vertex;
+	using Edge = typename MAP::Edge;
+	using Face = typename MAP::Face;
+
+	typename MAP::template VertexAttribute<uint32> vindices = map.template add_attribute<uint32, Vertex::ORBIT>("indices");
+	uint32 count = 0;
+	map.foreach_cell([&] (Vertex v) { vindices[v] = count++; });
+
+	std::map<uint32,Vertex> min;
+	map.foreach_cell([&] (Vertex v)
+	{
+		Scalar center = f[v];
+		bool is_lower = true;
+		map.foreach_adjacent_vertex_through_edge(v, [&] (Vertex vn)
+		{
+			if(f[vn] < center)
+				is_lower = false;
+		});
+
+		if(is_lower)
+			min.insert(std::pair<uint32,Vertex>(vindices[v], v));
+	});
+
+	Vertex vm = argmin(map, f);
+	min.erase(min.find(vindices[vm]));
+
+	std::map<uint32, Vertex> sub_level_set;
+	std::map<uint32, Vertex> level_set;
+
+	level_set.insert(std::pair<uint32,Vertex>(vindices[vm], vm));
+
+	do
+	{
+		Vertex vt = argmin(level_set, f);
+		Vertex vmin = argmin(min, f);
+
+		if(f[vmin] < f[vt])
+		{
+			vt = vmin;
+			min.erase(min.find(vindices[vmin]));
+			level_set.insert(std::pair<uint32, Vertex>(vindices[vt], vt));
+		}
+
+		// compute discrete contour
+		discrete_contour(vt, level_set);
+
+		//
+
+		level_set.erase(std::pair<uint32, Vertex>(vindices[vt], vt));
+		sub_level_set.insert(std::pair<uint32, Vertex>(vindices[vt], vt));
+
+		Scalar center = f[vt];
+		map.foreach_adjacent_vertex_through_edge(vt, [&] (Vertex vn)
+		{
+			Scalar current = f[vn];
+			if(current > center)
+				level_set.insert(std::pair<uint32, Vertex>(vindices[vn], vn));
+
+		});
+
+
+	}while(!level_set.empty());
+
 }
 
 }
