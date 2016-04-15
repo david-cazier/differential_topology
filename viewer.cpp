@@ -169,7 +169,7 @@ void Viewer::keyPressEvent(QKeyEvent *ev)
 		{
 			feature_points_.clear();
 			feature_points_.begin_draw();
-			surface_.geodesic_distance_function(feature_points_);
+			surface_.geodesic_distance_function(feature_points_,1);
 //			reeb_graph_.set(surface_.reeb_graph_, surface_.vertex_position_);
 			feature_points_.end_draw();
 			break;
@@ -178,11 +178,29 @@ void Viewer::keyPressEvent(QKeyEvent *ev)
 		{
 			feature_points_.clear();
 			feature_points_.begin_draw();
-			surface_.edge_length_weighted_morse_function(feature_points_);
+			surface_.geodesic_distance_function(feature_points_,2);
+//			reeb_graph_.set(surface_.reeb_graph_, surface_.vertex_position_);
 			feature_points_.end_draw();
 			break;
 		}
 		case Qt::Key_3:
+		{
+			feature_points_.clear();
+			feature_points_.begin_draw();
+			surface_.geodesic_distance_function(feature_points_,6);
+//			reeb_graph_.set(surface_.reeb_graph_, surface_.vertex_position_);
+			feature_points_.end_draw();
+			break;
+		}
+		case Qt::Key_4:
+		{
+			feature_points_.clear();
+			feature_points_.begin_draw();
+			surface_.edge_length_weighted_morse_function(feature_points_);
+			feature_points_.end_draw();
+			break;
+		}
+		case Qt::Key_5:
 		{
 			feature_points_.clear();
 			feature_points_.begin_draw();

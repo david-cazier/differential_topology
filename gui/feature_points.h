@@ -98,12 +98,12 @@ public:
 			vertices_f2.pop_back();
 			if (!vertices_f2.empty()) {
 				cgogn::dijkstra_compute_normalized_paths<Scalar>(map, weight, vertices_f2, dist_to_vertex, path_to_vertex);
-				if(dist_to_vertex[v] > Scalar(0.01))
+				if(dist_to_vertex[v] > Scalar(0.05))
 					vertices_f2_not_close.push_back(v);
 			}
 		}
 
-		// Remove from vertices_f2 the vertices that are too close to vertices of vertices_f1
+		// Remove from vertices_f2 the vertices that are too far to vertices of vertices_f1
 		cgogn::dijkstra_compute_normalized_paths<Scalar>(map, weight, vertices_f1, dist_to_vertex, path_to_vertex);
 
 		// search if dist < threshold

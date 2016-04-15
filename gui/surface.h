@@ -381,23 +381,27 @@ public:
 		map_.remove_attribute(scalar);
 	}
 
-	void geodesic_distance_function(FeaturePoints<VEC3>& fp)
+	void geodesic_distance_function(FeaturePoints<VEC3>& fp, int n)
 	{
-
 		VertexAttribute<Scalar> scalar = map_.add_attribute<Scalar, Vertex::ORBIT>("scalar");
-
 		EdgeAttribute<Scalar> weight = map_.add_attribute<Scalar, Edge::ORBIT>("weight");
 		map_.foreach_cell([&](Edge e)
 		{
 			weight[e] = cgogn::geometry::edge_length<Vec3>(map_, e, vertex_position_);
 		});
 
+		std::vector<Vertex> vertices;
+
 		Vertex v0 = central_vertex();
 		Vertex v1 = farthest_extremity({v0}, weight, scalar);
-		Vertex v2 = farthest_extremity({v0, v1}, weight, scalar);
-		Vertex v3 = farthest_extremity({v0, v1, v2}, weight, scalar);
-		cgogn::geodesic_distance_pl_function<Scalar>(map_, v3, weight, scalar);
+		vertices.push_back(v1);
+		while (n>1) {
+			Vertex v = farthest_extremity(vertices, weight, scalar);
+			vertices.push_back(v);
+			--n;
+		}
 
+		cgogn::geodesic_distance_pl_function<Scalar>(map_, vertices, weight, scalar);
 		update_color(scalar);
 
 		fp.extract(map_, scalar, vertex_position_);
