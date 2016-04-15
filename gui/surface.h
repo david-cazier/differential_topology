@@ -343,15 +343,14 @@ public:
 		return min_vertex;
 	}
 
-	Vertex farthest_extremity(Vertex v,
+	Vertex farthest_extremity(std::vector<Vertex> vertices,
 							  const EdgeAttribute<Scalar>& weight,
 							  VertexAttribute<Scalar>& scalar_field)
 	{
-		Vertex extremity = v;
-
 		VertexAttribute<Vertex> path_to_source = map_.add_attribute<Vertex, Vertex::ORBIT>("path_to_source");
-		cgogn::dijkstra_compute_paths<Scalar>(map_, weight, {extremity}, scalar_field, path_to_source);
+		cgogn::dijkstra_compute_paths<Scalar>(map_, weight, vertices, scalar_field, path_to_source);
 
+		Vertex extremity;
 		Scalar max_distance(0);
 		map_.foreach_cell([&](Vertex v)
 		{
@@ -394,9 +393,9 @@ public:
 		});
 
 		Vertex v0 = central_vertex();
-		Vertex v1 = farthest_extremity(v0, weight, scalar);
-		Vertex v2 = farthest_extremity(v1, weight, scalar);
-		Vertex v3 = farthest_extremity(v2, weight, scalar);
+		Vertex v1 = farthest_extremity({v0}, weight, scalar);
+		Vertex v2 = farthest_extremity({v0, v1}, weight, scalar);
+		Vertex v3 = farthest_extremity({v0, v1, v2}, weight, scalar);
 		cgogn::geodesic_distance_pl_function<Scalar>(map_, v3, weight, scalar);
 
 		update_color(scalar);
@@ -436,11 +435,11 @@ public:
 
 		//2. map the vertices to their geodesic distance to v0: find the vertex v1 that maximizes f0
 		VertexAttribute<Scalar> f0 = map_.add_attribute<Scalar, Vertex::ORBIT>("f0");
-		Vertex v1 = farthest_extremity(v0, weight, f0);
+		Vertex v1 = farthest_extremity({v0}, weight, f0);
 
 		//3. map the vertices to their geodesic distance to v1: find the vertex v2  that maximizes f1
 		VertexAttribute<Scalar> f1 = map_.add_attribute<Scalar, Vertex::ORBIT>("f1");
-		Vertex v2 = farthest_extremity(v1, weight, f1);
+		Vertex v2 = farthest_extremity({v1}, weight, f1);
 
 		//4. map the vertices to their geodesic distance to v2
 		VertexAttribute<Scalar> f2 = map_.add_attribute<Scalar, Vertex::ORBIT>("f2");
