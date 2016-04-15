@@ -82,6 +82,8 @@ public:
 
 	EdgeAttribute<Scalar> edge_metric_;
 
+	cgogn::geometry::BoundingBox<Vec3> bb_;
+
 	cgogn::rendering::MapRender* render_;
 
 	cgogn::rendering::VBO* vbo_pos_;
@@ -105,6 +107,7 @@ public:
 		vertex_position_(),
 		vertex_normal_(),
 		edge_metric_(),
+		bb_(),
 		render_(nullptr),
 		vbo_pos_(nullptr),
 		vbo_norm_(nullptr),
@@ -159,7 +162,7 @@ public:
 	}
 
 
-	void init(cgogn::geometry::BoundingBox<Vec3>& bb)
+	void init()
 	{
 		vbo_pos_ = new cgogn::rendering::VBO(3);
 		cgogn::rendering::update_vbo(vertex_position_, *vbo_pos_);
@@ -178,7 +181,7 @@ public:
 		vbo_sphere_sz_ = new cgogn::rendering::VBO(1);
 		cgogn::rendering::update_vbo(vertex_normal_, *vbo_sphere_sz_,[&] (const Vec3& n) -> float
 		{
-			return bb.diag_size()/1000.0 * (1.0 + 2.0*std::abs(n[2]));
+			return bb_.diag_size()/1000.0 * (1.0 + 2.0*std::abs(n[2]));
 		});
 
 		render_ = new cgogn::rendering::MapRender();
@@ -190,7 +193,7 @@ public:
 		shader_point_sprite_->add_vao();
 		shader_point_sprite_->set_vao(0, vbo_pos_,vbo_color_,vbo_sphere_sz_);
 		shader_point_sprite_->bind();
-		shader_point_sprite_->set_size(bb.diag_size()/100.0);
+		shader_point_sprite_->set_size(bb_.diag_size()/100.0);
 		shader_point_sprite_->set_color(QColor(255,0,0));
 		shader_point_sprite_->release();
 
@@ -200,7 +203,6 @@ public:
 		shader_edge_->bind();
 		shader_edge_->set_color(QColor(255,255,0));
 		shader_edge_->release();
-
 
 		shader_flat_ = new cgogn::rendering::ShaderFlat;
 		shader_flat_->add_vao();
@@ -216,18 +218,17 @@ public:
 		shader_normal_->set_vao(0, vbo_pos_, vbo_norm_);
 		shader_normal_->bind();
 		shader_normal_->set_color(QColor(200,0,200));
-		shader_normal_->set_length(bb.diag_size()/50);
+		shader_normal_->set_length(bb_.diag_size()/50);
 		shader_normal_->release();
-
 
 		shader_phong_ = new cgogn::rendering::ShaderPhong(true);
 		shader_phong_->add_vao();
 		shader_phong_->set_vao(0, vbo_pos_, vbo_norm_, vbo_color_);
 		shader_phong_->bind();
-		//	shader_phong_->set_ambiant_color(QColor(5,5,5));
-		//shader_phong_->set_double_side(true);
-		//	shader_phong_->set_specular_color(QColor(255,255,255));
-		//	shader_phong_->set_specular_coef(10.0);
+//		shader_phong_->set_ambiant_color(QColor(5,5,5));
+//		shader_phong_->set_double_side(true);
+//		shader_phong_->set_specular_color(QColor(255,255,255));
+//		shader_phong_->set_specular_coef(10.0);
 		shader_phong_->release();
 	}
 
@@ -248,9 +249,10 @@ public:
 			max = std::max(max, v);
 		}
 
-		cgogn::rendering::update_vbo(scalar, *vbo_color_,[min, max] (const Scalar& n) -> std::array<float,3>
+		cgogn::rendering::update_vbo(scalar, *vbo_color_,
+									 [min, max] (const Scalar& n) -> std::array<float,3>
 		{
-			return cgogn::color_map_blue_green_red(cgogn::numerics::scale_to_0_1(n, min, max));
+			return cgogn::color_map_hash(cgogn::numerics::scale_to_0_1(n, min, max));
 		});
 	}
 
@@ -307,7 +309,7 @@ public:
 		shader_normal_->release();
 	}
 
-	void import(const std::string& filename)
+	cgogn::geometry::BoundingBox<Vec3> import(const std::string& filename)
 	{
 		cgogn::io::import_surface<Vec3>(map_, filename);
 
@@ -315,9 +317,56 @@ public:
 		vertex_normal_ = map_.add_attribute<Vec3, Vertex::ORBIT>("normal");
 
 		cgogn::geometry::compute_normal_vertices<Vec3>(map_, vertex_position_, vertex_normal_);
+		cgogn::geometry::compute_bounding_box(vertex_position_, bb_);
+
+		return bb_;
 	}
 
-	void height_function(FeaturePoints& fp)
+	Vertex central_vertex()
+	{
+		Vec3 barycenter = surface_centroid<Vec3>(map_, vertex_position_);
+
+		Scalar min_distance = std::numeric_limits<Scalar>::max();
+		Vertex min_vertex;
+
+		map_.foreach_cell([&](Vertex v)
+		{
+			Vec3 diffenre = vertex_position_[v] - barycenter;
+			Scalar distance = diffenre.norm();
+
+			if(distance < min_distance)
+			{
+				min_distance = distance;
+				min_vertex = v;
+			}
+		});
+		return min_vertex;
+	}
+
+	Vertex farthest_extremity(std::vector<Vertex> vertices,
+							  const EdgeAttribute<Scalar>& weight,
+							  VertexAttribute<Scalar>& scalar_field)
+	{
+		VertexAttribute<Vertex> path_to_source = map_.add_attribute<Vertex, Vertex::ORBIT>("path_to_source");
+		cgogn::dijkstra_compute_paths<Scalar>(map_, weight, vertices, scalar_field, path_to_source);
+
+		Vertex extremity;
+		Scalar max_distance(0);
+		map_.foreach_cell([&](Vertex v)
+		{
+			Scalar distance = scalar_field[v];
+
+			if(distance > max_distance)
+			{
+				max_distance = distance;
+				extremity = v;
+			}
+		});
+		map_.remove_attribute(path_to_source);
+		return extremity;
+	}
+
+	void height_function(FeaturePoints<VEC3>& fp)
 	{
 		VertexAttribute<Scalar> scalar = map_.add_attribute<Scalar, Vertex::ORBIT>("scalar");
 
@@ -325,34 +374,43 @@ public:
 
 		update_color(scalar);
 
-		fp.extract<Vec3>(map_, scalar, vertex_position_);
+		fp.extract(map_, scalar, vertex_position_);
 
 //		reeb_graph_->compute(scalar);
 
 		map_.remove_attribute(scalar);
 	}
 
-	void geodesic_distance_function(FeaturePoints& fp, Vertex d)
+	void geodesic_distance_function(FeaturePoints<VEC3>& fp, int n)
 	{
 		VertexAttribute<Scalar> scalar = map_.add_attribute<Scalar, Vertex::ORBIT>("scalar");
-
 		EdgeAttribute<Scalar> weight = map_.add_attribute<Scalar, Edge::ORBIT>("weight");
 		map_.foreach_cell([&](Edge e)
 		{
 			weight[e] = cgogn::geometry::edge_length<Vec3>(map_, e, vertex_position_);
 		});
 
-		cgogn::geodesic_distance_pl_function<Scalar>(map_, d, weight, scalar);
+		std::vector<Vertex> vertices;
 
+		Vertex v0 = central_vertex();
+		Vertex v1 = farthest_extremity({v0}, weight, scalar);
+		vertices.push_back(v1);
+		while (n>1) {
+			Vertex v = farthest_extremity(vertices, weight, scalar);
+			vertices.push_back(v);
+			--n;
+		}
+
+		cgogn::geodesic_distance_pl_function<Scalar>(map_, vertices, weight, scalar);
 		update_color(scalar);
 
-		fp.extract<Vec3>(map_, scalar, vertex_position_);
+		fp.extract(map_, scalar, vertex_position_);
 
 		map_.remove_attribute(scalar);
 		map_.remove_attribute(weight);
 	}
 
-	void edge_length_weighted_morse_function(FeaturePoints& fp)
+	void edge_length_weighted_morse_function(FeaturePoints<VEC3>& fp)
 	{
 
 		EdgeAttribute<Scalar> weight = map_.add_attribute<Scalar, Edge::ORBIT>("weight");
@@ -366,7 +424,7 @@ public:
 		map_.remove_attribute(weight);
 	}
 
-	void curvature_weighted_morse_function(FeaturePoints& fp)
+	void curvature_weighted_morse_function(FeaturePoints<VEC3>& fp)
 	{
 		compute_curvature();
 		morse_function(fp, edge_metric_);
@@ -374,76 +432,27 @@ public:
 
 	/********************/
 
-	void morse_function(FeaturePoints& fp, EdgeAttribute<Scalar>& weight)
+	void morse_function(FeaturePoints<VEC3>& fp, EdgeAttribute<Scalar>& weight)
 	{
-		Vec3 barycenter = surface_centroid<Vec3>(map_, vertex_position_);
-
 		//1. compute v0: the vertex whose distance to the barycenter of map is minimal
-		Scalar dist_v0 = std::numeric_limits<Scalar>::max();
-		Vertex v0;
-
-		map_.foreach_cell([&](Vertex v)
-		{
-			Vec3 origin = vertex_position_[v];
-			origin -= barycenter;
-			Scalar dist = origin.norm();
-
-			if(dist < dist_v0)
-			{
-				dist_v0 = dist;
-				v0 = v;
-			}
-		});
+		Vertex v0 = central_vertex();
 
 		//2. map the vertices to their geodesic distance to v0: find the vertex v1 that maximizes f0
 		VertexAttribute<Scalar> f0 = map_.add_attribute<Scalar, Vertex::ORBIT>("f0");
-		VertexAttribute<Vertex> prev_v0 = map_.add_attribute<Vertex, Vertex::ORBIT>("prev_v0");
-		cgogn::dijkstra_compute_paths<Scalar>(map_, weight, {v0}, f0, prev_v0);
-		Scalar dist_v1 = 0.0;
-		Vertex v1;
-		map_.foreach_cell([&](Vertex v)
-		{
-			Scalar dist = f0[v];
-
-			if(dist > dist_v1)
-			{
-				dist_v1 = dist;
-				v1 = v;
-			}
-		});
+		Vertex v1 = farthest_extremity({v0}, weight, f0);
 
 		//3. map the vertices to their geodesic distance to v1: find the vertex v2  that maximizes f1
 		VertexAttribute<Scalar> f1 = map_.add_attribute<Scalar, Vertex::ORBIT>("f1");
-		VertexAttribute<Vertex> prev_v1 = map_.add_attribute<Vertex, Vertex::ORBIT>("prev_v1");
-		cgogn::dijkstra_compute_paths<Scalar>(map_, weight, {v1}, f1, prev_v1);
-		Scalar dist_v2 = 0.0;
-		Vertex v2;
-		map_.foreach_cell([&](Vertex v)
-		{
-			Scalar dist = f1[v];
-
-			if(dist > dist_v2)
-			{
-				dist_v2 = dist;
-				v2 = v;
-			}
-		});
+		Vertex v2 = farthest_extremity({v1}, weight, f1);
 
 		//4. map the vertices to their geodesic distance to v2
 		VertexAttribute<Scalar> f2 = map_.add_attribute<Scalar, Vertex::ORBIT>("f2");
 		VertexAttribute<Vertex> prev_v2 = map_.add_attribute<Vertex, Vertex::ORBIT>("prev_v2");
 		cgogn::dijkstra_compute_paths<Scalar>(map_, weight, {v2}, f2, prev_v2);
-		Scalar dist_v3 = 0.0;
-		map_.foreach_cell([&](Vertex v)
-		{
-			Scalar dist = f2[v];
-
-			if(dist > dist_v3)
-				dist_v3 = dist;
-		});
+		map_.remove_attribute(prev_v2);
 
 		//5 check critical vertices of the intersection of f1 and f2
-		fp.extract_intersection<Vec3>(map_, f1, f2, vertex_position_, weight);
+		fp.extract_intersection(map_, f1, f2, vertex_position_, weight);
 
 
 		//ETape 2:
@@ -493,11 +502,8 @@ public:
 		cgogn::io::export_vtp<Vec3>(map_, vertex_position_, fI, "test.vtp");
 
 		map_.remove_attribute(f0);
-		map_.remove_attribute(prev_v0);
 		map_.remove_attribute(f1);
-		map_.remove_attribute(prev_v1);
 		map_.remove_attribute(f2);
-		map_.remove_attribute(prev_v2);
 		map_.remove_attribute(min_dist);
 		map_.remove_attribute(min_source);
 		map_.remove_attribute(fI);
