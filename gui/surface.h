@@ -107,6 +107,7 @@ public:
 		vertex_position_(),
 		vertex_normal_(),
 		edge_metric_(),
+		bb_(),
 		render_(nullptr),
 		vbo_pos_(nullptr),
 		vbo_norm_(nullptr),
@@ -161,7 +162,7 @@ public:
 	}
 
 
-	void init(void)
+	void init()
 	{
 		vbo_pos_ = new cgogn::rendering::VBO(3);
 		cgogn::rendering::update_vbo(vertex_position_, *vbo_pos_);

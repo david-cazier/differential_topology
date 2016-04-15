@@ -32,6 +32,7 @@ public:
 
 	FeaturePoints(QOpenGLFunctions_3_3_Core* ogl33):
 		drawer_(nullptr),
+		bb_(),
 		ogl33_(ogl33)
 	{}
 
