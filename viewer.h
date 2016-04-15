@@ -61,7 +61,6 @@ public:
 
 private:
 	Surface<Vec3> surface_;
-	Surface<Vec3>::Vertex dglobal_;
 
 	cgogn::geometry::BoundingBox<Vec3> bb_;
 	cgogn::rendering::Drawer* drawer_;

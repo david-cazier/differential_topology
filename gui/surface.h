@@ -322,6 +322,51 @@ public:
 		return bb_;
 	}
 
+	Vertex central_vertex()
+	{
+		Vec3 barycenter = surface_centroid<Vec3>(map_, vertex_position_);
+
+		Scalar min_distance = std::numeric_limits<Scalar>::max();
+		Vertex min_vertex;
+
+		map_.foreach_cell([&](Vertex v)
+		{
+			Vec3 diffenre = vertex_position_[v] - barycenter;
+			Scalar distance = diffenre.norm();
+
+			if(distance < min_distance)
+			{
+				min_distance = distance;
+				min_vertex = v;
+			}
+		});
+		return min_vertex;
+	}
+
+	Vertex farthest_extremity(Vertex v,
+							  const EdgeAttribute<Scalar>& weight,
+							  VertexAttribute<Scalar>& scalar_field)
+	{
+		Vertex extremity = v;
+
+		VertexAttribute<Vertex> path_to_source = map_.add_attribute<Vertex, Vertex::ORBIT>("path_to_source");
+		cgogn::dijkstra_compute_paths<Scalar>(map_, weight, {extremity}, scalar_field, path_to_source);
+
+		Scalar max_distance(0);
+		map_.foreach_cell([&](Vertex v)
+		{
+			Scalar distance = scalar_field[v];
+
+			if(distance > max_distance)
+			{
+				max_distance = distance;
+				extremity = v;
+			}
+		});
+		map_.remove_attribute(path_to_source);
+		return extremity;
+	}
+
 	void height_function(FeaturePoints<VEC3>& fp)
 	{
 		VertexAttribute<Scalar> scalar = map_.add_attribute<Scalar, Vertex::ORBIT>("scalar");
@@ -337,8 +382,9 @@ public:
 		map_.remove_attribute(scalar);
 	}
 
-	void geodesic_distance_function(FeaturePoints<VEC3>& fp, Vertex d)
+	void geodesic_distance_function(FeaturePoints<VEC3>& fp)
 	{
+
 		VertexAttribute<Scalar> scalar = map_.add_attribute<Scalar, Vertex::ORBIT>("scalar");
 
 		EdgeAttribute<Scalar> weight = map_.add_attribute<Scalar, Edge::ORBIT>("weight");
@@ -347,7 +393,11 @@ public:
 			weight[e] = cgogn::geometry::edge_length<Vec3>(map_, e, vertex_position_);
 		});
 
-		cgogn::geodesic_distance_pl_function<Scalar>(map_, d, weight, scalar);
+		Vertex v0 = central_vertex();
+		Vertex v1 = farthest_extremity(v0, weight, scalar);
+		Vertex v2 = farthest_extremity(v1, weight, scalar);
+		Vertex v3 = farthest_extremity(v2, weight, scalar);
+		cgogn::geodesic_distance_pl_function<Scalar>(map_, v3, weight, scalar);
 
 		update_color(scalar);
 
@@ -381,58 +431,16 @@ public:
 
 	void morse_function(FeaturePoints<VEC3>& fp, EdgeAttribute<Scalar>& weight)
 	{
-		Vec3 barycenter = surface_centroid<Vec3>(map_, vertex_position_);
-
 		//1. compute v0: the vertex whose distance to the barycenter of map is minimal
-		Scalar dist_v0 = std::numeric_limits<Scalar>::max();
-		Vertex v0;
-
-		map_.foreach_cell([&](Vertex v)
-		{
-			Vec3 origin = vertex_position_[v];
-			origin -= barycenter;
-			Scalar dist = origin.norm();
-
-			if(dist < dist_v0)
-			{
-				dist_v0 = dist;
-				v0 = v;
-			}
-		});
+		Vertex v0 = central_vertex();
 
 		//2. map the vertices to their geodesic distance to v0: find the vertex v1 that maximizes f0
 		VertexAttribute<Scalar> f0 = map_.add_attribute<Scalar, Vertex::ORBIT>("f0");
-		VertexAttribute<Vertex> prev_v0 = map_.add_attribute<Vertex, Vertex::ORBIT>("prev_v0");
-		cgogn::dijkstra_compute_paths<Scalar>(map_, weight, {v0}, f0, prev_v0);
-		Scalar dist_v1 = 0.0;
-		Vertex v1;
-		map_.foreach_cell([&](Vertex v)
-		{
-			Scalar dist = f0[v];
-
-			if(dist > dist_v1)
-			{
-				dist_v1 = dist;
-				v1 = v;
-			}
-		});
+		Vertex v1 = farthest_extremity(v0, weight, f0);
 
 		//3. map the vertices to their geodesic distance to v1: find the vertex v2  that maximizes f1
 		VertexAttribute<Scalar> f1 = map_.add_attribute<Scalar, Vertex::ORBIT>("f1");
-		VertexAttribute<Vertex> prev_v1 = map_.add_attribute<Vertex, Vertex::ORBIT>("prev_v1");
-		cgogn::dijkstra_compute_paths<Scalar>(map_, weight, {v1}, f1, prev_v1);
-		Scalar dist_v2 = 0.0;
-		Vertex v2;
-		map_.foreach_cell([&](Vertex v)
-		{
-			Scalar dist = f1[v];
-
-			if(dist > dist_v2)
-			{
-				dist_v2 = dist;
-				v2 = v;
-			}
-		});
+		Vertex v2 = farthest_extremity(v1, weight, f1);
 
 		//4. map the vertices to their geodesic distance to v2
 		VertexAttribute<Scalar> f2 = map_.add_attribute<Scalar, Vertex::ORBIT>("f2");
@@ -498,9 +506,7 @@ public:
 		cgogn::io::export_vtp<Vec3>(map_, vertex_position_, fI, "test.vtp");
 
 		map_.remove_attribute(f0);
-		map_.remove_attribute(prev_v0);
 		map_.remove_attribute(f1);
-		map_.remove_attribute(prev_v1);
 		map_.remove_attribute(f2);
 		map_.remove_attribute(prev_v2);
 		map_.remove_attribute(min_dist);
