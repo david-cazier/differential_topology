@@ -181,6 +181,20 @@ void geodesic_distance_pl_function(
 	map.remove_attribute(path_to_source);
 }
 
+template <typename T, typename MAP>
+void normalized_geodesic_distance_pl_function(
+		MAP& map,
+		const std::vector<typename MAP::Vertex> vertices,
+		const typename MAP::template EdgeAttribute<T>& weight,
+		typename MAP::template VertexAttribute<T>& distance_to_source)
+{
+	using Vertex = typename MAP::Vertex;
+	typename MAP::template VertexAttribute<Vertex> path_to_source = map.template add_attribute<Vertex, Vertex::ORBIT>("path_to_source");
+
+	cgogn::dijkstra_compute_normalized_paths<T>(map, weight, vertices, distance_to_source, path_to_source);
+	map.remove_attribute(path_to_source);
+}
+
 }
 
 #endif // DIFFERENTIAL_TOPOLOGY_PL_FUNCTIONS_H

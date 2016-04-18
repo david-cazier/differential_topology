@@ -485,9 +485,10 @@ public:
 
 	void edge_length_weighted_morse_function(FeaturePoints<VEC3>& fp)
 	{
-		EdgeAttribute<Scalar> edge_metric = map_.add_attribute<Scalar, Edge::ORBIT>("edge_metric");
-		compute_length(edge_metric);
-		morse_function(fp,edge_metric);
+		edge_metric_ = map_.add_attribute<Scalar, Edge::ORBIT>("edge_metric");
+		compute_length(edge_metric_);
+		morse_function(fp,edge_metric_);
+		map_.remove_attribute(edge_metric_);
 	}
 
 	void curvature_weighted_morse_function(FeaturePoints<VEC3>& fp)
@@ -500,33 +501,32 @@ public:
 
 	/********************/
 
-	void morse_function(FeaturePoints<VEC3>& fp, EdgeAttribute<Scalar>& weight)
+	void morse_function(FeaturePoints<VEC3>& fp, EdgeAttribute<Scalar>& edge_metric)
 	{
 		//1. compute v0: the vertex whose distance to the barycenter of map is minimal
 		Vertex v0 = central_vertex();
 
 		//2. map the vertices to their geodesic distance to v0: find the vertex v1 that maximizes f0
 		VertexAttribute<Scalar> f0 = map_.add_attribute<Scalar, Vertex::ORBIT>("f0");
-		Vertex v1 = farthest_extremity({v0}, weight, f0);
+		Vertex v1 = farthest_extremity({v0}, edge_metric, f0);
 
 		//3. map the vertices to their geodesic distance to v1: find the vertex v2  that maximizes f1
 		VertexAttribute<Scalar> f1 = map_.add_attribute<Scalar, Vertex::ORBIT>("f1");
-		Vertex v2 = farthest_extremity({v1}, weight, f1);
+		Vertex v2 = farthest_extremity({v1}, edge_metric, f1);
 
 		//4. map the vertices to their geodesic distance to v2
 		VertexAttribute<Scalar> f2 = map_.add_attribute<Scalar, Vertex::ORBIT>("f2");
-		cgogn::geodesic_distance_pl_function<Scalar>(map_, {v2}, weight, f2);
+		cgogn::geodesic_distance_pl_function<Scalar>(map_, {v2}, edge_metric, f2);
 
 		//5 check critical vertices of the intersection of f1 and f2
-		fp.extract_intersection(map_, f1, f2, vertex_position_, weight);
+		fp.extract_intersection(map_, f1, f2, vertex_position_, edge_metric);
 
 
 		//ETape 2:
 
 		//1 initial function with Feature vertices as seeds
 		VertexAttribute<Scalar> min_dist = map_.add_attribute<Scalar, Vertex::ORBIT>("min_dist");
-		VertexAttribute<Vertex> min_source = map_.add_attribute<Vertex, Vertex::ORBIT>("min_source");
-		cgogn::dijkstra_compute_normalized_paths<Scalar>(map_, weight, fp.vertices_, min_dist, min_source);
+		cgogn::normalized_geodesic_distance_pl_function<Scalar>(map_, fp.vertices_, edge_metric, min_dist);
 
 		VertexAttribute<Scalar> fI = map_.add_attribute<Scalar, Vertex::ORBIT>("fI");
 		map_.foreach_cell([&] (Vertex v)
@@ -539,7 +539,8 @@ public:
 		std::vector<Vertex> minima;
 		std::vector<Vertex> saddles;
 		cgogn::extract_critical_points<Scalar>(map_, min_dist, vertices_dual, minima, saddles);
-		fp.draw(vertices_dual, vertex_position_, 1.0f, 0.2f, 0.2f, 0.8f);
+		fp.draw(minima, vertex_position_, 1.0f, 1.0f, 1.0f, 1.0f);
+		fp.draw(vertices_dual, vertex_position_, 0.8f, 0.2f, 0.2f, 0.8f);
 		fp.draw(saddles, vertex_position_, 1.0f, 0.8f, 0.2f, 0.6f);
 
 		//2. function perturbation
@@ -572,8 +573,8 @@ public:
 		map_.remove_attribute(f1);
 		map_.remove_attribute(f2);
 		map_.remove_attribute(min_dist);
-		map_.remove_attribute(min_source);
 		map_.remove_attribute(fI);
+		map_.remove_attribute(fpo_);
 	}
 
 	void compute_length(EdgeAttribute<Scalar>& length)
