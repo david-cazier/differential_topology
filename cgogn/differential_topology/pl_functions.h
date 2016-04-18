@@ -104,6 +104,20 @@ CriticalVertex critical_vertex_type(
 }
 
 template <typename T, typename MAP>
+void extract_maxima(
+		MAP& map,
+		const typename MAP::template VertexAttribute<T>& scalar_field,
+		std::vector<typename MAP::Vertex>& maxima)
+{
+	map.foreach_cell([&](typename MAP::Vertex v)
+	{
+		CriticalVertex i = critical_vertex_type<T>(map,v,scalar_field);
+		if (i.v_ == CriticalVertexType::MAXIMUM)
+			maxima.push_back(v);
+	});
+}
+
+template <typename T, typename MAP>
 void extract_extrema(
 		MAP& map,
 		const typename MAP::template VertexAttribute<T>& scalar_field,
@@ -121,14 +135,17 @@ template <typename T, typename MAP>
 void extract_critical_points(
 		MAP& map,
 		const typename MAP::template VertexAttribute<T>& scalar_field,
-		std::vector<typename MAP::Vertex>& extrema,
+		std::vector<typename MAP::Vertex>& maxima,
+		std::vector<typename MAP::Vertex>& minima,
 		std::vector<typename MAP::Vertex>& saddles)
 {
 	map.foreach_cell([&](typename MAP::Vertex v)
 	{
 		CriticalVertex i = critical_vertex_type<T>(map,v,scalar_field);
-		if (i.v_ == CriticalVertexType::MAXIMUM || i.v_ == CriticalVertexType::MINIMUM)
-			extrema.push_back(v);
+		if (i.v_ == CriticalVertexType::MAXIMUM)
+			maxima.push_back(v);
+		if (i.v_ == CriticalVertexType::MINIMUM)
+			minima.push_back(v);
 		else if (i.v_ == CriticalVertexType::SADDLE)
 			saddles.push_back(v);
 	});

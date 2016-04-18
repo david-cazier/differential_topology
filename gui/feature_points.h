@@ -66,9 +66,11 @@ public:
 				 CMap2::VertexAttribute<Scalar> scalar,
 				 CMap2::VertexAttribute<Vec3> position)
 	{
+		std::vector<Vertex> minima;
 		std::vector<Vertex> saddles;
-		cgogn::extract_critical_points<Scalar>(map, scalar, vertices_, saddles);
-		this->draw(vertices_, position, 1.0f, 1.0f, 1.0f, 1.0f);
+		cgogn::extract_critical_points<Scalar>(map, scalar, vertices_, minima, saddles);
+		this->draw(minima, position, 1.0f, 1.0f, 1.0f, 1.0f);
+		this->draw(vertices_, position, 0.8f, 0.2f, 0.2f, 0.8f);
 		this->draw(saddles, position, 1.0f, 0.8f, 0.2f, 0.6f);
 	}
 

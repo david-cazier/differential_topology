@@ -346,26 +346,34 @@ public:
 		return min_vertex;
 	}
 
-	Vertex farthest_extremity(std::vector<Vertex> vertices,
-							  const EdgeAttribute<Scalar>& weight,
+	Vertex find_source(Vertex v,
+					   VertexAttribute<Scalar>& scalar_field,
+					   VertexAttribute<Vertex>& path_to_source)
+	{
+		Vertex u = v;
+		while (scalar_field[u] > Scalar(0)) {
+			u = path_to_source[u];
+		}
+		return u;
+	}
+
+	Vertex farthest_extremity(const std::vector<Vertex> vertices,
+							  const EdgeAttribute<Scalar>& edge_metric,
 							  VertexAttribute<Scalar>& scalar_field)
 	{
-		VertexAttribute<Vertex> path_to_source = map_.add_attribute<Vertex, Vertex::ORBIT>("path_to_source");
-		cgogn::dijkstra_compute_paths<Scalar>(map_, weight, vertices, scalar_field, path_to_source);
+		cgogn::geodesic_distance_pl_function<Scalar>(map_, vertices, edge_metric, scalar_field);
 
-		Vertex extremity;
-		Scalar max_distance(0);
+		Scalar max_distance = Scalar(0);
+		Vertex extremity = vertices[0];
 		map_.foreach_cell([&](Vertex v)
 		{
 			Scalar distance = scalar_field[v];
-
-			if(distance > max_distance)
-			{
+			if(distance > max_distance) {
 				max_distance = distance;
 				extremity = v;
 			}
 		});
-		map_.remove_attribute(path_to_source);
+
 		return extremity;
 	}
 
@@ -379,58 +387,115 @@ public:
 
 		fp.extract(map_, scalar, vertex_position_);
 
-		reeb_graph_->compute(scalar);
+//		reeb_graph_->compute(scalar);
 
 		map_.remove_attribute(scalar);
 	}
 
-	void geodesic_distance_function(FeaturePoints<VEC3>& fp, int n)
+	// @param n the number of desired features (0: automatic heuristic)
+	void geodesic_distance_function(VertexAttribute<Scalar>& scalar_field,
+									EdgeAttribute<Scalar>& edge_metric,
+									int n)
 	{
-		VertexAttribute<Scalar> scalar = map_.add_attribute<Scalar, Vertex::ORBIT>("scalar");
-		EdgeAttribute<Scalar> weight = map_.add_attribute<Scalar, Edge::ORBIT>("weight");
-		map_.foreach_cell([&](Edge e)
-		{
-			weight[e] = cgogn::geometry::edge_length<Vec3>(map_, e, vertex_position_);
-		});
-
 		std::vector<Vertex> vertices;
 
+		// Recherche d'un premier sommet
 		Vertex v0 = central_vertex();
-		Vertex v1 = farthest_extremity({v0}, weight, scalar);
-		vertices.push_back(v1);
-		while (n>1) {
-			Vertex v = farthest_extremity(vertices, weight, scalar);
-			vertices.push_back(v);
-			--n;
+		vertices.push_back(v0);
+
+		if (n == 1) {
+			cgogn::geodesic_distance_pl_function<Scalar>(map_, vertices, edge_metric, scalar_field);
+			return;
 		}
 
-		cgogn::geodesic_distance_pl_function<Scalar>(map_, vertices, weight, scalar);
-		update_color(scalar);
+		// Recherche d'un diametre maximal
+		std::cout << "Recherche diametre maximal: ";
+		vertices.push_back(v0);
+		Scalar actual_distance = Scalar(0);
+		Scalar max_distance = Scalar(-1);
+		while (max_distance < actual_distance) {
+			vertices.erase(vertices.begin());
+			max_distance = actual_distance;
+			Vertex v = farthest_extremity(vertices, edge_metric, scalar_field);
+			vertices.push_back(v);
+			actual_distance = scalar_field[v];
+			std::cout << ".";
+		}
+		std::cout << " " << max_distance << std::endl;
 
-		fp.extract(map_, scalar, vertex_position_);
+		// Recherche d'un ensemble d'extremas pertinents
+		// (tels que la distance maximale entre ces extremas soit < 2*max_distance/5
+		// et tels que la suppression de l'un deux invalide la condition)
+		std::cout << "Extrema: " << max_distance << " ";
+		actual_distance = max_distance;
+		Scalar target_distance = Scalar(2)*max_distance/Scalar(5);
+		int i = 2;
+		while ( (i < n) || (n == 0 && target_distance < actual_distance) ) {
+			++i;
+			Vertex v = farthest_extremity(vertices, edge_metric, scalar_field);
+			vertices.push_back(v);
+			actual_distance = scalar_field[v];
+			std::cout << scalar_field[v] << " ";
+		}
+		std::cout << std::endl;
 
-		map_.remove_attribute(scalar);
-		map_.remove_attribute(weight);
+		// Optimisation de l'ensemble d'extrema
+		std::cout << "Optimisation des distances: " << std::endl;
+		size_t l = vertices.size();
+		for (int i=0; i<l; ++i) {
+			vertices.erase(vertices.begin());
+			Vertex v = farthest_extremity(vertices, edge_metric, scalar_field);
+			vertices.push_back(v);
+			std::cout << ".";
+		}
+		std::cout << " done" << std::endl;
+
+		cgogn::geodesic_distance_pl_function<Scalar>(map_, vertices, edge_metric, scalar_field);
+	}
+
+	void edge_length_morse_function(FeaturePoints<VEC3>& fp, int n)
+	{
+		VertexAttribute<Scalar> scalar_field = map_.add_attribute<Scalar, Vertex::ORBIT>("scalar_field");
+		EdgeAttribute<Scalar> edge_metric = map_.add_attribute<Scalar, Edge::ORBIT>("edge_metric");
+
+		compute_length(edge_metric);
+		geodesic_distance_function(scalar_field,edge_metric,n);
+
+		update_color(scalar_field);
+		fp.extract(map_, scalar_field, vertex_position_);
+
+		map_.remove_attribute(scalar_field);
+		map_.remove_attribute(edge_metric);
+	}
+
+	void edge_curvature_morse_function(FeaturePoints<VEC3>& fp, int n)
+	{
+		VertexAttribute<Scalar> scalar_field = map_.add_attribute<Scalar, Vertex::ORBIT>("scalar_field");
+		EdgeAttribute<Scalar> edge_metric = map_.add_attribute<Scalar, Edge::ORBIT>("edge_metric");
+
+		compute_curvature(edge_metric);
+		geodesic_distance_function(scalar_field,edge_metric,n);
+
+		update_color(scalar_field);
+		fp.extract(map_, scalar_field, vertex_position_);
+
+		map_.remove_attribute(scalar_field);
+		map_.remove_attribute(edge_metric);
 	}
 
 	void edge_length_weighted_morse_function(FeaturePoints<VEC3>& fp)
 	{
-
-		EdgeAttribute<Scalar> weight = map_.add_attribute<Scalar, Edge::ORBIT>("weight");
-		map_.foreach_cell([&](Edge e)
-		{
-			weight[e] = cgogn::geometry::edge_length<Vec3>(map_, e, vertex_position_);
-		});
-
-		morse_function(fp,weight);
-
-		map_.remove_attribute(weight);
+		EdgeAttribute<Scalar> edge_metric = map_.add_attribute<Scalar, Edge::ORBIT>("edge_metric");
+		compute_length(edge_metric);
+		morse_function(fp,edge_metric);
 	}
 
 	void curvature_weighted_morse_function(FeaturePoints<VEC3>& fp)
 	{
-		compute_curvature();
+		edge_metric_ = map_.add_attribute<Scalar, Edge::ORBIT>("edge_metric");
+		compute_curvature(edge_metric_);
 		morse_function(fp, edge_metric_);
+		map_.remove_attribute(edge_metric_);
 	}
 
 	/********************/
@@ -450,9 +515,7 @@ public:
 
 		//4. map the vertices to their geodesic distance to v2
 		VertexAttribute<Scalar> f2 = map_.add_attribute<Scalar, Vertex::ORBIT>("f2");
-		VertexAttribute<Vertex> prev_v2 = map_.add_attribute<Vertex, Vertex::ORBIT>("prev_v2");
-		cgogn::dijkstra_compute_paths<Scalar>(map_, weight, {v2}, f2, prev_v2);
-		map_.remove_attribute(prev_v2);
+		cgogn::geodesic_distance_pl_function<Scalar>(map_, {v2}, weight, f2);
 
 		//5 check critical vertices of the intersection of f1 and f2
 		fp.extract_intersection(map_, f1, f2, vertex_position_, weight);
@@ -473,8 +536,9 @@ public:
 
 		// Show the dual of the Voronoi built from the found extrema
 		std::vector<Vertex> vertices_dual;
+		std::vector<Vertex> minima;
 		std::vector<Vertex> saddles;
-		cgogn::extract_critical_points<Scalar>(map_, min_dist, vertices_dual, saddles);
+		cgogn::extract_critical_points<Scalar>(map_, min_dist, vertices_dual, minima, saddles);
 		fp.draw(vertices_dual, vertex_position_, 1.0f, 0.2f, 0.2f, 0.8f);
 		fp.draw(saddles, vertex_position_, 1.0f, 0.8f, 0.2f, 0.6f);
 
@@ -512,9 +576,17 @@ public:
 		map_.remove_attribute(fI);
 	}
 
-
-	void compute_curvature()
+	void compute_length(EdgeAttribute<Scalar>& length)
 	{
+		map_.foreach_cell([&](Edge e)
+		{
+			length[e] = cgogn::geometry::edge_length<Vec3>(map_, e, vertex_position_);
+		});
+	}
+
+	void compute_curvature(EdgeAttribute<Scalar>& edge_metric)
+	{
+		EdgeAttribute<Scalar> length = map_.add_attribute<Scalar, Edge::ORBIT>("lenght");
 		EdgeAttribute<Scalar> edgeangle = map_.add_attribute<Scalar, Edge::ORBIT>("edgeangle");
 		EdgeAttribute<Scalar> edgeaera = map_.add_attribute<Scalar, Edge::ORBIT>("edgeaera");
 
@@ -524,6 +596,7 @@ public:
 		VertexAttribute<Vec3> Kmin = map_.add_attribute<Vec3, Vertex::ORBIT>("Kmin");
 		VertexAttribute<Vec3> knormal = map_.add_attribute<Vec3, Vertex::ORBIT>("knormal");
 
+		compute_length(length);
 
 		cgogn::geometry::angle_between_face_normals<Vec3>(map_, vertex_position_, edgeangle);
 		cgogn::geometry::incident_faces_area<Vec3>(map_, vertex_position_, edgeaera);
@@ -586,14 +659,12 @@ public:
 
 		map_.foreach_cell([&](Edge e)
 		{
-			avg_e = cgogn::geometry::edge_length<Vec3>(map_,e,vertex_position_);
+			avg_e = length[e];
 			avg_ki = kI[Vertex(e.dart)] + kI[Vertex(map_.phi1(e.dart))];
 			++nbe;
 		});
 		avg_e /= nbe;
 		avg_ki /= nbe;
-
-		edge_metric_ = map_.add_attribute<Scalar, Edge::ORBIT>("edge_metric");
 
 		map_.foreach_cell([&](Edge e)
 		{
@@ -603,9 +674,10 @@ public:
 			if(kI[Vertex(e.dart)] < 0.0 && kI[Vertex(map_.phi1(e.dart))] < 0.0)
 				w = 0.05;
 
-			edge_metric_[e] = (cgogn::geometry::edge_length<Vec3>(map_,e,vertex_position_) / avg_e) + (w * (diffKI / avg_ki));
+			edge_metric[e] = (length[e] / avg_e) + (w * (diffKI / avg_ki));
 		});
 
+		map_.remove_attribute(length);
 		map_.remove_attribute(edgeangle);
 		map_.remove_attribute(edgeaera);
 		map_.remove_attribute(kmax);
@@ -619,7 +691,6 @@ public:
 		map_.remove_attribute(k1);
 		map_.remove_attribute(k2);
 		map_.remove_attribute(kI);
-		map_.remove_attribute(edge_metric_);
 	}
 };
 

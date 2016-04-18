@@ -34,45 +34,45 @@
 namespace cgogn
 {
 
-template <typename T, typename MAP>
+template <typename Scalar, typename MAP>
 void dijkstra_compute_paths(
 		MAP& map,
-		const typename MAP::template EdgeAttribute<T>& weight,
+		const typename MAP::template EdgeAttribute<Scalar>& weight,
 		const std::vector<typename MAP::Vertex> sources,
-		typename MAP::template VertexAttribute<T>& distance_to_source,
+		typename MAP::template VertexAttribute<Scalar>& distance_to_source,
 		typename MAP::template VertexAttribute<typename MAP::Vertex>& path_to_source)
 {
 	using Vertex = typename MAP::Vertex;
 	using Edge = typename MAP::Edge;
 
 	for(auto& d : distance_to_source)
-		d = std::numeric_limits<T>::max();
+		d = std::numeric_limits<Scalar>::max();
 
 	for(auto& p : path_to_source)
 		p = Vertex();
 
-	using my_pair = std::pair<T, unsigned int>;
+	using my_pair = std::pair<Scalar, unsigned int>;
 	using my_queue = std::priority_queue<my_pair, std::vector<my_pair>, std::greater<my_pair> >;
 
 	my_queue vertex_queue;
 
 	for(auto& source : sources)
 	{
-		vertex_queue.push(std::make_pair(T(0), source.dart.index));
-		distance_to_source[source] = T(0);
+		vertex_queue.push(std::make_pair(Scalar(0), source.dart.index));
+		distance_to_source[source] = Scalar(0);
 		path_to_source[source] = source;
 	}
 
 	while(!vertex_queue.empty())
 	{
-		T dist = vertex_queue.top().first;
+		Scalar dist = vertex_queue.top().first;
 		Vertex u = Vertex(Dart(vertex_queue.top().second));
 
 		vertex_queue.pop();
 
 		map.foreach_adjacent_vertex_through_edge(u, [&](Vertex v)
 		{
-			T distance_through_u = dist + weight[Edge(v.dart)];
+			Scalar distance_through_u = dist + weight[Edge(v.dart)];
 			if(distance_through_u < distance_to_source[v])
 			{
 				vertex_queue.push(std::make_pair(distance_through_u, v.dart.index));
