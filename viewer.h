@@ -54,7 +54,8 @@ public:
 	virtual void draw();
 	virtual void init();
 
-	virtual void keyPressEvent(QKeyEvent *);
+	virtual void keyPressEvent(QKeyEvent *e);
+	virtual void mousePressEvent(QMouseEvent* e);
 	virtual void closeEvent(QCloseEvent *e);
 
 	void import(const std::string& surfaceMesh);
@@ -64,6 +65,8 @@ private:
 
 	cgogn::geometry::BoundingBox<Vec3> bb_;
 	cgogn::rendering::Drawer* drawer_;
+
+	std::vector<Surface<Vec3>::Vertex> selected_vertices_;
 
 	FeaturePoints<Vec3> feature_points_;
 	Graph reeb_graph_;

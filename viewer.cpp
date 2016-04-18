@@ -23,6 +23,8 @@
 
 #include "viewer.h"
 
+#include <cgogn/geometry/algos/picking.h>
+
 Viewer::Viewer() :
 	surface_(),
 	bb_(),
@@ -74,8 +76,8 @@ void Viewer::draw()
 	if (surface_edge_rendering_)
 		surface_.draw_edges(proj,view);
 
-//	if(graph_edges_rendering_)
-//		reeb_graph_.draw(proj,view);
+	//	if(graph_edges_rendering_)
+	//		reeb_graph_.draw(proj,view);
 
 	glDisable(GL_BLEND);
 
@@ -95,41 +97,65 @@ void Viewer::init()
 
 	surface_.init();
 	feature_points_.init(bb_);
-//	reeb_graph_.init();
+	//	reeb_graph_.init();
 
 	// drawer for simple old-school g1 rendering
 	drawer_ = new cgogn::rendering::Drawer(this);
-//	drawer_->new_list();
-//	drawer_->line_width_aa(2.0);
-//	drawer_->begin(GL_LINE_LOOP);
-//	drawer_->color3f(1.0,1.0,1.0);
-//	drawer_->vertex3f(bb_.min()[0],bb_.min()[1],bb_.min()[2]);
-//	drawer_->vertex3f(bb_.max()[0],bb_.min()[1],bb_.min()[2]);
-//	drawer_->vertex3f(bb_.max()[0],bb_.max()[1],bb_.min()[2]);
-//	drawer_->vertex3f(bb_.min()[0],bb_.max()[1],bb_.min()[2]);
-//	drawer_->vertex3f(bb_.min()[0],bb_.max()[1],bb_.max()[2]);
-//	drawer_->vertex3f(bb_.max()[0],bb_.max()[1],bb_.max()[2]);
-//	drawer_->vertex3f(bb_.max()[0],bb_.min()[1],bb_.max()[2]);
-//	drawer_->vertex3f(bb_.min()[0],bb_.min()[1],bb_.max()[2]);
-//	drawer_->end();
-//	drawer_->begin(GL_LINES);
-//	drawer_->color3f(1.0,1.0,1.0);
-//	drawer_->vertex3f(bb_.min()[0],bb_.min()[1],bb_.min()[2]);
-//	drawer_->vertex3f(bb_.min()[0],bb_.max()[1],bb_.min()[2]);
-//	drawer_->vertex3f(bb_.min()[0],bb_.min()[1],bb_.max()[2]);
-//	drawer_->vertex3f(bb_.min()[0],bb_.max()[1],bb_.max()[2]);
-//	drawer_->vertex3f(bb_.max()[0],bb_.min()[1],bb_.min()[2]);
-//	drawer_->vertex3f(bb_.max()[0],bb_.min()[1],bb_.max()[2]);
-//	drawer_->vertex3f(bb_.max()[0],bb_.max()[1],bb_.min()[2]);
-//	drawer_->vertex3f(bb_.max()[0],bb_.max()[1],bb_.max()[2]);
-//	drawer_->end();
-//	drawer_->end_list();
+	//	drawer_->new_list();
+	//	drawer_->line_width_aa(2.0);
+	//	drawer_->begin(GL_LINE_LOOP);
+	//	drawer_->color3f(1.0,1.0,1.0);
+	//	drawer_->vertex3f(bb_.min()[0],bb_.min()[1],bb_.min()[2]);
+	//	drawer_->vertex3f(bb_.max()[0],bb_.min()[1],bb_.min()[2]);
+	//	drawer_->vertex3f(bb_.max()[0],bb_.max()[1],bb_.min()[2]);
+	//	drawer_->vertex3f(bb_.min()[0],bb_.max()[1],bb_.min()[2]);
+	//	drawer_->vertex3f(bb_.min()[0],bb_.max()[1],bb_.max()[2]);
+	//	drawer_->vertex3f(bb_.max()[0],bb_.max()[1],bb_.max()[2]);
+	//	drawer_->vertex3f(bb_.max()[0],bb_.min()[1],bb_.max()[2]);
+	//	drawer_->vertex3f(bb_.min()[0],bb_.min()[1],bb_.max()[2]);
+	//	drawer_->end();
+	//	drawer_->begin(GL_LINES);
+	//	drawer_->color3f(1.0,1.0,1.0);
+	//	drawer_->vertex3f(bb_.min()[0],bb_.min()[1],bb_.min()[2]);
+	//	drawer_->vertex3f(bb_.min()[0],bb_.max()[1],bb_.min()[2]);
+	//	drawer_->vertex3f(bb_.min()[0],bb_.min()[1],bb_.max()[2]);
+	//	drawer_->vertex3f(bb_.min()[0],bb_.max()[1],bb_.max()[2]);
+	//	drawer_->vertex3f(bb_.max()[0],bb_.min()[1],bb_.min()[2]);
+	//	drawer_->vertex3f(bb_.max()[0],bb_.min()[1],bb_.max()[2]);
+	//	drawer_->vertex3f(bb_.max()[0],bb_.max()[1],bb_.min()[2]);
+	//	drawer_->vertex3f(bb_.max()[0],bb_.max()[1],bb_.max()[2]);
+	//	drawer_->end();
+	//	drawer_->end_list();
 
 }
 
-void Viewer::keyPressEvent(QKeyEvent *ev)
+void Viewer::mousePressEvent(QMouseEvent* e)
 {
-	switch (ev->key()) {
+	if (e->modifiers() & Qt::ShiftModifier)
+	{
+		qoglviewer::Vec P;
+		qoglviewer::Vec Q;
+
+		P = camera()->unprojectedCoordinatesOf(qoglviewer::Vec(e->x(),e->y(),0.0));
+		Q = camera()->unprojectedCoordinatesOf(qoglviewer::Vec(e->x(),e->y(),1.0));
+
+
+		Vec3 A(P[0],P[1],P[2]);
+		Vec3 B(Q[0],Q[1],Q[2]);
+
+		cgogn::geometry::picking_vertices<Vec3>(surface_.map_,surface_.vertex_position_,A,B,selected_vertices_);
+		std::cout << "Selected vertices: "<< selected_vertices_.size() << std::endl;
+
+		if(surface_.fpo_.is_valid())
+			std::cout << surface_.fpo_[selected_vertices_.front()] << std::endl;
+
+	}
+	QOGLViewer::mousePressEvent(e);
+}
+
+void Viewer::keyPressEvent(QKeyEvent *e)
+{
+	switch (e->key()) {
 		case Qt::Key_S:
 			surface_rendering_ = !surface_rendering_;
 			break;
@@ -170,7 +196,7 @@ void Viewer::keyPressEvent(QKeyEvent *ev)
 			feature_points_.clear();
 			feature_points_.begin_draw();
 			surface_.geodesic_distance_function(feature_points_,1);
-//			reeb_graph_.set(surface_.reeb_graph_, surface_.vertex_position_);
+			//			reeb_graph_.set(surface_.reeb_graph_, surface_.vertex_position_);
 			feature_points_.end_draw();
 			break;
 		}
@@ -179,7 +205,7 @@ void Viewer::keyPressEvent(QKeyEvent *ev)
 			feature_points_.clear();
 			feature_points_.begin_draw();
 			surface_.geodesic_distance_function(feature_points_,2);
-//			reeb_graph_.set(surface_.reeb_graph_, surface_.vertex_position_);
+			//			reeb_graph_.set(surface_.reeb_graph_, surface_.vertex_position_);
 			feature_points_.end_draw();
 			break;
 		}
@@ -188,7 +214,7 @@ void Viewer::keyPressEvent(QKeyEvent *ev)
 			feature_points_.clear();
 			feature_points_.begin_draw();
 			surface_.geodesic_distance_function(feature_points_,6);
-//			reeb_graph_.set(surface_.reeb_graph_, surface_.vertex_position_);
+			//			reeb_graph_.set(surface_.reeb_graph_, surface_.vertex_position_);
 			feature_points_.end_draw();
 			break;
 		}
@@ -212,161 +238,227 @@ void Viewer::keyPressEvent(QKeyEvent *ev)
 		{
 			using namespace cgogn;
 			drawer_->new_list();
+
 			using Vertex = typename Surface<Vec3>::Vertex;
 			using Edge = typename Surface<Vec3>::Edge;
+			using Face = typename Surface<Vec3>::Face;
 			using uint32 = numerics::uint32;
 
-			typename Surface<Vec3>::template VertexAttribute<uint32> vindices = surface_.map_.template add_attribute<uint32, Vertex::ORBIT>("indices");
-			uint32 count = 0;
-			surface_.map_.foreach_cell([&] (Vertex v) { vindices[v] = count++; });
+			//			typename Surface<Vec3>::template VertexAttribute<uint32> vindices = surface_.map_.template add_attribute<uint32, Vertex::ORBIT>("indices");
+			//			uint32 count = 0;
+			//			surface_.map_.foreach_cell([&] (Vertex v) { vindices[v] = count++; });
 
-			std::map<uint32,Vertex> min;
+			//			std::map<uint32,Vertex> min;
+			std::vector<Vertex> tab_vertices;
 			surface_.map_.foreach_cell([&] (Vertex v)
 			{
 				if(cgogn::critical_vertex_type<Vec3::Scalar>(surface_.map_, v, surface_.fpo_).v_ == cgogn::CriticalVertexType::SADDLE)
-					min.insert(std::pair<uint32,Vertex>(vindices[v], v));
+				{
+					//					min.insert(std::pair<uint32,Vertex>(vindices[v], v));
+					tab_vertices.push_back(v);
+				}
 			});
 
-			Vertex v = cgogn::argmin<Vec3::Scalar>(surface_.map_, surface_.fpo_);
+			//			//			for(auto min_it : min)
+			//			//			{
 
-			std::vector<Vertex> border_vertices;
-			std::vector<Edge> border_edges;
-			std::vector<Vertex> inside_vertices;
+			//			Vertex v = cgogn::argmin<Vec3::Scalar, typename Surface<Vec3>::CMap2>(min, surface_.fpo_);
 
-			//mark the visited inside-vertices
-			CellMarker<Surface<Vec3>::CMap2, Vertex::ORBIT> vm(surface_.map_);
+			if(selected_vertices_.empty())
+				break;
+			Vertex v = selected_vertices_.front();
 
-			inside_vertices.push_back(v);
-			uint32 i = 0;
-			while(i < inside_vertices.size())
+			//			for(auto v : tab_vertices)
 			{
-				Vertex end = inside_vertices[i];
 
-				Dart e = end.dart;
-				do
+				const Scalar v_value = surface_.fpo_[v];
+
+
+				// 1 . sub-level set
+				//
+
+				std::vector<Vertex> inside_vertices;
+				std::vector<Face> inside_faces;
+				CellMarker<Surface<Vec3>::CMap2, Vertex::ORBIT> vm(surface_.map_);
+				CellMarker<Surface<Vec3>::CMap2, Face::ORBIT> fm(surface_.map_);
+
+				inside_vertices.push_back(v);
+				//			vm.mark(v);
+
+				for(uint32 i = 0 ; i < inside_vertices.size() ; ++i)
 				{
-					const Dart f = surface_.map_.phi1(e);
+					Vertex end = inside_vertices[i];
 
-					if(surface_.fpo_[Vertex(e)] < surface_.fpo_[v])
+					surface_.map_.foreach_adjacent_vertex_through_edge(end, [&](Vertex e)
 					{
-						if(!vm.is_marked(Vertex(f)))
+						if(surface_.fpo_[e] < v_value)
 						{
-							inside_vertices.push_back(Vertex(f));
-							vm.mark(Vertex(f));
+							if(!vm.is_marked(e))
+							{
+								inside_vertices.push_back(e);
+								vm.mark(e);
+
+								surface_.map_.foreach_incident_face(e, [&](Face f)
+								{
+									if(!fm.is_marked(f))
+									{
+										inside_faces.push_back(f);
+										fm.mark(f);
+									}
+								});
+
+							}
 						}
-					}
+					});
 
-					e = surface_.map_.phi2(surface_.map_.phi_1(e));
 				}
-				while(e != end.dart);
-				++i;
+
+
+				// 2. discrete level line
+				//
+				std::vector<Edge> level_line_edges;
+				CellMarker<Surface<Vec3>::CMap2, Face::ORBIT> fm2(surface_.map_);
+
+				for(auto f : inside_faces)
+				{
+					surface_.map_.foreach_incident_edge(f, [&](Edge e)
+					{
+						std::pair<Vertex, Vertex> v = surface_.map_.vertices(e);
+						if(!vm.is_marked(v.first) && !vm.is_marked(v.second))
+							level_line_edges.push_back(e);
+					});
+				}
+
+				surface_.map_.cut_surface(level_line_edges);
+
+
+				cgogn::numerics::float32 c =cgogn::numerics::scale_and_clamp_to_0_1(cgogn::numerics::float32(v.dart.index),cgogn::numerics::float32(0.),cgogn::numerics::float32(10.));
+				drawer_->ball_size(0.2f*bb_.max_size()/50.0f);
+				drawer_->begin(GL_POINTS);
+				drawer_->color3f(0.5,0.5,0.0);
+				drawer_->vertex3fv(surface_.vertex_position_[v]);
+				drawer_->end();
+				drawer_->begin(GL_POINTS);
+				drawer_->color3f(0.5,c,0.0);
+				for (auto v : inside_vertices)
+				{
+					drawer_->vertex3fv(surface_.vertex_position_[v]);
+				}
+				drawer_->end();
+
+				drawer_->line_width(200.2f*bb_.max_size()/50.0f);
+				drawer_->begin(GL_LINES);
+				drawer_->color3f(1.0,0.0,0.0);
+				for (auto it : level_line_edges)
+				{
+					std::pair<Vertex, Vertex> v = surface_.map_.vertices(it);
+					drawer_->vertex3fv(surface_.vertex_position_[v.first]);
+					drawer_->vertex3fv(surface_.vertex_position_[v.second]);
+				}
+				drawer_->end();
+
+				drawer_->begin(GL_TRIANGLES);
+				drawer_->color3f(0.5,0.2,0.0);
+				for (auto it : inside_faces)
+				{
+					drawer_->vertex3fv(surface_.vertex_position_[Vertex(it.dart)]);
+					drawer_->vertex3fv(surface_.vertex_position_[Vertex(surface_.map_.phi1(it.dart))]);
+					drawer_->vertex3fv(surface_.vertex_position_[Vertex(surface_.map_.phi_1(it.dart))]);
+				}
+				drawer_->end();
+
 			}
 
 
-			drawer_->ball_size(0.2f*bb_.max_size()/50.0f);
-			drawer_->begin(GL_POINTS);
-			drawer_->color3f(0.0,1.0,0.0);
-			for (auto it : inside_vertices)
-			{
-				drawer_->vertex3fv(surface_.vertex_position_[it]);
-			}
-			drawer_->end();
+			////			std::vector<cgogn::EquivalenceClass<Vec3::Scalar, Surface<Vec3>> vec;
+
+			//			typename Surface<Vec3>::template VertexAttribute<uint32> vindices = surface_.map_.template add_attribute<uint32, Vertex::ORBIT>("indices");
+			//			uint32 count = 0;
+			//			surface_.map_.foreach_cell([&] (Vertex v) { vindices[v] = count++; });
+
+			//			std::map<uint32,Vertex> min;
+			//			surface_.map_.foreach_cell([&] (Vertex v)
+			//			{
+			//				if(cgogn::critical_vertex_type<Vec3::Scalar>(surface_.map_, v, surface_.fpo_).v_ == cgogn::CriticalVertexType::MINIMUM)
+			//					min.insert(std::pair<uint32,Vertex>(vindices[v], v));
+			//			});
+
+			//			Vertex vm = cgogn::argmin<Vec3::Scalar>(surface_.map_, surface_.fpo_);
+			//			min.erase(min.find(vindices[vm]));
+
+			//			std::map<uint32, Vertex> sub_level_set;
+			//			std::map<uint32, Vertex> level_set;
+
+			//			level_set.insert(std::pair<uint32,Vertex>(vindices[vm], vm));
+
+			//			unsigned int stop = 0;
+			//			do
+			//			{
+
+			//				if(stop == 1) //3022
+			//					break;
+
+			//				Vertex vt = cgogn::argmin<Vec3::Scalar, Surface<Vec3>>(level_set, surface_.fpo_);
+			//				Vertex vmin = cgogn::argmin<Vec3::Scalar, Surface<Vec3>>(min, surface_.fpo_);
+
+			//				if(surface_.fpo_[vmin] < surface_.fpo_[vt])
+			//				{
+			//					vt = vmin;
+			//					min.erase(min.find(vindices[vmin]));
+			//					level_set.insert(std::pair<uint32, Vertex>(vindices[vt], vt));
+			//				}
+
+			//				drawer_->ball_size(0.2f*bb_.max_size()/50.0f);
+			//				drawer_->begin(GL_POINTS);
+			//				drawer_->color3f(0.0,1.0,0.0);
+			//				for (auto it : level_set)
+			//				{
+			//					drawer_->vertex3fv(surface_.vertex_position_[it.second]);
+			//				}
+			//				drawer_->end();
+
+			////				//compute discrete contour
+
+			////				cgogn::EquivalenceClass ec;
 
 
 
 
+			////				vec.push_back(discrete_contour(vt, level_set));
 
+			//				level_set.erase(level_set.find(vindices[vt]));
+			//				sub_level_set.insert(std::pair<uint32, Vertex>(vindices[vt], vt));
 
+			//				Scalar center = surface_.fpo_[vt];
+			//				surface_.map_.foreach_adjacent_vertex_through_edge(vt, [&] (Vertex vn)
+			//				{
+			//					Scalar current = surface_.fpo_[vn];
+			//					if(current > center)
+			//						level_set.insert(std::pair<uint32, Vertex>(vindices[vn], vn));
 
-////			std::vector<cgogn::EquivalenceClass<Vec3::Scalar, Surface<Vec3>> vec;
+			//				});
 
-//			typename Surface<Vec3>::template VertexAttribute<uint32> vindices = surface_.map_.template add_attribute<uint32, Vertex::ORBIT>("indices");
-//			uint32 count = 0;
-//			surface_.map_.foreach_cell([&] (Vertex v) { vindices[v] = count++; });
+			////				drawer_->ball_size(0.2f*bb_.max_size()/50.0f);
+			////				drawer_->begin(GL_POINTS);
+			////				cgogn::numerics::float32 c =cgogn::numerics::scale_and_clamp_to_0_1(cgogn::numerics::float32(stop),cgogn::numerics::float32(0.),cgogn::numerics::float32(10.));
+			////				drawer_->color3f(0.5,c,0.5);
+			////				for (auto it : sub_level_set)
+			////				{
+			////					drawer_->vertex3fv(surface_.vertex_position_[it.second]);
+			////				}
+			////				drawer_->end();
 
-//			std::map<uint32,Vertex> min;
-//			surface_.map_.foreach_cell([&] (Vertex v)
-//			{
-//				if(cgogn::critical_vertex_type<Vec3::Scalar>(surface_.map_, v, surface_.fpo_).v_ == cgogn::CriticalVertexType::MINIMUM)
-//					min.insert(std::pair<uint32,Vertex>(vindices[v], v));
-//			});
+			//				drawer_->line_width_aa(3.0);
+			//				drawer_->begin(GL_LINE_LOOP);
+			//				drawer_->color3f(0.0,1.0,0.0);
+			//				for (auto it : level_set)
+			//				{
+			//					drawer_->vertex3fv(surface_.vertex_position_[it.second]);
+			//				}
+			//				drawer_->end();
 
-//			Vertex vm = cgogn::argmin<Vec3::Scalar>(surface_.map_, surface_.fpo_);
-//			min.erase(min.find(vindices[vm]));
-
-//			std::map<uint32, Vertex> sub_level_set;
-//			std::map<uint32, Vertex> level_set;
-
-//			level_set.insert(std::pair<uint32,Vertex>(vindices[vm], vm));
-
-//			unsigned int stop = 0;
-//			do
-//			{
-
-//				if(stop == 1) //3022
-//					break;
-
-//				Vertex vt = cgogn::argmin<Vec3::Scalar, Surface<Vec3>>(level_set, surface_.fpo_);
-//				Vertex vmin = cgogn::argmin<Vec3::Scalar, Surface<Vec3>>(min, surface_.fpo_);
-
-//				if(surface_.fpo_[vmin] < surface_.fpo_[vt])
-//				{
-//					vt = vmin;
-//					min.erase(min.find(vindices[vmin]));
-//					level_set.insert(std::pair<uint32, Vertex>(vindices[vt], vt));
-//				}
-
-//				drawer_->ball_size(0.2f*bb_.max_size()/50.0f);
-//				drawer_->begin(GL_POINTS);
-//				drawer_->color3f(0.0,1.0,0.0);
-//				for (auto it : level_set)
-//				{
-//					drawer_->vertex3fv(surface_.vertex_position_[it.second]);
-//				}
-//				drawer_->end();
-
-////				//compute discrete contour
-
-////				cgogn::EquivalenceClass ec;
-
-
-
-
-////				vec.push_back(discrete_contour(vt, level_set));
-
-//				level_set.erase(level_set.find(vindices[vt]));
-//				sub_level_set.insert(std::pair<uint32, Vertex>(vindices[vt], vt));
-
-//				Scalar center = surface_.fpo_[vt];
-//				surface_.map_.foreach_adjacent_vertex_through_edge(vt, [&] (Vertex vn)
-//				{
-//					Scalar current = surface_.fpo_[vn];
-//					if(current > center)
-//						level_set.insert(std::pair<uint32, Vertex>(vindices[vn], vn));
-
-//				});
-
-////				drawer_->ball_size(0.2f*bb_.max_size()/50.0f);
-////				drawer_->begin(GL_POINTS);
-////				cgogn::numerics::float32 c =cgogn::numerics::scale_and_clamp_to_0_1(cgogn::numerics::float32(stop),cgogn::numerics::float32(0.),cgogn::numerics::float32(10.));
-////				drawer_->color3f(0.5,c,0.5);
-////				for (auto it : sub_level_set)
-////				{
-////					drawer_->vertex3fv(surface_.vertex_position_[it.second]);
-////				}
-////				drawer_->end();
-
-//				drawer_->line_width_aa(3.0);
-//				drawer_->begin(GL_LINE_LOOP);
-//				drawer_->color3f(0.0,1.0,0.0);
-//				for (auto it : level_set)
-//				{
-//					drawer_->vertex3fv(surface_.vertex_position_[it.second]);
-//				}
-//				drawer_->end();
-
-//				stop++;
-//			}while(!level_set.empty());
+			//				stop++;
+			//			}while(!level_set.empty());
 
 
 			drawer_->end_list();
@@ -377,7 +469,7 @@ void Viewer::keyPressEvent(QKeyEvent *ev)
 	}
 
 	// enable QGLViewer keys
-	QOGLViewer::keyPressEvent(ev);
+	QOGLViewer::keyPressEvent(e);
 	//update drawing
 	update();
 }
