@@ -69,6 +69,7 @@ public:
 	using CMap2 = cgogn::CMap2<cgogn::DefaultMapTraits>;
 	using Vertex = CMap2::Vertex;
 	using Edge = CMap2::Edge;
+	using Face = CMap2::Face;
 	template<typename T>
 	using VertexAttribute = CMap2::VertexAttribute<T>;
 	template<typename T>
@@ -207,13 +208,13 @@ public:
 		shader_edge_->set_color(QColor(255,255,0));
 		shader_edge_->release();
 
-		shader_flat_ = new cgogn::rendering::ShaderFlat;
+		shader_flat_ = new cgogn::rendering::ShaderFlat(true);
 		shader_flat_->add_vao();
-		shader_flat_->set_vao(0, vbo_pos_);
+		shader_flat_->set_vao(0, vbo_pos_, vbo_color_);
 		shader_flat_->bind();
-		shader_flat_->set_front_color(QColor(0,200,0));
-		shader_flat_->set_back_color(QColor(0,0,200));
-		shader_flat_->set_ambiant_color(QColor(5,5,5));
+//		shader_flat_->set_front_color(QColor(0,200,0));
+//		shader_flat_->set_back_color(QColor(0,0,200));
+//		shader_flat_->set_ambiant_color(QColor(5,5,5));
 		shader_flat_->release();
 
 		shader_normal_ = new cgogn::rendering::ShaderVectorPerVertex;
@@ -379,17 +380,17 @@ public:
 
 	void height_function(FeaturePoints<VEC3>& fp)
 	{
-		VertexAttribute<Scalar> scalar = map_.add_attribute<Scalar, Vertex::ORBIT>("scalar");
+		fpo_ = map_.add_attribute<Scalar, Vertex::ORBIT>("scalar");
 
-		cgogn::height_pl_function<Vec3>(map_, vertex_position_, scalar);
+		cgogn::height_pl_function<Vec3>(map_, vertex_position_, fpo_);
 
-		update_color(scalar);
+		update_color(fpo_);
 
-		fp.extract(map_, scalar, vertex_position_);
+		fp.extract(map_, fpo_, vertex_position_);
 
 //		reeb_graph_->compute(scalar);
 
-		map_.remove_attribute(scalar);
+//		map_.remove_attribute(scalar);
 	}
 
 	// @param n the number of desired features (0: automatic heuristic)
