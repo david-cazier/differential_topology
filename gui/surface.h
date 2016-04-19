@@ -80,7 +80,7 @@ public:
 
 	VertexAttribute<Vec3> vertex_position_;
 	VertexAttribute<Vec3> vertex_normal_;
-	VertexAttribute<Scalar> fpo_;
+    VertexAttribute<Scalar> scalar_field_;
 
 
 	EdgeAttribute<Scalar> edge_metric_;
@@ -109,7 +109,7 @@ public:
 		map_(),
 		vertex_position_(),
 		vertex_normal_(),
-		fpo_(),
+        scalar_field_(),
 		edge_metric_(),
 		bb_(),
 		render_(nullptr),
@@ -319,6 +319,7 @@ public:
 
 		vertex_position_ = map_.get_attribute<Vec3, Vertex::ORBIT>("position");
 		vertex_normal_ = map_.add_attribute<Vec3, Vertex::ORBIT>("normal");
+        scalar_field_ = map_.add_attribute<Scalar, Vertex::ORBIT>("scalar_field_");
 
 		cgogn::geometry::compute_normal_vertices<Vec3>(map_, vertex_position_, vertex_normal_);
 		cgogn::geometry::compute_bounding_box(vertex_position_, bb_);
@@ -380,17 +381,13 @@ public:
 
 	void height_function(FeaturePoints<VEC3>& fp)
 	{
-		fpo_ = map_.add_attribute<Scalar, Vertex::ORBIT>("scalar");
+        cgogn::height_pl_function<Vec3>(map_, vertex_position_, scalar_field_);
 
-		cgogn::height_pl_function<Vec3>(map_, vertex_position_, fpo_);
+        update_color(scalar_field_);
 
-		update_color(fpo_);
-
-		fp.extract(map_, fpo_, vertex_position_);
+        fp.extract(map_, scalar_field_, vertex_position_);
 
 //		reeb_graph_->compute(scalar);
-
-//		map_.remove_attribute(scalar);
 	}
 
 	// @param n the number of desired features (0: automatic heuristic)
@@ -558,15 +555,14 @@ public:
 		});
 
 		std::uint32_t nb_v = map_.nb_cells<Vertex::ORBIT>();
-		fpo_ = map_.add_attribute<Scalar, Vertex::ORBIT>("fpo");
 
 		for(unsigned int i = 0 ; i < sorted_v.size() ; ++i)
 		{
 			Vertex vit = sorted_v[i].second;
-			fpo_[vit] = cgogn::numerics::float64(i) / cgogn::numerics::float64(nb_v);
+            scalar_field_[vit] = cgogn::numerics::float64(i) / cgogn::numerics::float64(nb_v);
 		}
 
-		update_color(fpo_);
+        update_color(scalar_field_);
 
 //		cgogn::io::export_vtp<Vec3>(map_, vertex_position_, fI, "test.vtp");
 
@@ -575,7 +571,7 @@ public:
 		map_.remove_attribute(f2);
 		map_.remove_attribute(min_dist);
 		map_.remove_attribute(fI);
-		map_.remove_attribute(fpo_);
+        map_.remove_attribute(scalar_field_);
 	}
 
 	void compute_length(EdgeAttribute<Scalar>& length)

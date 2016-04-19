@@ -47,10 +47,10 @@ public:
 
 protected:
 
-	bool filter_DART(Cell<Orbit::DART> c) const override
-	{
-		return true;// !g_->is_isolated(c.dart);
-	}
+//	bool filter_DART(Cell<Orbit::DART> c) const override
+//	{
+//		return true;// !g_->is_isolated(c.dart);
+//	}
 
 
 };
