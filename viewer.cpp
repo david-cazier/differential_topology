@@ -234,6 +234,7 @@ void Viewer::keyPressEvent(QKeyEvent *e)
 			feature_points_.clear();
 			feature_points_.begin_draw();
 			surface_.edge_length_weighted_morse_function(feature_points_);
+//			reeb_graph_.set(surface_.reeb_graph_, surface_.vertex_position_);
 			feature_points_.end_draw();
 			break;
 		}
@@ -242,6 +243,7 @@ void Viewer::keyPressEvent(QKeyEvent *e)
 			feature_points_.clear();
 			feature_points_.begin_draw();
 			surface_.curvature_weighted_morse_function(feature_points_);
+//			reeb_graph_.set(surface_.reeb_graph_, surface_.vertex_position_);
 			feature_points_.end_draw();
 			break;
 		}
