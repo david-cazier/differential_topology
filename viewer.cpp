@@ -158,8 +158,8 @@ void Viewer::mousePressEvent(QMouseEvent* e)
 		cgogn::geometry::picking_vertices<Vec3>(surface_.map_,surface_.vertex_position_,A,B,selected_vertices_);
 		std::cout << "Selected vertices: "<< selected_vertices_.size() << std::endl;
 
-		if(surface_.fpo_.is_valid())
-			std::cout << surface_.fpo_[selected_vertices_.front()] << std::endl;
+		if(surface_.scalar_field_.is_valid())
+			std::cout << surface_.scalar_field_[selected_vertices_.front()] << std::endl;
 
 	}
 	QOGLViewer::mousePressEvent(e);
@@ -267,7 +267,7 @@ void Viewer::keyPressEvent(QKeyEvent *e)
 			std::vector<Vertex> tab_vertices;
 			surface_.map_.foreach_cell([&] (Vertex v)
 			{
-				if(cgogn::critical_vertex_type<Vec3::Scalar>(surface_.map_, v, surface_.fpo_).v_ == cgogn::CriticalVertexType::SADDLE)
+				if(cgogn::critical_vertex_type<Vec3::Scalar>(surface_.map_, v, surface_.scalar_field_).v_ == cgogn::CriticalVertexType::SADDLE)
 				{
 					//					min.insert(std::pair<uint32,Vertex>(vindices[v], v));
 					tab_vertices.push_back(v);
@@ -286,7 +286,7 @@ void Viewer::keyPressEvent(QKeyEvent *e)
 			//			for(auto v : tab_vertices)
 			{
 
-				const Scalar v_value = surface_.fpo_[v];
+				const Scalar v_value = surface_.scalar_field_[v];
 
 
 				// 1 . sub-level set
@@ -306,7 +306,7 @@ void Viewer::keyPressEvent(QKeyEvent *e)
 
 					surface_.map_.foreach_adjacent_vertex_through_edge(end, [&](Vertex e)
 					{
-						if(surface_.fpo_[e] < v_value)
+						if(surface_.scalar_field_[e] < v_value)
 						{
 							if(!vm.is_marked(e))
 							{
@@ -344,9 +344,9 @@ void Viewer::keyPressEvent(QKeyEvent *e)
 					});
 				}
 
-				std::cout << "nb cc = " << surface_.map_.nb_connected_components() << std::endl;
+//				std::cout << "nb cc = " << surface_.map_.nb_connected_components() << std::endl;
 
-				surface_.map_.cut_surface(level_line_edges);
+//				surface_.map_.cut_surface(level_line_edges);
 
 				for(auto e : level_line_edges)
 				{
@@ -357,7 +357,7 @@ void Viewer::keyPressEvent(QKeyEvent *e)
 
 				topo_render_->update_map2<Vec3>(surface_.map_,surface_.vertex_position_);
 
-				std::cout << "nb cc = " << surface_.map_.nb_connected_components() << std::endl;
+//				std::cout << "nb cc = " << surface_.map_.nb_connected_components() << std::endl;
 //				surface_.update_topology();
 
 //				cgogn::numerics::float32 c =cgogn::numerics::scale_and_clamp_to_0_1(cgogn::numerics::float32(v.dart.index),cgogn::numerics::float32(0.),cgogn::numerics::float32(10.));
