@@ -70,6 +70,7 @@ public:
 	using Vertex = CMap2::Vertex;
 	using Edge = CMap2::Edge;
 	using Face = CMap2::Face;
+	using Volume = CMap2::Volume;
 	template<typename T>
 	using VertexAttribute = CMap2::VertexAttribute<T>;
 	template<typename T>
@@ -236,8 +237,16 @@ public:
 		shader_phong_->release();
 	}
 
+	void update_geometry()
+	{
+		cgogn::rendering::update_vbo(vertex_position_, *vbo_pos_);
+		cgogn::geometry::compute_normal_vertices<Vec3>(map_, vertex_position_, vertex_normal_);
+		cgogn::rendering::update_vbo(vertex_normal_, *vbo_norm_);
+	}
+
 	void update_topology()
 	{
+
 		render_->init_primitives<Vec3>(map_, cgogn::rendering::POINTS, vertex_position_);
 		render_->init_primitives<Vec3>(map_, cgogn::rendering::LINES, vertex_position_);
 		render_->init_primitives<Vec3>(map_, cgogn::rendering::TRIANGLES, vertex_position_);
