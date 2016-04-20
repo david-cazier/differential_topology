@@ -111,23 +111,66 @@ void dijkstra_compute_normalized_paths(
 template <typename Scalar, typename MAP>
 typename MAP::Vertex argmin(
 		const MAP& map,
-		const typename MAP::template VertexAttribute<Scalar>& attribut)
+		const typename MAP::template VertexAttribute<Scalar>& scalar_field)
 {
 	using Vertex = typename MAP::Vertex;
 
-	Scalar min = std::numeric_limits<Scalar>::infinity();
-	Vertex d_min;
+	Scalar min_distance = std::numeric_limits<Scalar>::infinity();
+	Vertex min_vertex;
 	map.foreach_cell([&] (Vertex v)
 	{
-		Scalar cur = attribut[v];
-		if(cur < min)
+		Scalar distance = scalar_field[v];
+		if(distance < min_distance)
 		{
-			d_min = v;
-			min = cur;
+			min_vertex = v;
+			min_distance = distance;
 		}
 	});
 
-	return d_min;
+	return min_vertex;
+}
+
+template <typename Scalar, typename MAP>
+void dijkstra_to_morse_function(
+		MAP& map,
+		typename MAP::template VertexAttribute<Scalar>& scalar_field,
+		typename MAP::template VertexAttribute<Scalar>& morse_function)
+{
+	using Vertex = typename MAP::Vertex;
+	using Edge = typename MAP::Edge;
+
+	Scalar n = map.template nb_cells<Vertex::ORBIT>();
+	for(auto& d : morse_function)
+		d = Scalar(3);							// To mark unvisited vertices
+
+	using my_pair = std::pair<Scalar, unsigned int>;
+	using my_queue = std::priority_queue<my_pair, std::vector<my_pair>, std::greater<my_pair> >;
+
+	my_queue vertex_queue;
+
+	uint32 i = 0;
+
+	Vertex u = argmin<Scalar>(map, scalar_field);
+	vertex_queue.push(std::make_pair(scalar_field[u], u.dart.index));
+	morse_function[u] = Scalar(0);
+
+	while(!vertex_queue.empty())
+	{
+		u = Vertex(Dart(vertex_queue.top().second));
+
+		vertex_queue.pop();
+
+		morse_function[u] = i/n;				// Set the final value
+		++i;
+
+		map.foreach_adjacent_vertex_through_edge(u, [&](Vertex v)
+		{
+			if(morse_function[v] > Scalar(2)) {	// If not visited
+				vertex_queue.push(std::make_pair(scalar_field[v], v.dart.index));
+				morse_function[v] = Scalar(1);	// Set as visited
+			}
+		});
+	}
 }
 
 template <typename Scalar, typename MAP>
