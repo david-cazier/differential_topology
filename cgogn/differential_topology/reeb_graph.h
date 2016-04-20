@@ -153,7 +153,7 @@ public:
 		function_value_[n] = w;
 		is_finalized_.set_value(n, false);
 
-		//		highest_arc_[Edge(v.dart)] = n;
+//		highest_arc_[Edge(v.dart)] = n;
 
 		node_link_[v] = n;
 
