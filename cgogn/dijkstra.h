@@ -109,12 +109,13 @@ void dijkstra_compute_normalized_paths(
 }
 
 template <typename Scalar, typename MAP>
-typename MAP::Vertex argmin(
+std::vector<typename MAP::Vertex> argmin(
 		const MAP& map,
 		const typename MAP::template VertexAttribute<Scalar>& scalar_field)
 {
 	using Vertex = typename MAP::Vertex;
 
+	std::vector<Vertex> result;
 	Scalar min_distance = std::numeric_limits<Scalar>::infinity();
 	Vertex min_vertex;
 	map.foreach_cell([&] (Vertex v)
@@ -127,7 +128,16 @@ typename MAP::Vertex argmin(
 		}
 	});
 
-	return min_vertex;
+	map.foreach_cell([&] (Vertex v)
+	{
+		Scalar distance = scalar_field[v];
+		if(distance == min_distance)
+		{
+			result.push_back(v);
+		}
+	});
+
+	return result;
 }
 
 template <typename Scalar, typename MAP>
@@ -150,13 +160,15 @@ void dijkstra_to_morse_function(
 
 	uint32 i = 0;
 
-	Vertex u = argmin<Scalar>(map, scalar_field);
-	vertex_queue.push(std::make_pair(scalar_field[u], u.dart.index));
-	morse_function[u] = Scalar(0);
+	std::vector<Vertex> init = argmin<Scalar>(map, scalar_field);
+	for (Vertex u: init) {
+		vertex_queue.push(std::make_pair(scalar_field[u], u.dart.index));
+		morse_function[u] = Scalar(0);
+	}
 
 	while(!vertex_queue.empty())
 	{
-		u = Vertex(Dart(vertex_queue.top().second));
+		Vertex u = Vertex(Dart(vertex_queue.top().second));
 
 		vertex_queue.pop();
 

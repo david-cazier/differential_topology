@@ -665,9 +665,9 @@ public:
 		std::vector<Vertex> maxima;
 		std::vector<Vertex> minima;
 		std::vector<Vertex> saddles;
-		cgogn::extract_critical_points<Scalar>(map_, distances, maxima, minima, saddles);
+		cgogn::extract_critical_points<Scalar>(map_, scalar_field_, maxima, minima, saddles);
 		fp.draw(maxima, vertex_position_, 1.0f, 1.0f, 1.0f, 1.0f);
-		fp.draw(minima, vertex_position_, 0.8f, 0.2f, 0.2f, 0.6f);
+		fp.draw(minima, vertex_position_, 0.8f, 0.2f, 0.2f, 0.8f);
 		fp.draw(saddles, vertex_position_, 0.8f, 0.8f, 0.2f, 0.6f);
 
 		//		cgogn::io::export_vtp<Vec3>(map_, vertex_position_, fI, "test.vtp");
