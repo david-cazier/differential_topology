@@ -70,8 +70,8 @@ public:
 		std::vector<Vertex> saddles;
 		cgogn::extract_critical_points<Scalar>(map, scalar, vertices_, minima, saddles);
 		this->draw(minima, position, 1.0f, 1.0f, 1.0f, 1.0f);
-		this->draw(vertices_, position, 1.0f, 0.2f, 0.2f, 0.8f);
-		this->draw(saddles, position, 1.0f, 0.8f, 0.2f, 0.6f);
+		this->draw(vertices_, position, 1.0f, 0.0f, 0.0f, 0.8f);
+		this->draw(saddles, position, 1.0f, 1.0f, 0.0f, 0.6f);
 	}
 
 	void extract_intersection(CMap2& map,

@@ -542,7 +542,7 @@ public:
 		// Draw the selected features that are not in the intersection
 		fp.draw(vertices_f1_filtered, vertex_position_, 1.0f, 0.2f, 1.0f, 0.8f, 1);
 		std::cout << "F1 not in F2 features: " << vertices_f1_filtered.size() << std::endl;
-		fp.draw(vertices_f2_filtered, vertex_position_, 1.0f, 1.0f, 0.2f, 0.8f, 2);
+		fp.draw(vertices_f2_filtered, vertex_position_, 1.0f, 0.4f, 0.4f, 0.8f, 2);
 		std::cout << "F2 not in F1 features: " << vertices_f2_filtered.size() << std::endl;
 
 		map_.remove_attribute(path_to_sources);
@@ -667,8 +667,8 @@ public:
 		std::vector<Vertex> saddles;
 		cgogn::extract_critical_points<Scalar>(map_, scalar_field_, maxima, minima, saddles);
 		fp.draw(maxima, vertex_position_, 1.0f, 1.0f, 1.0f, 1.0f);
-		fp.draw(minima, vertex_position_, 0.8f, 0.2f, 0.2f, 0.8f);
-		fp.draw(saddles, vertex_position_, 0.8f, 0.8f, 0.2f, 0.6f);
+		fp.draw(minima, vertex_position_, 1.0f, 0.0f, 0.0f, 0.8f);
+		fp.draw(saddles, vertex_position_, 1.0f, 1.0f, 0.0f, 0.8f);
 
 		//		cgogn::io::export_vtp<Vec3>(map_, vertex_position_, fI, "test.vtp");
 
