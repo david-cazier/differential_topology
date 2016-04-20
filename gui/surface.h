@@ -497,10 +497,9 @@ public:
 		std::cout << "F2 size: " << vertices_f2.size() << std::endl;
 
 		// Build a scalar field from {v1, v2}
-		std::vector<Vertex> vertices;
-		vertices.push_back(v1);
-		vertices.push_back(v2);
-		cgogn::dijkstra_compute_paths<Scalar>(map_, edge_metric_, vertices, scalar_field, path_to_sources);
+		fp.vertices_.push_back(v1);
+		fp.vertices_.push_back(v2);
+		cgogn::dijkstra_compute_paths<Scalar>(map_, edge_metric_, fp.vertices_, scalar_field, path_to_sources);
 
 		// Initialize the sets of vertices filtered from f1 and f2 with v1 and v2
 		std::vector<Vertex> vertices_f1_filtered;
@@ -518,21 +517,21 @@ public:
 		// than 1/4 of the computed maximal diameter
 		Scalar target_distance = filter_distance;
 		Scalar actual_distance = max_distance;
-		std::cout << "Distances: " << max_distance << " ";
+		std::cout << "Distances: (" << max_distance << ") 1.0 ";
 		while (target_distance < actual_distance && !(vertices_f1.empty() && vertices_f2.empty())) {
-			Vertex v = farthest_extremity(vertices, scalar_field, path_to_sources);
-			vertices.push_back(v);
+			Vertex v = farthest_extremity(fp.vertices_, scalar_field, path_to_sources);
+			fp.vertices_.push_back(v);
 			actual_distance = scalar_field[v];
 			filter_distance = std::min(filter_distance, target_distance / Scalar(3));
 			std::cout << actual_distance/max_distance << " ";
-			cgogn::dijkstra_compute_paths<Scalar>(map_, edge_metric_, vertices, scalar_field, path_to_sources);
+			cgogn::dijkstra_compute_paths<Scalar>(map_, edge_metric_, fp.vertices_, scalar_field, path_to_sources);
 			features_filter(vertices_f1, vertices_f1_filtered, filter_distance, scalar_field, path_to_sources);
 			features_filter(vertices_f2, vertices_f2_filtered, filter_distance, scalar_field, path_to_sources);
 		}
 		std::cout << std::endl;
 
-		intersection(vertices_f1_filtered, vertices_f2_filtered, vertices);
-		std::cout << "Selected features: " << vertices.size() << std::endl;
+		intersection(vertices_f1_filtered, vertices_f2_filtered, fp.vertices_);
+		std::cout << "Selected features: " << fp.vertices_.size() << std::endl;
 
 		// Draw the unselected extrema in f1 and f2
 		fp.draw(vertices_f1, vertex_position_, 0.3f, 0.3f, 1.0f, 0.6f, 1);
@@ -545,11 +544,6 @@ public:
 		std::cout << "F1 not in F2 features: " << vertices_f1_filtered.size() << std::endl;
 		fp.draw(vertices_f2_filtered, vertex_position_, 1.0f, 1.0f, 0.2f, 0.8f, 2);
 		std::cout << "F2 not in F1 features: " << vertices_f2_filtered.size() << std::endl;
-
-		// Build the scalar field from the selected features
-		cgogn::geodesic_distance_pl_function<Scalar>(map_, vertices, edge_metric_, scalar_field);
-		update_color(scalar_field_);
-		fp.extract(map_, scalar_field_, vertex_position_);
 
 		map_.remove_attribute(path_to_sources);
 		map_.remove_attribute(f1);
@@ -581,25 +575,43 @@ public:
 
 	void edge_length_weighted_geodesic_distance_function(FeaturePoints<VEC3>& fp)
 	{
+		// Find features for the edge_metric
 		compute_length(edge_metric_);
-		find_features(fp,scalar_field_);
+		find_features(fp, scalar_field_);
+
+		// Build the scalar field from the selected features
+		cgogn::geodesic_distance_pl_function<Scalar>(map_, fp.vertices_, edge_metric_, scalar_field_);
+		update_color(scalar_field_);
+		fp.extract(map_, scalar_field_, vertex_position_);
+
 	}
 
 	void curvature_weighted_geodesic_distance_function(FeaturePoints<VEC3>& fp)
 	{
+		// Find features for the edge_metric
 		compute_curvature(edge_metric_);
-		find_features(fp,scalar_field_);
+		find_features(fp, scalar_field_);
+
+		// Build the scalar field from the selected features
+		cgogn::geodesic_distance_pl_function<Scalar>(map_, fp.vertices_, edge_metric_, scalar_field_);
+		update_color(scalar_field_);
+		fp.extract(map_, scalar_field_, vertex_position_);
+
 	}
 
 	void edge_length_weighted_morse_function(FeaturePoints<VEC3>& fp)
 	{
+		// Find features for the edge_metric
 		compute_length(edge_metric_);
+
 		morse_function(fp);
 	}
 
 	void curvature_weighted_morse_function(FeaturePoints<VEC3>& fp)
 	{
+		// Find features for the edge_metric
 		compute_curvature(edge_metric_);
+
 		morse_function(fp);
 	}
 
@@ -608,39 +620,22 @@ public:
 	void morse_function(FeaturePoints<VEC3>& fp)
 	{
 		// Etape 1 get the two farthest vertices and their associated scalar fields
-		Vertex v1;
-		Vertex v2;
-		VertexAttribute<Scalar> f1 = map_.add_attribute<Scalar, Vertex::ORBIT>("f1");
-		VertexAttribute<Scalar> f2 = map_.add_attribute<Scalar, Vertex::ORBIT>("f2");
-		VertexAttribute<Vertex> path_to_sources = map_.add_attribute<Vertex, Vertex::ORBIT>("path_to_filter");
-		maximal_diameter(v1, f1, v2, f2, path_to_sources);
-		cgogn::geodesic_distance_pl_function<Scalar>(map_, {v2}, edge_metric_, f2);
-
-		//5 check critical vertices of the intersection of f1 and f2
-		fp.extract_intersection(map_, f1, f2, vertex_position_, edge_metric_);
+		find_features(fp, scalar_field_);
 
 		// Etape 2
 
 		//1 initial function with Feature vertices as seeds
-		VertexAttribute<Scalar> min_dist = map_.add_attribute<Scalar, Vertex::ORBIT>("min_dist");
-		cgogn::normalized_geodesic_distance_pl_function<Scalar>(map_, fp.vertices_, edge_metric_, min_dist);
+		VertexAttribute<Scalar> dist_to_features = map_.add_attribute<Scalar, Vertex::ORBIT>("min_dist");
+		cgogn::normalized_geodesic_distance_pl_function<Scalar>(map_, fp.vertices_, edge_metric_, dist_to_features);
 
 		VertexAttribute<Scalar> fI = map_.add_attribute<Scalar, Vertex::ORBIT>("fI");
 		map_.foreach_cell([&] (Vertex v)
 		{
-			fI[v] = 1 - min_dist[v];
+			fI[v] = 1 - dist_to_features[v];
 		});
 
-		// Show the dual of the Voronoi built from the found extrema
-		std::vector<Vertex> vertices_dual;
-		std::vector<Vertex> minima;
-		std::vector<Vertex> saddles;
-		cgogn::extract_critical_points<Scalar>(map_, min_dist, vertices_dual, minima, saddles);
-		fp.draw(minima, vertex_position_, 1.0f, 1.0f, 1.0f, 1.0f);
-//		fp.draw(vertices_dual, vertex_position_, 0.8f, 0.2f, 0.2f, 0.6f);
-//		fp.draw(saddles, vertex_position_, 0.8f, 0.8f, 0.2f, 0.6f);
-
 		//2. function perturbation
+
 
 		//sort the vertices of map_ by increasing values of fI
 		std::vector<std::pair<float, Vertex>> sorted_v;
@@ -653,7 +648,7 @@ public:
 			return pair1.first < pair2.first;
 		});
 
-		std::uint32_t nb_v = map_.nb_cells<Vertex::ORBIT>();
+		std::uint32_t nb_v = sorted_v.size();
 
 		for(unsigned int i = 0 ; i < sorted_v.size() ; ++i)
 		{
@@ -661,15 +656,21 @@ public:
 			scalar_field_[vit] = cgogn::numerics::float64(i) / cgogn::numerics::float64(nb_v);
 		}
 
+		// Draw the morse function and its critical points
 		update_color(scalar_field_);
+
+		std::vector<Vertex> maxima;
+		std::vector<Vertex> minima;
+		std::vector<Vertex> saddles;
+		cgogn::extract_critical_points<Scalar>(map_, dist_to_features, maxima, minima, saddles);
+		fp.draw(minima, vertex_position_, 1.0f, 1.0f, 1.0f, 1.0f);
+		fp.draw(maxima, vertex_position_, 0.8f, 0.2f, 0.2f, 0.6f);
+		fp.draw(saddles, vertex_position_, 0.8f, 0.8f, 0.2f, 0.6f);
 
 		//		cgogn::io::export_vtp<Vec3>(map_, vertex_position_, fI, "test.vtp");
 
-		map_.remove_attribute(f1);
-		map_.remove_attribute(f2);
-		map_.remove_attribute(min_dist);
+		map_.remove_attribute(dist_to_features);
 		map_.remove_attribute(fI);
-		map_.remove_attribute(path_to_sources);
 	}
 
 	void compute_length(EdgeAttribute<Scalar>& length)
