@@ -146,8 +146,8 @@ void Viewer::mousePressEvent(QMouseEvent* e)
 		cgogn::geometry::picking_vertices<Vec3>(surface_.map_,surface_.vertex_position_,A,B,selected_vertices_);
 		std::cout << "Selected vertices: "<< selected_vertices_.size() << std::endl;
 
-        if(surface_.scalar_field_.is_valid())
-            std::cout << surface_.scalar_field_[selected_vertices_.front()] << std::endl;
+		if(surface_.scalar_field_.is_valid())
+			std::cout << surface_.scalar_field_[selected_vertices_.front()] << std::endl;
 
 	}
 	QOGLViewer::mousePressEvent(e);
@@ -195,7 +195,7 @@ void Viewer::keyPressEvent(QKeyEvent *e)
 		{
 			feature_points_.clear();
 			feature_points_.begin_draw();
-			surface_.edge_length_morse_function(feature_points_,1);
+			surface_.distance_to_center_function(feature_points_);
 //			reeb_graph_.set(surface_.reeb_graph_, surface_.vertex_position_);
 			feature_points_.end_draw();
 			break;
@@ -204,7 +204,7 @@ void Viewer::keyPressEvent(QKeyEvent *e)
 		{
 			feature_points_.clear();
 			feature_points_.begin_draw();
-			surface_.edge_length_morse_function(feature_points_,2);
+			surface_.edge_length_weighted_geodesic_distance_function(feature_points_);
 //			reeb_graph_.set(surface_.reeb_graph_, surface_.vertex_position_);
 			feature_points_.end_draw();
 			break;
@@ -213,7 +213,7 @@ void Viewer::keyPressEvent(QKeyEvent *e)
 		{
 			feature_points_.clear();
 			feature_points_.begin_draw();
-			surface_.edge_length_morse_function(feature_points_,0);
+			surface_.curvature_weighted_geodesic_distance_function(feature_points_);
 //			reeb_graph_.set(surface_.reeb_graph_, surface_.vertex_position_);
 			feature_points_.end_draw();
 			break;
@@ -252,7 +252,7 @@ void Viewer::keyPressEvent(QKeyEvent *e)
 			std::vector<Vertex> tab_vertices;
 			surface_.map_.foreach_cell([&] (Vertex v)
 			{
-                if(cgogn::critical_vertex_type<Vec3::Scalar>(surface_.map_, v, surface_.scalar_field_).v_ == cgogn::CriticalVertexType::SADDLE)
+				if(cgogn::critical_vertex_type<Vec3::Scalar>(surface_.map_, v, surface_.scalar_field_).v_ == cgogn::CriticalVertexType::SADDLE)
 				{
 					//					min.insert(std::pair<uint32,Vertex>(vindices[v], v));
 					tab_vertices.push_back(v);
@@ -272,7 +272,7 @@ void Viewer::keyPressEvent(QKeyEvent *e)
 			{
 //				Vertex end = inside_vertices[i];
 
-                const Scalar v_value = surface_.scalar_field_[v];
+				const Scalar v_value = surface_.scalar_field_[v];
 
 
 				// 1 . sub-level set
@@ -292,7 +292,7 @@ void Viewer::keyPressEvent(QKeyEvent *e)
 
 					surface_.map_.foreach_adjacent_vertex_through_edge(end, [&](Vertex e)
 					{
-                        if(surface_.scalar_field_[e] < v_value)
+						if(surface_.scalar_field_[e] < v_value)
 						{
 							if(!vm.is_marked(e))
 							{
