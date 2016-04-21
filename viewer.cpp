@@ -47,7 +47,6 @@ Viewer::Viewer() :
 
 Viewer::~Viewer()
 {
-	delete drawer_;
 	delete topo_render_;
 }
 
@@ -256,6 +255,7 @@ void Viewer::keyPressEvent(QKeyEvent *e)
 			using Vertex = typename Surface<Vec3>::Vertex;
 			using Edge = typename Surface<Vec3>::Edge;
 			using Face = typename Surface<Vec3>::Face;
+			using Volume = typename Surface<Vec3>::Volume;
 			using uint32 = numerics::uint32;
 
 			//			typename Surface<Vec3>::template VertexAttribute<uint32> vindices = surface_.map_.template add_attribute<uint32, Vertex::ORBIT>("indices");
@@ -343,21 +343,33 @@ void Viewer::keyPressEvent(QKeyEvent *e)
 					});
 				}
 
-//				std::cout << "nb cc = " << surface_.map_.nb_connected_components() << std::endl;
+//				drawer_->line_width(200.2f*bb_.max_size()/50.0f);
+//				drawer_->begin(GL_LINES);
+//				drawer_->color3f(1.0,0.0,0.0);
+//				for (auto it : level_line_edges)
+//				{
+//					std::pair<Vertex, Vertex> v = surface_.map_.vertices(it);
+//					drawer_->vertex3fv(surface_.vertex_position_[v.first]);
+//					drawer_->vertex3fv(surface_.vertex_position_[v.second]);
+//				}
+//				drawer_->end();
 
-//				surface_.map_.cut_surface(level_line_edges);
+				std::cout << "nb cc = " << surface_.map_.nb_connected_components() << std::endl;
+
+				std::pair<Face,Face> f = surface_.map_.cut_surface(level_line_edges);
+
 
 				for(auto e : level_line_edges)
-				{
-					std::pair<Vertex, Vertex> v = surface_.map_.vertices(e);
-					surface_.vertex_position_[v.first] += Vec3(0.0f, 0.0f, 5.0f);
-				}
-				drawer_->end();
+				surface_.map_.foreach_incident_vertex(Volume(f.first.dart), [&] (Vertex v){
+					surface_.vertex_position_[v] += Vec3(-0.2f, 0.0f, 0.0f);
+				});
 
 				topo_render_->update_map2<Vec3>(surface_.map_,surface_.vertex_position_);
 
-//				std::cout << "nb cc = " << surface_.map_.nb_connected_components() << std::endl;
-//				surface_.update_topology();
+				std::cout << "nb cc = " << surface_.map_.nb_connected_components() << std::endl;
+				surface_.update_geometry();
+				surface_.update_topology();
+
 
 //				cgogn::numerics::float32 c =cgogn::numerics::scale_and_clamp_to_0_1(cgogn::numerics::float32(v.dart.index),cgogn::numerics::float32(0.),cgogn::numerics::float32(10.));
 //				drawer_->ball_size(0.2f*bb_.max_size()/50.0f);
@@ -373,16 +385,7 @@ void Viewer::keyPressEvent(QKeyEvent *e)
 //				}
 //				drawer_->end();
 
-//				drawer_->line_width(200.2f*bb_.max_size()/50.0f);
-//				drawer_->begin(GL_LINES);
-//				drawer_->color3f(1.0,0.0,0.0);
-//				for (auto it : level_line_edges)
-//				{
-//					std::pair<Vertex, Vertex> v = surface_.map_.vertices(it);
-//					drawer_->vertex3fv(surface_.vertex_position_[v.first]);
-//					drawer_->vertex3fv(surface_.vertex_position_[v.second]);
-//				}
-//				drawer_->end();
+
 
 //				drawer_->begin(GL_TRIANGLES);
 //				drawer_->color3f(0.5,0.2,0.0);
