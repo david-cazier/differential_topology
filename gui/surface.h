@@ -631,46 +631,29 @@ public:
 	{
 		// Etape 1 get the two farthest vertices and their associated scalar field
 		// (the scalar field contains the geodesic distance to the nearest feature)
-		VertexAttribute<Scalar> distances = map_.add_attribute<Scalar, Vertex::ORBIT>("distances");
-		find_features(fp, distances);
+		VertexAttribute<Scalar> dist_to_feature = map_.add_attribute<Scalar, Vertex::ORBIT>("dist_to_feature");
+		find_features(fp, dist_to_feature);
 
 		// Etape 2
-
 		// 1 initial function with Feature vertices as seeds
-		cgogn::normalized_geodesic_distance_pl_function<Scalar>(map_, fp.vertices_, edge_metric_, distances);
+		cgogn::normalized_geodesic_distance_pl_function<Scalar>(map_, fp.vertices_, edge_metric_, dist_to_feature);
 
 		// 2 inverse the normalized distance so that the maxima are on the features
 		map_.foreach_cell([&] (Vertex v)
 		{
-			distances[v] = 1 - distances[v];
+			dist_to_feature[v] = 1 - dist_to_feature[v];
 		});
 
 		// 3 function perturbation (to remove extra minima and saddles)
-		// Run dijkstra using distances in place of estimated geodesic distances
-		cgogn::dijkstra_to_morse_function<Scalar>(map_,distances,scalar_field_);
+		// Run dijkstra using dist_to_feature in place of estimated geodesic distances
+		cgogn::dijkstra_to_morse_function<Scalar>(map_, dist_to_feature, scalar_field_);
 
-
-		//sort the vertices of map_ by increasing values of fI
-//		std::vector<std::pair<float, Vertex>> sorted_v;
-//		map_.foreach_cell([&] (Vertex v)
-//		{
-//			sorted_v.push_back(std::pair<float,Vertex>(distances[v] ,v));
-//		});
-
-//		std::sort(sorted_v.begin(), sorted_v.end(), [] (const std::pair<float, Vertex>& pair1, const std::pair<float, Vertex>& pair2) {
-//			return pair1.first < pair2.first;
-//		});
-
-//		std::uint32_t nb_v = sorted_v.size();
-
-//		for(unsigned int i = 0 ; i < sorted_v.size() ; ++i)
-//		{
-//			Vertex vit = sorted_v[i].second;
-//			scalar_field_[vit] = cgogn::numerics::float64(i) / cgogn::numerics::float64(nb_v);
-//		}
+		// 4 Extract the level sets
+		VertexAttribute<Scalar> level_sets = map_.add_attribute<Scalar, Vertex::ORBIT>("level_sets");
+		cgogn::extract_level_sets<Scalar>(map_ , scalar_field_, level_sets);
 
 		// Draw the morse function and its critical points
-		update_color(scalar_field_);
+		update_color(level_sets);
 
 		std::vector<Vertex> maxima;
 		std::vector<Vertex> minima;
@@ -682,7 +665,8 @@ public:
 
 		//		cgogn::io::export_vtp<Vec3>(map_, vertex_position_, fI, "test.vtp");
 
-		map_.remove_attribute(distances);
+		map_.remove_attribute(dist_to_feature);
+		map_.remove_attribute(level_sets);
 	}
 
 	void compute_length(EdgeAttribute<Scalar>& length)

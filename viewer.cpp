@@ -354,19 +354,19 @@ void Viewer::keyPressEvent(QKeyEvent *e)
 //				}
 //				drawer_->end();
 
-				std::cout << "nb cc = " << surface_.map_.nb_connected_components() << std::endl;
+				std::cout << "nb cc = " << surface_.map_.nb_cells<Volume::ORBIT>() << std::endl;
 
-				std::pair<Face,Face> f = surface_.map_.cut_surface(level_line_edges);
+//				std::pair<Face,Face> f = surface_.map_.cut_surface(level_line_edges);
 
 
-				for(auto e : level_line_edges)
-				surface_.map_.foreach_incident_vertex(Volume(f.first.dart), [&] (Vertex v){
-					surface_.vertex_position_[v] += Vec3(-0.2f, 0.0f, 0.0f);
-				});
+//				for(auto e : level_line_edges)
+//				surface_.map_.foreach_incident_vertex(Volume(f.first.dart), [&] (Vertex v){
+//					surface_.vertex_position_[v] += Vec3(-0.2f, 0.0f, 0.0f);
+//				});
 
 				topo_render_->update_map2<Vec3>(surface_.map_,surface_.vertex_position_);
 
-				std::cout << "nb cc = " << surface_.map_.nb_connected_components() << std::endl;
+				std::cout << "nb cc = " << surface_.map_.nb_cells<Volume::ORBIT>() << std::endl;
 				surface_.update_geometry();
 				surface_.update_topology();
 
