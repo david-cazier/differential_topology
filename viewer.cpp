@@ -503,7 +503,6 @@ void Viewer::keyPressEvent(QKeyEvent *e)
 
 void Viewer::closeEvent(QCloseEvent*)
 {
-	delete drawer_;
 }
 
 void Viewer::import(const std::string& surfaceMesh)

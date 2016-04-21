@@ -256,7 +256,8 @@ public:
 		cgogn::rendering::update_vbo(scalar, *vbo_color_,
 									 [min, max] (const Scalar& n) -> std::array<float,3>
 		{
-			return cgogn::color_map_hash(cgogn::numerics::scale_to_0_1(n, min, max));
+			return cgogn::color_map_blue_green_red(cgogn::numerics::scale_to_0_1(n, min, max));
+//			return cgogn::color_map_hash(cgogn::numerics::scale_to_0_1(n, min, max));
 		});
 	}
 
