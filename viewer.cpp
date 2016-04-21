@@ -343,26 +343,26 @@ void Viewer::keyPressEvent(QKeyEvent *e)
 					});
 				}
 
-				drawer_->line_width(200.2f*bb_.max_size()/50.0f);
-				drawer_->begin(GL_LINES);
-				drawer_->color3f(1.0,0.0,0.0);
-				for (auto it : level_line_edges)
-				{
-					std::pair<Vertex, Vertex> v = surface_.map_.vertices(it);
-					drawer_->vertex3fv(surface_.vertex_position_[v.first]);
-					drawer_->vertex3fv(surface_.vertex_position_[v.second]);
-				}
-				drawer_->end();
+//				drawer_->line_width(200.2f*bb_.max_size()/50.0f);
+//				drawer_->begin(GL_LINES);
+//				drawer_->color3f(1.0,0.0,0.0);
+//				for (auto it : level_line_edges)
+//				{
+//					std::pair<Vertex, Vertex> v = surface_.map_.vertices(it);
+//					drawer_->vertex3fv(surface_.vertex_position_[v.first]);
+//					drawer_->vertex3fv(surface_.vertex_position_[v.second]);
+//				}
+//				drawer_->end();
 
 				std::cout << "nb cc = " << surface_.map_.nb_connected_components() << std::endl;
 
 				std::pair<Face,Face> f = surface_.map_.cut_surface(level_line_edges);
 
 
-//				for(auto e : level_line_edges)
-//				surface_.map_.foreach_incident_vertex(Volume(f.first.dart), [&] (Vertex v){
-//					surface_.vertex_position_[v] += Vec3(-0.5f, 0.0f, 0.0f);
-//				});
+				for(auto e : level_line_edges)
+				surface_.map_.foreach_incident_vertex(Volume(f.first.dart), [&] (Vertex v){
+					surface_.vertex_position_[v] += Vec3(-0.2f, 0.0f, 0.0f);
+				});
 
 				topo_render_->update_map2<Vec3>(surface_.map_,surface_.vertex_position_);
 
