@@ -234,7 +234,6 @@ void Viewer::keyPressEvent(QKeyEvent *e)
 			feature_points_.clear();
 			feature_points_.begin_draw();
 			surface_.edge_length_weighted_morse_function(feature_points_);
-//			reeb_graph_.set(surface_.reeb_graph_, surface_.vertex_position_);
 			feature_points_.end_draw();
 			break;
 		}
@@ -243,7 +242,6 @@ void Viewer::keyPressEvent(QKeyEvent *e)
 			feature_points_.clear();
 			feature_points_.begin_draw();
 			surface_.curvature_weighted_morse_function(feature_points_);
-//			reeb_graph_.set(surface_.reeb_graph_, surface_.vertex_position_);
 			feature_points_.end_draw();
 			break;
 		}
@@ -258,35 +256,21 @@ void Viewer::keyPressEvent(QKeyEvent *e)
 			using Volume = typename Surface<Vec3>::Volume;
 			using uint32 = numerics::uint32;
 
-			//			typename Surface<Vec3>::template VertexAttribute<uint32> vindices = surface_.map_.template add_attribute<uint32, Vertex::ORBIT>("indices");
-			//			uint32 count = 0;
-			//			surface_.map_.foreach_cell([&] (Vertex v) { vindices[v] = count++; });
+			Vec3 center = surface_.surface_centroid<Vec3>(surface_.map_, surface_.vertex_position_);
 
-			//			std::map<uint32,Vertex> min;
 			std::vector<Vertex> tab_vertices;
 			surface_.map_.foreach_cell([&] (Vertex v)
 			{
 				if(cgogn::critical_vertex_type<Vec3::Scalar>(surface_.map_, v, surface_.scalar_field_).v_ == cgogn::CriticalVertexType::SADDLE)
 				{
-					//					min.insert(std::pair<uint32,Vertex>(vindices[v], v));
 					tab_vertices.push_back(v);
 				}
 			});
 
-			//			//			for(auto min_it : min)
-			//			//			{
 
-			//			Vertex v = cgogn::argmin<Vec3::Scalar, typename Surface<Vec3>::CMap2>(min, surface_.fpo_);
-
-			if(selected_vertices_.empty())
-				break;
-			Vertex v = selected_vertices_.front();
-
-			//			for(auto v : tab_vertices)
+			for(const auto& v : tab_vertices)
 			{
-
 				const Scalar v_value = surface_.scalar_field_[v];
-
 
 				// 1 . sub-level set
 				//
@@ -305,7 +289,7 @@ void Viewer::keyPressEvent(QKeyEvent *e)
 
 					surface_.map_.foreach_adjacent_vertex_through_edge(end, [&](Vertex e)
 					{
-						if(surface_.scalar_field_[e] < v_value)
+						if(surface_.scalar_field_[e] <= v_value)
 						{
 							if(!vm.is_marked(e))
 							{
@@ -320,20 +304,17 @@ void Viewer::keyPressEvent(QKeyEvent *e)
 										fm.mark(f);
 									}
 								});
-
 							}
 						}
 					});
-
 				}
-
 
 				// 2. discrete level line
 				//
 				std::vector<Edge> level_line_edges;
 				CellMarker<Surface<Vec3>::CMap2, Face::ORBIT> fm2(surface_.map_);
 
-				for(auto f : inside_faces)
+				for(const auto& f : inside_faces)
 				{
 					surface_.map_.foreach_incident_edge(f, [&](Edge e)
 					{
@@ -343,155 +324,49 @@ void Viewer::keyPressEvent(QKeyEvent *e)
 					});
 				}
 
-//				drawer_->line_width(200.2f*bb_.max_size()/50.0f);
-//				drawer_->begin(GL_LINES);
-//				drawer_->color3f(1.0,0.0,0.0);
-//				for (auto it : level_line_edges)
-//				{
-//					std::pair<Vertex, Vertex> v = surface_.map_.vertices(it);
-//					drawer_->vertex3fv(surface_.vertex_position_[v.first]);
-//					drawer_->vertex3fv(surface_.vertex_position_[v.second]);
-//				}
-//				drawer_->end();
+				drawer_->line_width(200.2f*bb_.max_size()/50.0f);
+				drawer_->begin(GL_LINES);
+				drawer_->color3f(1.0,0.0,0.0);
+				for (const auto& it : level_line_edges)
+				{
+					std::pair<Vertex, Vertex> v = surface_.map_.vertices(it);
+					drawer_->vertex3fv(surface_.vertex_position_[v.first]);
+					drawer_->vertex3fv(surface_.vertex_position_[v.second]);
+				}
+				drawer_->end();
 
-				std::cout << "nb cc = " << surface_.map_.nb_connected_components() << std::endl;
+				surface_.map_.cut_surface(level_line_edges);
 
-				std::pair<Face,Face> f = surface_.map_.cut_surface(level_line_edges);
-
-
-				for(auto e : level_line_edges)
-				surface_.map_.foreach_incident_vertex(Volume(f.first.dart), [&] (Vertex v){
-					surface_.vertex_position_[v] += Vec3(-0.2f, 0.0f, 0.0f);
-				});
-
-				topo_render_->update_map2<Vec3>(surface_.map_,surface_.vertex_position_);
-
-				std::cout << "nb cc = " << surface_.map_.nb_connected_components() << std::endl;
-				surface_.update_geometry();
-				surface_.update_topology();
-
-
-//				cgogn::numerics::float32 c =cgogn::numerics::scale_and_clamp_to_0_1(cgogn::numerics::float32(v.dart.index),cgogn::numerics::float32(0.),cgogn::numerics::float32(10.));
-//				drawer_->ball_size(0.2f*bb_.max_size()/50.0f);
-//				drawer_->begin(GL_POINTS);
-//				drawer_->color3f(0.5,0.5,0.0);
-//				drawer_->vertex3fv(surface_.vertex_position_[v]);
-//				drawer_->end();
-//				drawer_->begin(GL_POINTS);
-//				drawer_->color3f(0.5,c,0.0);
-//				for (auto v : inside_vertices)
-//				{
-//					drawer_->vertex3fv(surface_.vertex_position_[v]);
-//				}
-//				drawer_->end();
-
-
-
-//				drawer_->begin(GL_TRIANGLES);
-//				drawer_->color3f(0.5,0.2,0.0);
-//				for (auto it : inside_faces)
-//				{
-//					drawer_->vertex3fv(surface_.vertex_position_[Vertex(it.dart)]);
-//					drawer_->vertex3fv(surface_.vertex_position_[Vertex(surface_.map_.phi1(it.dart))]);
-//					drawer_->vertex3fv(surface_.vertex_position_[Vertex(surface_.map_.phi_1(it.dart))]);
-//				}
-//				drawer_->end();
-
+				break;
 			}
 
-
-			////			std::vector<cgogn::EquivalenceClass<Vec3::Scalar, Surface<Vec3>> vec;
-
-			//			typename Surface<Vec3>::template VertexAttribute<uint32> vindices = surface_.map_.template add_attribute<uint32, Vertex::ORBIT>("indices");
-			//			uint32 count = 0;
-			//			surface_.map_.foreach_cell([&] (Vertex v) { vindices[v] = count++; });
-
-			//			std::map<uint32,Vertex> min;
-			//			surface_.map_.foreach_cell([&] (Vertex v)
-			//			{
-			//				if(cgogn::critical_vertex_type<Vec3::Scalar>(surface_.map_, v, surface_.fpo_).v_ == cgogn::CriticalVertexType::MINIMUM)
-			//					min.insert(std::pair<uint32,Vertex>(vindices[v], v));
-			//			});
-
-			//			Vertex vm = cgogn::argmin<Vec3::Scalar>(surface_.map_, surface_.fpo_);
-			//			min.erase(min.find(vindices[vm]));
-
-			//			std::map<uint32, Vertex> sub_level_set;
-			//			std::map<uint32, Vertex> level_set;
-
-			//			level_set.insert(std::pair<uint32,Vertex>(vindices[vm], vm));
-
-			//			unsigned int stop = 0;
-			//			do
-			//			{
-
-			//				if(stop == 1) //3022
-			//					break;
-
-			//				Vertex vt = cgogn::argmin<Vec3::Scalar, Surface<Vec3>>(level_set, surface_.fpo_);
-			//				Vertex vmin = cgogn::argmin<Vec3::Scalar, Surface<Vec3>>(min, surface_.fpo_);
-
-			//				if(surface_.fpo_[vmin] < surface_.fpo_[vt])
-			//				{
-			//					vt = vmin;
-			//					min.erase(min.find(vindices[vmin]));
-			//					level_set.insert(std::pair<uint32, Vertex>(vindices[vt], vt));
-			//				}
-
-			//				drawer_->ball_size(0.2f*bb_.max_size()/50.0f);
-			//				drawer_->begin(GL_POINTS);
-			//				drawer_->color3f(0.0,1.0,0.0);
-			//				for (auto it : level_set)
-			//				{
-			//					drawer_->vertex3fv(surface_.vertex_position_[it.second]);
-			//				}
-			//				drawer_->end();
-
-			////				//compute discrete contour
-
-			////				cgogn::EquivalenceClass ec;
-
-
-
-
-			////				vec.push_back(discrete_contour(vt, level_set));
-
-			//				level_set.erase(level_set.find(vindices[vt]));
-			//				sub_level_set.insert(std::pair<uint32, Vertex>(vindices[vt], vt));
-
-			//				Scalar center = surface_.fpo_[vt];
-			//				surface_.map_.foreach_adjacent_vertex_through_edge(vt, [&] (Vertex vn)
-			//				{
-			//					Scalar current = surface_.fpo_[vn];
-			//					if(current > center)
-			//						level_set.insert(std::pair<uint32, Vertex>(vindices[vn], vn));
-
-			//				});
-
-			////				drawer_->ball_size(0.2f*bb_.max_size()/50.0f);
-			////				drawer_->begin(GL_POINTS);
-			////				cgogn::numerics::float32 c =cgogn::numerics::scale_and_clamp_to_0_1(cgogn::numerics::float32(stop),cgogn::numerics::float32(0.),cgogn::numerics::float32(10.));
-			////				drawer_->color3f(0.5,c,0.5);
-			////				for (auto it : sub_level_set)
-			////				{
-			////					drawer_->vertex3fv(surface_.vertex_position_[it.second]);
-			////				}
-			////				drawer_->end();
-
-			//				drawer_->line_width_aa(3.0);
-			//				drawer_->begin(GL_LINE_LOOP);
-			//				drawer_->color3f(0.0,1.0,0.0);
-			//				for (auto it : level_set)
-			//				{
-			//					drawer_->vertex3fv(surface_.vertex_position_[it.second]);
-			//				}
-			//				drawer_->end();
-
-			//				stop++;
-			//			}while(!level_set.empty());
-
-
 			drawer_->end_list();
+
+			Vec3 current_center(0.0,0.0,0.0);
+			uint32 count = 0;
+
+			surface_.map_.foreach_cell([&](Volume w)
+			{
+				surface_.map_.foreach_incident_vertex(w, [&](Vertex v)
+				{
+					current_center += surface_.vertex_position_[v];
+					++count;
+				});
+
+				current_center /= count;
+				current_center -= center;
+
+				surface_.map_.foreach_incident_vertex(w, [&](Vertex v)
+				{
+					surface_.vertex_position_[v] += current_center * 0.5 ;
+				});
+			});
+
+			std::cout << "nb cc = " << surface_.map_.nb_connected_components() << std::endl;
+			topo_render_->update_map2<Vec3>(surface_.map_,surface_.vertex_position_);
+			surface_.update_geometry();
+			surface_.update_topology();
+
 			break;
 		}
 		default:
