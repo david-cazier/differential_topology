@@ -31,7 +31,7 @@ public:
 
 	void init()
 	{
-		drawer_ = new cgogn::rendering::Drawer(ogl33_);
+		drawer_ = new cgogn::rendering::Drawer();
 	}
 
 	void set(cgogn::ReebGraph<Vec3, CMap2>* rg, cgogn::CMap2<cgogn::DefaultMapTraits>::VertexAttribute<Vec3> position)
@@ -59,7 +59,7 @@ public:
 
 	void draw(const QMatrix4x4& proj, const QMatrix4x4& view)
 	{
-//		drawer_->call_list(proj,view);
+//		drawer_->call_list(proj, view, ogl33_);
 	}
 };
 
