@@ -92,10 +92,10 @@ void Viewer::draw()
 		feature_points_.draw(proj, view);
 
 	if (bb_rendering_ && drawer_)
-		drawer_->call_list(proj,view);
+		drawer_->call_list(proj, view, this);
 
 	if(surface_topo_rendering_)
-		topo_render_->draw(proj,view);
+		topo_render_->draw(proj,view, this);
 }
 
 void Viewer::init()
@@ -106,11 +106,11 @@ void Viewer::init()
 	feature_points_.init(bb_);
 	//	reeb_graph_.init();
 
-	topo_render_ = new cgogn::rendering::TopoRender(this);
+	topo_render_ = new cgogn::rendering::TopoRender();
 
 	// drawer for simple old-school g1 rendering
-	drawer_ = new cgogn::rendering::Drawer(this);
-	topo_render_->update_map2<Vec3>(surface_.map_,surface_.vertex_position_);
+	drawer_ = new cgogn::rendering::Drawer();
+	topo_render_->update<Vec3>(surface_.map_,surface_.vertex_position_);
 
 	//	drawer_->new_list();
 	//	drawer_->line_width_aa(2.0);
@@ -335,7 +335,7 @@ void Viewer::keyPressEvent(QKeyEvent *e)
 				}
 				drawer_->end();
 
-				surface_.map_.cut_surface(level_line_edges);
+//				surface_.map_.cut_surface(level_line_edges);
 
 				break;
 			}
@@ -363,7 +363,7 @@ void Viewer::keyPressEvent(QKeyEvent *e)
 			});
 
 			std::cout << "nb cc = " << surface_.map_.nb_connected_components() << std::endl;
-			topo_render_->update_map2<Vec3>(surface_.map_,surface_.vertex_position_);
+			topo_render_->update<Vec3>(surface_.map_,surface_.vertex_position_);
 			surface_.update_geometry();
 			surface_.update_topology();
 

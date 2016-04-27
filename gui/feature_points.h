@@ -43,7 +43,7 @@ public:
 
 	void init(cgogn::geometry::BoundingBox<Vec3> bb)
 	{
-		drawer_ = new cgogn::rendering::Drawer(ogl33_);
+		drawer_ = new cgogn::rendering::Drawer();
 		bb_ = bb;
 	}
 
@@ -173,7 +173,7 @@ public:
 
 	void draw(const QMatrix4x4& proj, const QMatrix4x4& view)
 	{
-		drawer_->call_list(proj,view);
+		drawer_->call_list(proj, view, ogl33_);
 	}
 
 };
