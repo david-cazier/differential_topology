@@ -114,7 +114,6 @@ void Viewer::init()
 	topo_drawer_ = new cgogn::rendering::TopoDrawer();
 	topo_renderer_ = topo_drawer_->generate_renderer();
 
-
 	topo_drawer_->update<Vec3>(surface_.map_,surface_.vertex_position_);
 
 	//	drawer_->new_list();

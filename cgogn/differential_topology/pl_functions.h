@@ -251,38 +251,36 @@ void extract_level_sets(
 			vertex_queue.pop();
 			++nb_vertex;
 
-			Scalar current_scalar = scalar_field[u];
 			Scalar minimal_scalar = Scalar(0);
 
 			map.foreach_adjacent_vertex_through_edge(u, [&](Vertex v)
 			{
-				if (vertex_type[v] == CriticalVertexType::SADDLE || level_sets[v] != Scalar(0)) {
+				if (vertex_type[v] == CriticalVertexType::SADDLE) {
 					// Set as visited if not
 					if (level_sets[v] != Scalar(0))
 						level_sets[v] = current_level_set_id;
 
-					std::cout << "saddle or topological merge" << std::endl;
+					std::cout << "saddle" << std::endl;
 					// Add the vertices adjacent to the saddle to the level set queue
 					minimal_scalar = scalar_field[v];
 					map.foreach_adjacent_vertex_through_edge(v, [&](Vertex w)
 					{
-						if (scalar_field[w] < scalar_field[v]) {
-							// Get the maximal scalar lower than current in the 1-ring
-							// (this is the lower bound of the current level set)
-							if (scalar_field[w] > minimal_scalar)
-								minimal_scalar = scalar_field[w];
+						if (scalar_field[w] < scalar_field[v] && level_sets[w] == Scalar(0)) {
 							// Add potential new sources of level sets
-							if (level_sets[w] == Scalar(0) && scalar_field[w] < scalar_field[v])
-								vertex_queue.push(std::make_pair(scalar_field[w], w.dart.index));
+//							vertex_queue.push(std::make_pair(scalar_field[w], w.dart.index));
 						}
 					});
 					// Stop the expansion of this level set (by emptying the queue)
 //					while (!vertex_queue.empty()) vertex_queue.pop();
 				}
+				else if (level_sets[v] != Scalar(0)) {
+					std::cout << "topological merge" << std::endl;
+//					minimal_scalar = scalar_field[v];
+				}
 				else if (scalar_field[v] > minimal_scalar)
 				{
 					level_sets[v] = current_level_set_id;		// Set as visited
-					if (scalar_field[v] < current_scalar)
+					if (level_sets[v] == Scalar(0))
 						vertex_queue.push(std::make_pair(scalar_field[v], v.dart.index));
 				}
 			});
