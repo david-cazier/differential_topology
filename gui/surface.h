@@ -608,9 +608,7 @@ public:
 	{
 		VertexAttribute<Scalar> level_sets = map_.add_attribute<Scalar, Vertex::ORBIT>("level_sets");
 		cgogn::extract_level_sets<Scalar>(map_ , scalar_field, level_sets);
-
-		// Draw the level sets
-		update_color(level_sets);
+	update_color(level_sets);
 		map_.remove_attribute(level_sets);
 	}
 
