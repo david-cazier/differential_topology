@@ -542,6 +542,8 @@ public:
 
 		// Build the scalar field from the selected features
 		cgogn::geodesic_distance_pl_function<Scalar>(map_, fp.vertices_, edge_metric_, scalar_field_);
+
+		// Draw the result
 		update_color(scalar_field_);
 		fp.extract(map_, scalar_field_, vertex_position_);
 
@@ -555,6 +557,8 @@ public:
 
 		// Build the scalar field from the selected features
 		cgogn::geodesic_distance_pl_function<Scalar>(map_, fp.vertices_, edge_metric_, scalar_field_);
+
+		// Draw the result
 		update_color(scalar_field_);
 		fp.extract(map_, scalar_field_, vertex_position_);
 
@@ -565,7 +569,19 @@ public:
 		// Find features for the edge_metric
 		compute_length(edge_metric_);
 
-		morse_function(fp);
+		// Compute a morse function with the metric
+		morse_function(fp, scalar_field_, edge_metric_);
+
+		// Draw the morse function and its critical points
+		update_color(scalar_field_);
+
+		std::vector<Vertex> maxima;
+		std::vector<Vertex> minima;
+		std::vector<Vertex> saddles;
+		cgogn::extract_critical_points<Scalar>(map_, scalar_field_, maxima, minima, saddles);
+		fp.draw(maxima, vertex_position_, 1.0f, 1.0f, 1.0f, 1.0f);
+		fp.draw(minima, vertex_position_, 1.0f, 0.0f, 0.0f, 0.8f);
+		fp.draw(saddles, vertex_position_, 1.0f, 1.0f, 0.0f, 0.8f);
 	}
 
 	void curvature_weighted_morse_function(FeaturePoints<VEC3>& fp)
@@ -573,12 +589,32 @@ public:
 		// Find features for the edge_metric
 		compute_curvature(edge_metric_);
 
-		morse_function(fp);
+		// Compute a morse function with the metric
+		morse_function(fp, scalar_field_, edge_metric_);
+
+		// Draw the morse function and its critical points
+		update_color(scalar_field_);
+
+		std::vector<Vertex> maxima;
+		std::vector<Vertex> minima;
+		std::vector<Vertex> saddles;
+		cgogn::extract_critical_points<Scalar>(map_, scalar_field_, maxima, minima, saddles);
+		fp.draw(maxima, vertex_position_, 1.0f, 1.0f, 1.0f, 1.0f);
+		fp.draw(minima, vertex_position_, 1.0f, 0.0f, 0.0f, 0.8f);
+		fp.draw(saddles, vertex_position_, 1.0f, 1.0f, 0.0f, 0.8f);
 	}
 
-	/********************/
+	void show_level_sets(const VertexAttribute<Scalar>& scalar_field)
+	{
+		VertexAttribute<Scalar> level_sets = map_.add_attribute<Scalar, Vertex::ORBIT>("level_sets");
+		cgogn::extract_level_sets<Scalar>(map_ , scalar_field, level_sets);
+	update_color(level_sets);
+		map_.remove_attribute(level_sets);
+	}
 
-	void morse_function(FeaturePoints<VEC3>& fp)
+	void morse_function(FeaturePoints<VEC3>& fp,
+						VertexAttribute<Scalar>& scalar_field,
+						const EdgeAttribute<Scalar>& edge_metric)
 	{
 		// Etape 1 get the two farthest vertices and their associated scalar field
 		// (the scalar field contains the geodesic distance to the nearest feature)
@@ -587,7 +623,7 @@ public:
 
 		// Etape 2
 		// 1 initial function with Feature vertices as seeds
-		cgogn::normalized_geodesic_distance_pl_function<Scalar>(map_, fp.vertices_, edge_metric_, dist_to_feature);
+		cgogn::normalized_geodesic_distance_pl_function<Scalar>(map_, fp.vertices_, edge_metric, dist_to_feature);
 
 		// 2 inverse the normalized distance so that the maxima are on the features
 		map_.foreach_cell([&] (Vertex v)
@@ -597,27 +633,9 @@ public:
 
 		// 3 function perturbation (to remove extra minima and saddles)
 		// Run dijkstra using dist_to_feature in place of estimated geodesic distances
-		cgogn::dijkstra_to_morse_function<Scalar>(map_, dist_to_feature, scalar_field_);
-
-		// 4 Extract the level sets
-		VertexAttribute<Scalar> level_sets = map_.add_attribute<Scalar, Vertex::ORBIT>("level_sets");
-		cgogn::extract_level_sets<Scalar>(map_ , scalar_field_, level_sets);
-
-		// Draw the morse function and its critical points
-		update_color(level_sets);
-
-		std::vector<Vertex> maxima;
-		std::vector<Vertex> minima;
-		std::vector<Vertex> saddles;
-		cgogn::extract_critical_points<Scalar>(map_, scalar_field_, maxima, minima, saddles);
-		fp.draw(maxima, vertex_position_, 1.0f, 1.0f, 1.0f, 1.0f);
-		fp.draw(minima, vertex_position_, 1.0f, 0.0f, 0.0f, 0.8f);
-		fp.draw(saddles, vertex_position_, 1.0f, 1.0f, 0.0f, 0.8f);
-
-		//		cgogn::io::export_vtp<Vec3>(map_, vertex_position_, fI, "test.vtp");
+		cgogn::dijkstra_to_morse_function<Scalar>(map_, dist_to_feature, scalar_field);
 
 		map_.remove_attribute(dist_to_feature);
-		map_.remove_attribute(level_sets);
 	}
 
 	void compute_length(EdgeAttribute<Scalar>& length)

@@ -373,6 +373,11 @@ void Viewer::keyPressEvent(QKeyEvent *e)
 
 			break;
 		}
+		case Qt::Key_7:
+		{
+			surface_.show_level_sets(surface_.scalar_field_);
+			break;
+		}
 		default:
 			break;
 	}
