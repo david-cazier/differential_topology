@@ -198,7 +198,7 @@ void normalized_geodesic_distance_pl_function(
 template <typename Scalar, typename MAP>
 void extract_level_sets(
 		MAP& map,
-		typename MAP::template VertexAttribute<Scalar>& scalar_field,
+		const typename MAP::template VertexAttribute<Scalar>& scalar_field,
 		typename MAP::template VertexAttribute<Scalar>& level_sets)
 {
 	using Vertex = typename MAP::Vertex;
@@ -216,7 +216,7 @@ void extract_level_sets(
 	my_queue level_sets_queue;
 	my_queue vertex_queue;
 
-	// Add all maxima as level set sources
+	// Add all local maxima as level set sources
 	map.foreach_cell([&](typename MAP::Vertex v)
 	{
 		CriticalVertex type = critical_vertex_type<Scalar>(map, v, scalar_field);
@@ -227,65 +227,61 @@ void extract_level_sets(
 		}
 	});
 
-	// Pour chaque level set
+	// Tant qu'il reste des maxima locaux => génère un level set
 	uint32 current_level_set_id = 1;
 	while (!level_sets_queue.empty()) {
-		// Set the source vertex of the next level set
-		std::cout << "New front : " << current_level_set_id << std::endl;
-		my_pair p;
-		do {
-			p = level_sets_queue.top();
-			level_sets_queue.pop();
-		} while (!level_sets_queue.empty() && level_sets[Vertex(Dart(p.second))] != Scalar(0));
+		// Initialise un nouveau front pour calculer le level set suivant
+		my_pair p = level_sets_queue.top();
+		level_sets_queue.pop();
+		vertex_queue.push(p);
 
-		if (!level_sets_queue.empty()) {
-			vertex_queue.push(p);
-			level_sets[Vertex(Dart(p.second))] = Scalar(current_level_set_id);
-		}
+		int nb_vertex = 1;
+		Scalar minimal_scalar = Scalar(0);
 
-		// Pour chaque sommet du front du level set
-		int nb_vertex = 0;
+		// Tant qu'il reste des sommets dans le front courrant
 		while (!vertex_queue.empty())
 		{
 			Vertex u = Vertex(Dart(vertex_queue.top().second));
 			vertex_queue.pop();
-			++nb_vertex;
 
-			Scalar minimal_scalar = Scalar(0);
+			Scalar current_scalar = scalar_field[u];
+			uint32 old_level_set_id = level_sets[u];
 
-			map.foreach_adjacent_vertex_through_edge(u, [&](Vertex v)
-			{
-				if (vertex_type[v] == CriticalVertexType::SADDLE) {
-					// Set as visited if not
-					if (level_sets[v] != Scalar(0))
-						level_sets[v] = current_level_set_id;
-
-					std::cout << "saddle" << std::endl;
-					// Add the vertices adjacent to the saddle to the level set queue
-					minimal_scalar = scalar_field[v];
-					map.foreach_adjacent_vertex_through_edge(v, [&](Vertex w)
-					{
-						if (scalar_field[w] < scalar_field[v] && level_sets[w] == Scalar(0)) {
-							// Add potential new sources of level sets
-//							vertex_queue.push(std::make_pair(scalar_field[w], w.dart.index));
-						}
-					});
-					// Stop the expansion of this level set (by emptying the queue)
-//					while (!vertex_queue.empty()) vertex_queue.pop();
+			// If the vertex has not been visited and we are still in the current level set
+			if (old_level_set_id == 0u && scalar_field[u] > minimal_scalar) {
+				if (vertex_type[u] == CriticalVertexType::SADDLE) {
+					// Set the scalar value of the saddle as the minimum of this level set
+					minimal_scalar = scalar_field[u];
+					// Add unvisited vertices around the saddle that have lower scalar as new maxima
+//					map.foreach_adjacent_vertex_through_edge(u, [&](Vertex v)
+//					{
+//						if (level_sets[v] == 0u && scalar_field[v] < minimal_scalar) {
+//							level_sets_queue.push(std::make_pair(scalar_field[v], v.dart.index));
+//						}
+//					});
 				}
-				else if (level_sets[v] != Scalar(0)) {
-					std::cout << "topological merge" << std::endl;
-//					minimal_scalar = scalar_field[v];
+				// The vertex is in the current level set
+				else {
+					level_sets[u] = current_level_set_id;		// Set as visited
 				}
-				else if (scalar_field[v] > minimal_scalar)
+				// Extend the front of the level set
+				map.foreach_adjacent_vertex_through_edge(u, [&](Vertex v)
 				{
-					level_sets[v] = current_level_set_id;		// Set as visited
-					if (level_sets[v] == Scalar(0))
+					if (scalar_field[v] > minimal_scalar &&
+						scalar_field[v] < current_scalar)
+					{
 						vertex_queue.push(std::make_pair(scalar_field[v], v.dart.index));
+					}
+				});
+			}
+			// If we reach another level set (before a saddle) then they must be merged
+			else if (old_level_set_id != 0u && old_level_set_id != current_level_set_id) {
+				for(auto& d : level_sets) {
+					if (d == old_level_set_id) d = current_level_set_id;
 				}
-			});
+
+			}
 		}
-		std::cout << nb_vertex << "in the front" << std::endl;
 		++current_level_set_id;
 	}
 	map.remove_attribute(vertex_type);
