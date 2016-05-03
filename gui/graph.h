@@ -16,7 +16,7 @@ public:
 
 	using CMap2 = cgogn::CMap2<cgogn::DefaultMapTraits>;
 
-	cgogn::rendering::Drawer* drawer_;
+	cgogn::rendering::DisplayListDrawer* drawer_;
 	QOpenGLFunctions_3_3_Core* ogl33_;
 
 	Graph(QOpenGLFunctions_3_3_Core* ogl33):
@@ -31,7 +31,7 @@ public:
 
 	void init()
 	{
-		drawer_ = new cgogn::rendering::Drawer();
+		drawer_ = new cgogn::rendering::DisplayListDrawer();
 	}
 
 	void set(cgogn::ReebGraph<Vec3, CMap2>* rg, cgogn::CMap2<cgogn::DefaultMapTraits>::VertexAttribute<Vec3> position)

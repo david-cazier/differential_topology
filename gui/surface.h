@@ -38,6 +38,7 @@
 #include <cgogn/rendering/shaders/shader_simple_color.h>
 #include <cgogn/rendering/shaders/shader_flat.h>
 #include <cgogn/rendering/shaders/shader_phong.h>
+#include <cgogn/rendering/shaders/shader_point_sprite.h>
 #include <cgogn/rendering/shaders/shader_vector_per_vertex.h>
 #include <cgogn/rendering/shaders/vbo.h>
 
@@ -95,17 +96,11 @@ public:
 	cgogn::rendering::VBO* vbo_color_;
 	cgogn::rendering::VBO* vbo_sphere_sz_;
 
-	cgogn::rendering::ShaderBoldLine* shader_edge_;
-	cgogn::rendering::ShaderFlat* shader_flat_;
-	cgogn::rendering::ShaderVectorPerVertex* shader_normal_;
-	cgogn::rendering::ShaderPhong* shader_phong_;
-	cgogn::rendering::ShaderPointSprite* shader_point_sprite_;
-
 	cgogn::rendering::ShaderBoldLine::Param* param_edge_;
-	cgogn::rendering::ShaderFlat::Param* param_flat_;
+	cgogn::rendering::ShaderFlatColor::Param* param_flat_;
 	cgogn::rendering::ShaderVectorPerVertex::Param* param_normal_;
-	cgogn::rendering::ShaderPhong::Param* param_phong_;
-	cgogn::rendering::ShaderPointSprite::Param* param_point_sprite_;
+	cgogn::rendering::ShaderPhongColor::Param* param_phong_;
+	cgogn::rendering::ShaderPointSpriteColorSize::Param* param_point_sprite_;
 
 	cgogn::ReebGraph<Vec3, CMap2>* reeb_graph_;
 
@@ -122,12 +117,7 @@ public:
 		vbo_pos_(nullptr),
 		vbo_norm_(nullptr),
 		vbo_color_(nullptr),
-		vbo_sphere_sz_(nullptr),
-		shader_edge_(nullptr),
-		shader_flat_(nullptr),
-		shader_normal_(nullptr),
-		shader_phong_(nullptr),
-		shader_point_sprite_(nullptr)
+		vbo_sphere_sz_(nullptr)
 	{
 		reeb_graph_ = new cgogn::ReebGraph<Vec3, CMap2>(map_);
 	}
@@ -139,14 +129,8 @@ public:
 		delete vbo_norm_;
 		delete vbo_color_;
 		delete vbo_sphere_sz_;
-		delete shader_edge_;
-		delete shader_flat_;
-		delete shader_normal_;
-		delete shader_phong_;
-		delete shader_point_sprite_;
 		delete reeb_graph_;
 	}
-
 
 	template <typename T, typename MAP>
 	inline T surface_centroid(MAP& map, VertexAttribute<T>& attribute)
@@ -199,34 +183,25 @@ public:
 		render_->init_primitives<Vec3>(map_, cgogn::rendering::LINES);
 		render_->init_primitives<Vec3>(map_, cgogn::rendering::TRIANGLES, &vertex_position_);
 
-		shader_point_sprite_ = new cgogn::rendering::ShaderPointSprite(true,true);
-		param_point_sprite_ = shader_point_sprite_->generate_param();
-		param_point_sprite_->set_vbo(vbo_pos_,vbo_color_,vbo_sphere_sz_);
-		param_point_sprite_->size_ = bb_.diag_size()/100.0;
-		param_point_sprite_->color_ = QColor(255,0,0);
+		param_point_sprite_ = cgogn::rendering::ShaderPointSpriteColorSize::generate_param();
+		param_point_sprite_->set_all_vbos(vbo_pos_,vbo_color_,vbo_sphere_sz_);
 
-		shader_edge_ = new cgogn::rendering::ShaderBoldLine() ;
-		param_edge_ = shader_edge_->generate_param();
-		param_edge_->set_vbo(vbo_pos_);
+		param_edge_ = cgogn::rendering::ShaderBoldLine::generate_param();
+		param_edge_->set_position_vbo(vbo_pos_);
 		param_edge_->color_ = QColor(255,255,0);
 		param_edge_->width_= 2.5f;
 
-		shader_flat_ = new cgogn::rendering::ShaderFlat(true);
-		param_flat_ = shader_flat_->generate_param();
-		param_flat_->set_vbo(vbo_pos_);
-		param_flat_->front_color_ = QColor(0,200,0);
-		param_flat_->back_color_ = QColor(0,0,200);
+		param_flat_ = cgogn::rendering::ShaderFlatColor::generate_param();
+		param_flat_->set_position_vbo(vbo_pos_);
 		param_flat_->ambiant_color_ = QColor(5,5,5);
 
-		shader_normal_ = new cgogn::rendering::ShaderVectorPerVertex;
-		param_normal_ = shader_normal_->generate_param();
-		param_normal_->set_vbo(vbo_pos_, vbo_norm_);
+		param_normal_ = cgogn::rendering::ShaderVectorPerVertex::generate_param();
+		param_normal_->set_all_vbos(vbo_pos_, vbo_norm_);
 		param_normal_->color_ = QColor(200,0,200);
 		param_normal_->length_ = bb_.diag_size()/50;
 
-		shader_phong_ = new cgogn::rendering::ShaderPhong(true);
-		param_phong_ = shader_phong_->generate_param();
-		param_phong_->set_vbo(vbo_pos_, vbo_norm_, vbo_color_);
+		param_phong_ = cgogn::rendering::ShaderPhongColor::generate_param();
+		param_phong_->set_all_vbos(vbo_pos_, vbo_norm_, vbo_color_);
 	}
 
 	void update_geometry()

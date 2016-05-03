@@ -31,7 +31,9 @@ Viewer::Viewer() :
 	feature_points_(this),
 	reeb_graph_(this),
 	drawer_(nullptr),
-	topo_render_(nullptr),
+	renderer_(nullptr),
+	topo_drawer_(nullptr),
+	topo_renderer_(nullptr),
 	surface_rendering_(true),
 	surface_phong_rendering_(true),
 	surface_flat_rendering_(false),
@@ -47,7 +49,6 @@ Viewer::Viewer() :
 
 Viewer::~Viewer()
 {
-	delete topo_render_;
 }
 
 void Viewer::draw()
@@ -92,10 +93,10 @@ void Viewer::draw()
 		feature_points_.draw(proj, view);
 
 	if (bb_rendering_ && drawer_)
-		drawer_->call_list(proj, view, this);
+		renderer_->draw(proj, view, this);
 
 	if(surface_topo_rendering_)
-		topo_render_->draw(proj,view, this);
+		topo_renderer_->draw(proj,view, this);
 }
 
 void Viewer::init()
@@ -106,11 +107,15 @@ void Viewer::init()
 	feature_points_.init(bb_);
 	//	reeb_graph_.init();
 
-	topo_render_ = new cgogn::rendering::TopoRender();
-
 	// drawer for simple old-school g1 rendering
-	drawer_ = new cgogn::rendering::Drawer();
-	topo_render_->update<Vec3>(surface_.map_,surface_.vertex_position_);
+	drawer_ = new cgogn::rendering::DisplayListDrawer();
+	renderer_ = drawer_->generate_renderer();
+
+	topo_drawer_ = new cgogn::rendering::TopoDrawer();
+	topo_renderer_ = topo_drawer_->generate_renderer();
+
+
+	topo_drawer_->update<Vec3>(surface_.map_,surface_.vertex_position_);
 
 	//	drawer_->new_list();
 	//	drawer_->line_width_aa(2.0);
@@ -363,7 +368,7 @@ void Viewer::keyPressEvent(QKeyEvent *e)
 			});
 
 			std::cout << "nb cc = " << surface_.map_.nb_connected_components() << std::endl;
-			topo_render_->update<Vec3>(surface_.map_,surface_.vertex_position_);
+			topo_drawer_->update<Vec3>(surface_.map_,surface_.vertex_position_);
 			surface_.update_geometry();
 			surface_.update_topology();
 

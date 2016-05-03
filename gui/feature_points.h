@@ -25,7 +25,8 @@ public:
 
 	std::vector<Vertex> vertices_;
 
-	cgogn::rendering::Drawer* drawer_;
+	cgogn::rendering::DisplayListDrawer* drawer_;
+	cgogn::rendering::DisplayListDrawer::Renderer* renderer_;
 	cgogn::geometry::BoundingBox<Vec3> bb_;
 
 	QOpenGLFunctions_3_3_Core* ogl33_;
@@ -43,7 +44,8 @@ public:
 
 	void init(cgogn::geometry::BoundingBox<Vec3> bb)
 	{
-		drawer_ = new cgogn::rendering::Drawer();
+		drawer_ = new cgogn::rendering::DisplayListDrawer();
+		renderer_ = drawer_->generate_renderer();
 		bb_ = bb;
 	}
 
@@ -173,7 +175,7 @@ public:
 
 	void draw(const QMatrix4x4& proj, const QMatrix4x4& view)
 	{
-		drawer_->call_list(proj, view, ogl33_);
+		renderer_->draw(proj, view, ogl33_);
 	}
 
 };

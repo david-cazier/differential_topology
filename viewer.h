@@ -33,7 +33,7 @@
 #include <gui/feature_points.h>
 #include <gui/graph.h>
 
-#include <cgogn/rendering/topo_render.h>
+#include <cgogn/rendering/topo_drawer.h>
 
 #include <cgogn/geometry/algos/bounding_box.h>
 #include <cgogn/rendering/drawer.h>
@@ -66,11 +66,13 @@ private:
 	Surface<Vec3> surface_;
 
 	cgogn::geometry::BoundingBox<Vec3> bb_;
-	cgogn::rendering::Drawer* drawer_;
+	cgogn::rendering::DisplayListDrawer* drawer_;
+	cgogn::rendering::DisplayListDrawer::Renderer* renderer_;
+
+	cgogn::rendering::TopoDrawer* topo_drawer_;
+	cgogn::rendering::TopoDrawer::Renderer* topo_renderer_;
 
 	std::vector<Surface<Vec3>::Vertex> selected_vertices_;
-
-	cgogn::rendering::TopoRender* topo_render_;
 
 	FeaturePoints<Vec3> feature_points_;
 	Graph reeb_graph_;
