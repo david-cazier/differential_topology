@@ -366,7 +366,8 @@ public:
 		return maximal;
 	}
 
-	// Remove the vertices whose distance to a source is below the threshold
+    // Remove the vertices whose distance to local minima (their sources)
+    // of the given scalar field is below the threshold
 	// and (if any) add the source of the closest to the filtered set
 	void features_filter(std::vector<Vertex>& vertices,
 						 std::vector<Vertex>& filtered,
