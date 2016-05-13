@@ -108,40 +108,13 @@ void Viewer::init()
 	//	reeb_graph_.init();
 
 	// drawer for simple old-school g1 rendering
-	drawer_ = new cgogn::rendering::DisplayListDrawer();
+	drawer_ = cgogn::make_unique<cgogn::rendering::DisplayListDrawer>();
 	renderer_ = drawer_->generate_renderer();
 
-	topo_drawer_ = new cgogn::rendering::TopoDrawer();
+	topo_drawer_ = cgogn::make_unique<cgogn::rendering::TopoDrawer>();
 	topo_renderer_ = topo_drawer_->generate_renderer();
 
 	topo_drawer_->update<Vec3>(surface_.map_,surface_.vertex_position_);
-
-	//	drawer_->new_list();
-	//	drawer_->line_width_aa(2.0);
-	//	drawer_->begin(GL_LINE_LOOP);
-	//	drawer_->color3f(1.0,1.0,1.0);
-	//	drawer_->vertex3f(bb_.min()[0],bb_.min()[1],bb_.min()[2]);
-	//	drawer_->vertex3f(bb_.max()[0],bb_.min()[1],bb_.min()[2]);
-	//	drawer_->vertex3f(bb_.max()[0],bb_.max()[1],bb_.min()[2]);
-	//	drawer_->vertex3f(bb_.min()[0],bb_.max()[1],bb_.min()[2]);
-	//	drawer_->vertex3f(bb_.min()[0],bb_.max()[1],bb_.max()[2]);
-	//	drawer_->vertex3f(bb_.max()[0],bb_.max()[1],bb_.max()[2]);
-	//	drawer_->vertex3f(bb_.max()[0],bb_.min()[1],bb_.max()[2]);
-	//	drawer_->vertex3f(bb_.min()[0],bb_.min()[1],bb_.max()[2]);
-	//	drawer_->end();
-	//	drawer_->begin(GL_LINES);
-	//	drawer_->color3f(1.0,1.0,1.0);
-	//	drawer_->vertex3f(bb_.min()[0],bb_.min()[1],bb_.min()[2]);
-	//	drawer_->vertex3f(bb_.min()[0],bb_.max()[1],bb_.min()[2]);
-	//	drawer_->vertex3f(bb_.min()[0],bb_.min()[1],bb_.max()[2]);
-	//	drawer_->vertex3f(bb_.min()[0],bb_.max()[1],bb_.max()[2]);
-	//	drawer_->vertex3f(bb_.max()[0],bb_.min()[1],bb_.min()[2]);
-	//	drawer_->vertex3f(bb_.max()[0],bb_.min()[1],bb_.max()[2]);
-	//	drawer_->vertex3f(bb_.max()[0],bb_.max()[1],bb_.min()[2]);
-	//	drawer_->vertex3f(bb_.max()[0],bb_.max()[1],bb_.max()[2]);
-	//	drawer_->end();
-	//	drawer_->end_list();
-
 }
 
 void Viewer::mousePressEvent(QMouseEvent* e)
@@ -153,7 +126,6 @@ void Viewer::mousePressEvent(QMouseEvent* e)
 
 		P = camera()->unprojectedCoordinatesOf(qoglviewer::Vec(e->x(),e->y(),0.0));
 		Q = camera()->unprojectedCoordinatesOf(qoglviewer::Vec(e->x(),e->y(),1.0));
-
 
 		Vec3 A(P[0],P[1],P[2]);
 		Vec3 B(Q[0],Q[1],Q[2]);
@@ -203,7 +175,6 @@ void Viewer::keyPressEvent(QKeyEvent *e)
 			break;
 		case Qt::Key_0:
 		{
-			feature_points_.clear();
 			feature_points_.begin_draw();
 			surface_.height_function(feature_points_);
 			feature_points_.end_draw();
@@ -211,7 +182,6 @@ void Viewer::keyPressEvent(QKeyEvent *e)
 		}
 		case Qt::Key_1:
 		{
-			feature_points_.clear();
 			feature_points_.begin_draw();
 			surface_.distance_to_center_function(feature_points_);
 			feature_points_.end_draw();
@@ -219,7 +189,6 @@ void Viewer::keyPressEvent(QKeyEvent *e)
 		}
 		case Qt::Key_2:
 		{
-			feature_points_.clear();
 			feature_points_.begin_draw();
 			surface_.edge_length_weighted_geodesic_distance_function(feature_points_);
 			feature_points_.end_draw();
@@ -227,7 +196,6 @@ void Viewer::keyPressEvent(QKeyEvent *e)
 		}
 		case Qt::Key_3:
 		{
-			feature_points_.clear();
 			feature_points_.begin_draw();
 			surface_.curvature_weighted_geodesic_distance_function(feature_points_);
 			feature_points_.end_draw();
@@ -235,7 +203,6 @@ void Viewer::keyPressEvent(QKeyEvent *e)
 		}
 		case Qt::Key_4:
 		{
-			feature_points_.clear();
 			feature_points_.begin_draw();
 			surface_.edge_length_weighted_morse_function(feature_points_);
 			feature_points_.end_draw();
@@ -243,7 +210,6 @@ void Viewer::keyPressEvent(QKeyEvent *e)
 		}
 		case Qt::Key_5:
 		{
-			feature_points_.clear();
 			feature_points_.begin_draw();
 			surface_.curvature_weighted_morse_function(feature_points_);
 			feature_points_.end_draw();
@@ -272,20 +238,16 @@ void Viewer::keyPressEvent(QKeyEvent *e)
 			});
 
 
+			std::vector<Vertex> inside_vertices;
+			std::vector<Face> inside_faces;
 			for(const auto& v : tab_vertices)
 			{
-				const Scalar v_value = surface_.scalar_field_[v];
-
 				// 1 . sub-level set
-				//
-
-				std::vector<Vertex> inside_vertices;
-				std::vector<Face> inside_faces;
 				CellMarker<Surface<Vec3>::CMap2, Vertex::ORBIT> vm(surface_.map_);
 				CellMarker<Surface<Vec3>::CMap2, Face::ORBIT> fm(surface_.map_);
 
 				inside_vertices.push_back(v);
-				//			vm.mark(v);
+				const Scalar v_value = surface_.scalar_field_[v];
 
 				for(uint32 i = 0 ; i < inside_vertices.size() ; ++i)
 				{
@@ -293,7 +255,7 @@ void Viewer::keyPressEvent(QKeyEvent *e)
 
 					surface_.map_.foreach_adjacent_vertex_through_edge(end, [&](Vertex e)
 					{
-						if(surface_.scalar_field_[e] <= v_value)
+						if(surface_.scalar_field_[e] > v_value)
 						{
 							if(!vm.is_marked(e))
 							{
@@ -314,9 +276,7 @@ void Viewer::keyPressEvent(QKeyEvent *e)
 				}
 
 				// 2. discrete level line
-				//
 				std::vector<Edge> level_line_edges;
-				CellMarker<Surface<Vec3>::CMap2, Face::ORBIT> fm2(surface_.map_);
 
 				for(const auto& f : inside_faces)
 				{
@@ -341,7 +301,8 @@ void Viewer::keyPressEvent(QKeyEvent *e)
 
 //				surface_.map_.cut_surface(level_line_edges);
 
-				break;
+				inside_vertices.clear();
+				inside_faces.clear();
 			}
 
 			drawer_->end_list();
@@ -375,7 +336,9 @@ void Viewer::keyPressEvent(QKeyEvent *e)
 		}
 		case Qt::Key_7:
 		{
-			surface_.show_level_sets(surface_.scalar_field_);
+			feature_points_.begin_draw();
+			surface_.show_level_sets(feature_points_, surface_.scalar_field_);
+			feature_points_.end_draw();
 			break;
 		}
 		default:
@@ -390,7 +353,10 @@ void Viewer::keyPressEvent(QKeyEvent *e)
 
 void Viewer::closeEvent(QCloseEvent*)
 {
-	delete drawer_;
+	drawer_.reset();
+	renderer_.reset();
+	topo_drawer_.reset();
+	topo_renderer_.reset();
 }
 
 void Viewer::import(const std::string& surfaceMesh)
