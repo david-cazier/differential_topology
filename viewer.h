@@ -66,11 +66,11 @@ private:
 	Surface<Vec3> surface_;
 
 	cgogn::geometry::BoundingBox<Vec3> bb_;
-	cgogn::rendering::DisplayListDrawer* drawer_;
-	cgogn::rendering::DisplayListDrawer::Renderer* renderer_;
+	std::unique_ptr<cgogn::rendering::DisplayListDrawer> drawer_;
+	std::unique_ptr<cgogn::rendering::DisplayListDrawer::Renderer> renderer_;
 
-	cgogn::rendering::TopoDrawer* topo_drawer_;
-	cgogn::rendering::TopoDrawer::Renderer* topo_renderer_;
+	std::unique_ptr<cgogn::rendering::TopoDrawer> topo_drawer_;
+	std::unique_ptr<cgogn::rendering::TopoDrawer::Renderer> topo_renderer_;
 
 	std::vector<Surface<Vec3>::Vertex> selected_vertices_;
 
