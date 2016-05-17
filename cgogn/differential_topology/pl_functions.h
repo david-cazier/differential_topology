@@ -40,7 +40,51 @@ struct CriticalVertex
 	{}
 };
 
-// f stands for general piecewise linear function
+template <typename T, typename MAP>
+typename MAP::Vertex find_one_ring_maxima(
+		MAP& map,
+		typename MAP::Vertex u,
+		const typename MAP::template VertexAttribute<T>& scalar_field)
+{
+	using Vertex = typename MAP::Vertex;
+
+	Vertex max_vertex = u;
+	T max_value = scalar_field[u];
+
+	map.foreach_adjacent_vertex_through_edge(u, [&](Vertex v)
+	{
+		if(scalar_field[v] > max_value)
+		{
+			max_value = scalar_field[v];
+			max_vertex = v;
+		}
+	});
+	return max_vertex;
+}
+
+template <typename T, typename MAP>
+typename MAP::Vertex find_one_ring_minima(
+		MAP& map,
+		typename MAP::Vertex u,
+		const typename MAP::template VertexAttribute<T>& scalar_field)
+{
+	using Vertex = typename MAP::Vertex;
+
+	Vertex min_vertex = u;
+	T min_value = scalar_field[u];
+
+	map.foreach_adjacent_vertex_through_edge(u, [&](Vertex v)
+	{
+		if(scalar_field[v] < min_value)
+		{
+			min_value = scalar_field[v];
+			min_vertex = v;
+		}
+	});
+	return min_vertex;
+}
+
+
 template <typename T, typename MAP>
 CriticalVertex critical_vertex_type(
 		MAP& map,
@@ -49,6 +93,17 @@ CriticalVertex critical_vertex_type(
 {
 	using Vertex = typename MAP::Vertex;
 
+	Vertex max = find_one_ring_maxima<T, MAP>(map, v, scalar_field);
+	if (scalar_field[max] < scalar_field[v])
+		return CriticalVertex(CriticalVertexType::MAXIMUM);
+
+	Vertex min = find_one_ring_minima<T, MAP>(map, v, scalar_field);
+	if (scalar_field[min] > scalar_field[v])
+		return CriticalVertex(CriticalVertexType::MINIMUM);
+
+	return CriticalVertex(CriticalVertexType::REGULAR);
+
+	// Ci-dessous le code fonctionnant pour les surfaces
 	Dart next = v.dart;
 	Dart prev;
 	T center  = scalar_field[v];
