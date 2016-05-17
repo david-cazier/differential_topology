@@ -191,7 +191,7 @@ public:
 		param_flat_->ambiant_color_ = QColor(5,5,5);
 
 		param_volume_ = cgogn::rendering::ShaderExplodeVolumes::generate_param();
-//		param_volume_->set_all_vbos(vbo_pos_.get(), vbo_color_.get());
+		param_volume_->set_position_vbo(vbo_pos_.get());
 	}
 
 	void update_geometry()
