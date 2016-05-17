@@ -17,12 +17,12 @@ public:
 	using Scalar = typename Vec3::Scalar;
 
 	using Dart = cgogn::Dart;
-	using CMap2 = cgogn::CMap2<cgogn::DefaultMapTraits>;
-	using Vertex = CMap2::Vertex;
-	using Edge = CMap2::Edge;
+	using CMap3 = cgogn::CMap3<cgogn::DefaultMapTraits>;
+	using Vertex = CMap3::Vertex;
+	using Edge = CMap3::Edge;
 
 	template <typename T>
-	using VertexAttribute = CMap2::VertexAttribute<T>;
+	using VertexAttribute = CMap3::VertexAttribute<T>;
 
 	std::unique_ptr<cgogn::rendering::DisplayListDrawer> drawer_;
 	std::unique_ptr<cgogn::rendering::DisplayListDrawer::Renderer> renderer_;
@@ -58,9 +58,9 @@ public:
 		drawer_->end_list();
 	}
 
-	void draw_edges(CMap2& map,
+	void draw_edges(CMap3& map,
 					std::vector<Edge> edges,
-					CMap2::VertexAttribute<Vec3> position,
+					CMap3::VertexAttribute<Vec3> position,
 					float r, float g, float b)
 	{
 		Scalar width = bb_.max_size()/50.0f;
@@ -77,9 +77,9 @@ public:
 		}
 	}
 
-	void draw_critical_points(CMap2& map,
-				 CMap2::VertexAttribute<Scalar> scalar,
-				 CMap2::VertexAttribute<Vec3> position)
+	void draw_critical_points(CMap3& map,
+				 CMap3::VertexAttribute<Scalar> scalar,
+				 CMap3::VertexAttribute<Vec3> position)
 	{
 		std::vector<Vertex> maxima;
 		std::vector<Vertex> minima;
@@ -91,7 +91,7 @@ public:
 	}
 
 	void draw_vertices(std::vector<Vertex> vertices,
-			  CMap2::VertexAttribute<Vec3> position,
+			  CMap3::VertexAttribute<Vec3> position,
 			  float r, float g, float b, float ratio, int shift=0)
 	{
 		Scalar radius = ratio*bb_.max_size()/50.0f;

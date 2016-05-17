@@ -26,25 +26,25 @@
 #include <cgogn/geometry/algos/picking.h>
 
 Viewer::Viewer() :
-	surface_(),
+	volume_(),
 	bb_(),
 	feature_points_(this),
 	reeb_graph_(this),
-	drawer_(nullptr),
-	renderer_(nullptr),
+	level_line_drawer_(nullptr),
+	level_line_renderer_(nullptr),
 	topo_drawer_(nullptr),
 	topo_renderer_(nullptr),
 	surface_rendering_(true),
-	surface_phong_rendering_(true),
-	surface_flat_rendering_(false),
+	surface_phong_rendering_(false),
+	surface_flat_rendering_(true),
 	surface_vertices_rendering_(false),
 	surface_edge_rendering_(false),
-	surface_normal_rendering_(false),
 	surface_topo_rendering_(false),
 	graph_vertices_rendering_(false),
 	graph_edges_rendering_(false),
 	feature_points_rendering_(true),
-	bb_rendering_(true)
+	bb_rendering_(true),
+	expl_(0.8f)
 {}
 
 Viewer::~Viewer()
@@ -64,36 +64,33 @@ void Viewer::draw()
 	if(surface_rendering_)
 	{
 		if (surface_flat_rendering_)
-			surface_.draw_flat(proj,view);
+			volume_.draw_flat(proj,view);
 
 		if (surface_phong_rendering_)
-			surface_.draw_phong(proj,view);
+			volume_.draw_volume(proj,view);
 	}
 	glDisable(GL_POLYGON_OFFSET_FILL);
 
 	if (surface_vertices_rendering_)
-		surface_.draw_vertices(proj,view);
+		volume_.draw_vertices(proj,view);
 
 	//if(graph_vertices_rendering_)
 
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	if (surface_edge_rendering_)
-		surface_.draw_edges(proj,view);
+		volume_.draw_edges(proj,view);
 
 	//	if(graph_edges_rendering_)
 	//		reeb_graph_.draw(proj,view);
 
 	glDisable(GL_BLEND);
 
-	if (surface_normal_rendering_)
-		surface_.draw_normals(proj, view);
-
 	if(feature_points_rendering_)
 		feature_points_.draw(proj, view);
 
-	if (bb_rendering_ && drawer_)
-		renderer_->draw(proj, view, this);
+	if (bb_rendering_ && level_line_drawer_)
+		level_line_renderer_->draw(proj, view, this);
 
 	if(surface_topo_rendering_)
 		topo_renderer_->draw(proj,view, this);
@@ -103,18 +100,18 @@ void Viewer::init()
 {
 	glClearColor(0.1f,0.1f,0.3f,0.0f);
 
-	surface_.init();
+	volume_.init();
 	feature_points_.init(bb_);
 	//	reeb_graph_.init();
 
 	// drawer for simple old-school g1 rendering
-	drawer_ = cgogn::make_unique<cgogn::rendering::DisplayListDrawer>();
-	renderer_ = drawer_->generate_renderer();
+	level_line_drawer_ = cgogn::make_unique<cgogn::rendering::DisplayListDrawer>();
+	level_line_renderer_ = level_line_drawer_->generate_renderer();
 
 	topo_drawer_ = cgogn::make_unique<cgogn::rendering::TopoDrawer>();
 	topo_renderer_ = topo_drawer_->generate_renderer();
 
-	topo_drawer_->update<Vec3>(surface_.map_,surface_.vertex_position_);
+	topo_drawer_->update<Vec3>(volume_.map_,volume_.vertex_position_);
 }
 
 void Viewer::mousePressEvent(QMouseEvent* e)
@@ -130,11 +127,11 @@ void Viewer::mousePressEvent(QMouseEvent* e)
 		Vec3 A(P[0],P[1],P[2]);
 		Vec3 B(Q[0],Q[1],Q[2]);
 
-		cgogn::geometry::picking_vertices<Vec3>(surface_.map_,surface_.vertex_position_,A,B,selected_vertices_);
+		cgogn::geometry::picking_vertices<Vec3>(volume_.map_,volume_.vertex_position_,A,B,selected_vertices_);
 		std::cout << "Selected vertices: "<< selected_vertices_.size() << std::endl;
 
-		if(surface_.scalar_field_.is_valid())
-			std::cout << surface_.scalar_field_[selected_vertices_.front()] << std::endl;
+		if(volume_.scalar_field_.is_valid())
+			std::cout << volume_.scalar_field_[selected_vertices_.front()] << std::endl;
 
 	}
 	QOGLViewer::mousePressEvent(e);
@@ -173,65 +170,71 @@ void Viewer::keyPressEvent(QKeyEvent *e)
 		case Qt::Key_T:
 			surface_topo_rendering_ = !surface_topo_rendering_;
 			break;
+		case Qt::Key_Plus:
+			expl_ += 0.05f;
+			break;
+		case Qt::Key_Minus:
+			expl_ -= 0.05f;
+			break;
 		case Qt::Key_0:
 		{
 			feature_points_.begin_draw();
-			surface_.height_function(feature_points_);
+			volume_.height_function(feature_points_);
 			feature_points_.end_draw();
 			break;
 		}
 		case Qt::Key_1:
 		{
 			feature_points_.begin_draw();
-			surface_.distance_to_center_function(feature_points_);
+			volume_.distance_to_center_function(feature_points_);
 			feature_points_.end_draw();
 			break;
 		}
 		case Qt::Key_2:
 		{
 			feature_points_.begin_draw();
-			surface_.edge_length_weighted_geodesic_distance_function(feature_points_);
+			volume_.edge_length_weighted_geodesic_distance_function(feature_points_);
 			feature_points_.end_draw();
 			break;
 		}
 		case Qt::Key_3:
 		{
 			feature_points_.begin_draw();
-			surface_.curvature_weighted_geodesic_distance_function(feature_points_);
+			volume_.curvature_weighted_geodesic_distance_function(feature_points_);
 			feature_points_.end_draw();
 			break;
 		}
 		case Qt::Key_4:
 		{
 			feature_points_.begin_draw();
-			surface_.edge_length_weighted_morse_function(feature_points_);
+			volume_.edge_length_weighted_morse_function(feature_points_);
 			feature_points_.end_draw();
 			break;
 		}
 		case Qt::Key_5:
 		{
 			feature_points_.begin_draw();
-			surface_.curvature_weighted_morse_function(feature_points_);
+			volume_.curvature_weighted_morse_function(feature_points_);
 			feature_points_.end_draw();
 			break;
 		}
 		case Qt::Key_6:
 		{
 			using namespace cgogn;
-			drawer_->new_list();
+			level_line_drawer_->new_list();
 
-			using Vertex = typename Surface<Vec3>::Vertex;
-			using Edge = typename Surface<Vec3>::Edge;
-			using Face = typename Surface<Vec3>::Face;
-			using Volume = typename Surface<Vec3>::Volume;
+			using Vertex = typename VolumeMesh<Vec3>::Vertex;
+			using Edge = typename VolumeMesh<Vec3>::Edge;
+			using Face = typename VolumeMesh<Vec3>::Face;
+			using Volume = typename VolumeMesh<Vec3>::Volume;
 			using uint32 = numerics::uint32;
 
-			Vec3 center = surface_.surface_centroid<Vec3>(surface_.map_, surface_.vertex_position_);
+			Vec3 center = volume_.map_centroid<Vec3>(volume_.map_, volume_.vertex_position_);
 
 			std::vector<Vertex> tab_vertices;
-			surface_.map_.foreach_cell([&] (Vertex v)
+			volume_.map_.foreach_cell([&] (Vertex v)
 			{
-				if(cgogn::critical_vertex_type<Vec3::Scalar>(surface_.map_, v, surface_.scalar_field_).v_ == cgogn::CriticalVertexType::SADDLE)
+				if(cgogn::critical_vertex_type<Vec3::Scalar>(volume_.map_, v, volume_.scalar_field_).v_ == cgogn::CriticalVertexType::SADDLE)
 				{
 					tab_vertices.push_back(v);
 				}
@@ -243,26 +246,26 @@ void Viewer::keyPressEvent(QKeyEvent *e)
 			for(const auto& v : tab_vertices)
 			{
 				// 1 . sub-level set
-				CellMarker<Surface<Vec3>::CMap2, Vertex::ORBIT> vm(surface_.map_);
-				CellMarker<Surface<Vec3>::CMap2, Face::ORBIT> fm(surface_.map_);
+				CellMarker<VolumeMesh<Vec3>::CMap3, Vertex::ORBIT> vm(volume_.map_);
+				CellMarker<VolumeMesh<Vec3>::CMap3, Face::ORBIT> fm(volume_.map_);
 
 				inside_vertices.push_back(v);
-				const Scalar v_value = surface_.scalar_field_[v];
+				const Scalar v_value = volume_.scalar_field_[v];
 
 				for(uint32 i = 0 ; i < inside_vertices.size() ; ++i)
 				{
 					Vertex end = inside_vertices[i];
 
-					surface_.map_.foreach_adjacent_vertex_through_edge(end, [&](Vertex e)
+					volume_.map_.foreach_adjacent_vertex_through_edge(end, [&](Vertex e)
 					{
-						if(surface_.scalar_field_[e] > v_value)
+						if(volume_.scalar_field_[e] > v_value)
 						{
 							if(!vm.is_marked(e))
 							{
 								inside_vertices.push_back(e);
 								vm.mark(e);
 
-								surface_.map_.foreach_incident_face(e, [&](Face f)
+								volume_.map_.foreach_incident_face(e, [&](Face f)
 								{
 									if(!fm.is_marked(f))
 									{
@@ -280,24 +283,24 @@ void Viewer::keyPressEvent(QKeyEvent *e)
 
 				for(const auto& f : inside_faces)
 				{
-					surface_.map_.foreach_incident_edge(f, [&](Edge e)
+					volume_.map_.foreach_incident_edge(f, [&](Edge e)
 					{
-						std::pair<Vertex, Vertex> v = surface_.map_.vertices(e);
+						std::pair<Vertex, Vertex> v = volume_.map_.vertices(e);
 						if(!vm.is_marked(v.first) && !vm.is_marked(v.second))
 							level_line_edges.push_back(e);
 					});
 				}
 
-				drawer_->line_width(200.2f*bb_.max_size()/50.0f);
-				drawer_->begin(GL_LINES);
-				drawer_->color3f(1.0,0.0,0.0);
+				level_line_drawer_->line_width(200.2f*bb_.max_size()/50.0f);
+				level_line_drawer_->begin(GL_LINES);
+				level_line_drawer_->color3f(1.0,0.0,0.0);
 				for (const auto& it : level_line_edges)
 				{
-					std::pair<Vertex, Vertex> v = surface_.map_.vertices(it);
-					drawer_->vertex3fv(surface_.vertex_position_[v.first]);
-					drawer_->vertex3fv(surface_.vertex_position_[v.second]);
+					std::pair<Vertex, Vertex> v = volume_.map_.vertices(it);
+					level_line_drawer_->vertex3fv(volume_.vertex_position_[v.first]);
+					level_line_drawer_->vertex3fv(volume_.vertex_position_[v.second]);
 				}
-				drawer_->end();
+				level_line_drawer_->end();
 
 //				surface_.map_.cut_surface(level_line_edges);
 
@@ -305,39 +308,39 @@ void Viewer::keyPressEvent(QKeyEvent *e)
 				inside_faces.clear();
 			}
 
-			drawer_->end_list();
+			level_line_drawer_->end_list();
 
 			Vec3 current_center(0.0,0.0,0.0);
 			uint32 count = 0;
 
-			surface_.map_.foreach_cell([&](Volume w)
+			volume_.map_.foreach_cell([&](Volume w)
 			{
-				surface_.map_.foreach_incident_vertex(w, [&](Vertex v)
+				volume_.map_.foreach_incident_vertex(w, [&](Vertex v)
 				{
-					current_center += surface_.vertex_position_[v];
+					current_center += volume_.vertex_position_[v];
 					++count;
 				});
 
 				current_center /= count;
 				current_center -= center;
 
-				surface_.map_.foreach_incident_vertex(w, [&](Vertex v)
+				volume_.map_.foreach_incident_vertex(w, [&](Vertex v)
 				{
-					surface_.vertex_position_[v] += current_center * 0.5 ;
+					volume_.vertex_position_[v] += current_center * 0.5 ;
 				});
 			});
 
-			std::cout << "nb cc = " << surface_.map_.nb_connected_components() << std::endl;
-			topo_drawer_->update<Vec3>(surface_.map_,surface_.vertex_position_);
-			surface_.update_geometry();
-			surface_.update_topology();
+			std::cout << "nb cc = " << volume_.map_.nb_connected_components() << std::endl;
+			topo_drawer_->update<Vec3>(volume_.map_,volume_.vertex_position_);
+			volume_.update_geometry();
+			volume_.update_topology();
 
 			break;
 		}
 		case Qt::Key_7:
 		{
 			feature_points_.begin_draw();
-			surface_.show_level_sets(feature_points_, surface_.scalar_field_);
+			volume_.show_level_sets(feature_points_, volume_.scalar_field_);
 			feature_points_.end_draw();
 			break;
 		}
@@ -353,15 +356,15 @@ void Viewer::keyPressEvent(QKeyEvent *e)
 
 void Viewer::closeEvent(QCloseEvent*)
 {
-	drawer_.reset();
-	renderer_.reset();
+//	drawer_.reset();
+//	renderer_.reset();
 	topo_drawer_.reset();
 	topo_renderer_.reset();
 }
 
-void Viewer::import(const std::string& surfaceMesh)
+void Viewer::import(const std::string& filename)
 {
-	bb_ = surface_.import(surfaceMesh);
+	bb_ = volume_.import(filename);
 
 	setSceneRadius(bb_.diag_size()/2.0);
 	Vec3 center = bb_.center();
@@ -371,23 +374,23 @@ void Viewer::import(const std::string& surfaceMesh)
 
 int main(int argc, char** argv)
 {
-	std::string surfaceMesh;
+	std::string filename;
 	if (argc < 2)
 	{
 		std::cout << "USAGE: " << argv[0] << " [filename]" << std::endl;
-		surfaceMesh = std::string(DEFAULT_MESH_PATH) + std::string("aneurysm3D_1.off");
-		std::cout << "Using default mesh : " << surfaceMesh << std::endl;
+		filename = std::string(DEFAULT_MESH_PATH) + std::string("aneurysm3D_1.off");
+		std::cout << "Using default mesh : " << filename << std::endl;
 	}
 	else
-		surfaceMesh = std::string(argv[1]);
+		filename = std::string(argv[1]);
 
 	QApplication application(argc, argv);
 	qoglviewer::init_ogl_context();
 
 	// Instantiate the viewer.
 	Viewer viewer;
-	viewer.setWindowTitle("simpleViewer");
-	viewer.import(surfaceMesh);
+	viewer.setWindowTitle("Differential Topology");
+	viewer.import(filename);
 	viewer.show();
 
 	// Run main loop.
