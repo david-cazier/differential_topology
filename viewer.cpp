@@ -26,7 +26,7 @@
 #include <cgogn/geometry/algos/picking.h>
 
 Viewer::Viewer() :
-	volume_(),
+	volume_(this),
 	bb_(),
 	feature_points_(this),
 	reeb_graph_(this),
@@ -72,7 +72,7 @@ void Viewer::draw()
 	glDisable(GL_POLYGON_OFFSET_FILL);
 
 	if (surface_vertices_rendering_)
-		volume_.draw_vertices(proj,view);
+//		volume_.draw_vertices(proj,view);
 
 	//if(graph_vertices_rendering_)
 

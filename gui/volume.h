@@ -31,15 +31,10 @@
 #include <cgogn/io/map_export.h>
 
 #include <cgogn/rendering/map_render.h>
+#include <cgogn/rendering/drawer.h>
+#include <cgogn/rendering/volume_drawer.h>
 
 #include <cgogn/geometry/algos/normal.h>
-
-#include <cgogn/rendering/shaders/shader_simple_color.h>
-#include <cgogn/rendering/shaders/shader_flat.h>
-#include <cgogn/rendering/shaders/shader_explode_volumes.h>
-#include <cgogn/rendering/shaders/shader_point_sprite.h>
-#include <cgogn/rendering/shaders/shader_vector_per_vertex.h>
-#include <cgogn/rendering/shaders/vbo.h>
 
 #include <cgogn/geometry/algos/angle.h>
 #include <cgogn/geometry/algos/area.h>
@@ -72,61 +67,39 @@ public:
 	using VertexAttribute = CMap3::VertexAttribute<T>;
 	template<typename T>
 	using EdgeAttribute = CMap3::EdgeAttribute<T>;
-	template<typename T>
-	using FanAttribute = CMap3::Attribute<T, cgogn::Orbit::PHI21>;
-	template<typename T>
-	using Face2Attribute = CMap3::Attribute<T, cgogn::Orbit::PHI1>;
 
 public:
 	CMap3 map_;
 
 	VertexAttribute<Vec3> vertex_position_;
-	Face2Attribute<Vec3> face_normal_;
-	FanAttribute<Vec3> vertex_normal_;
 	VertexAttribute<Scalar> scalar_field_;
 
 	EdgeAttribute<Scalar> edge_metric_;
 
 	cgogn::geometry::BoundingBox<Vec3> bb_;
 
-	std::unique_ptr<cgogn::rendering::MapRender> map_render_;
+	QOpenGLFunctions_3_3_Core* ogl33_;
 
-	std::unique_ptr<cgogn::rendering::VBO> vbo_pos_;
-	std::unique_ptr<cgogn::rendering::VBO> vbo_norm_;
-	std::unique_ptr<cgogn::rendering::VBO> vbo_color_;
-	std::unique_ptr<cgogn::rendering::VBO> vbo_sphere_sz_;
-
-	std::unique_ptr<cgogn::rendering::ShaderBoldLine::Param> param_edge_;
-	std::unique_ptr<cgogn::rendering::ShaderFlatColor::Param> param_flat_;
-	std::unique_ptr<cgogn::rendering::ShaderVectorPerVertex::Param> param_normal_;
-	std::unique_ptr<cgogn::rendering::ShaderExplodeVolumes::Param> param_volume_;
-	std::unique_ptr<cgogn::rendering::ShaderPointSpriteColorSize::Param> param_point_sprite_;
+	std::unique_ptr<cgogn::rendering::VolumeDrawer> volume_drawer_;
+	std::unique_ptr<cgogn::rendering::VolumeDrawer::Renderer> volume_renderer_;
 
 public:
 
-	VolumeMesh():
+	VolumeMesh(QOpenGLFunctions_3_3_Core* ogl33):
 		map_(),
 		vertex_position_(),
-		face_normal_(),
-		vertex_normal_(),
 		scalar_field_(),
 		edge_metric_(),
 		bb_(),
-		map_render_(nullptr),
-		vbo_pos_(nullptr),
-		vbo_norm_(nullptr),
-		vbo_color_(nullptr),
-		vbo_sphere_sz_(nullptr)
+		ogl33_(ogl33),
+		volume_drawer_(nullptr),
+		volume_renderer_(nullptr)
 	{
 	}
 
 	~VolumeMesh()
 	{
-		map_render_.reset();
-		vbo_pos_.reset();
-		vbo_norm_.reset();
-		vbo_color_.reset();
-		vbo_sphere_sz_.reset();
+		volume_drawer_.reset();
 	}
 
 	template <typename T, typename MAP>
@@ -150,118 +123,43 @@ public:
 
 	void init()
 	{
-		vbo_pos_ = cgogn::make_unique<cgogn::rendering::VBO>(3);
-		cgogn::rendering::update_vbo(vertex_position_, vbo_pos_.get());
+		volume_drawer_ = cgogn::make_unique<cgogn::rendering::VolumeDrawer>();
+		volume_drawer_->update_face<Vec3>(map_, vertex_position_);
+		volume_drawer_->update_edge<Vec3>(map_, vertex_position_);
 
-		vbo_norm_ = cgogn::make_unique<cgogn::rendering::VBO>(3);
-//		cgogn::rendering::update_vbo(vertex_normal_, vbo_norm_.get());
-		cgogn::rendering::update_vbo(face_normal_, vbo_norm_.get());
-
-		// fill a color vbo with abs of normals
-		vbo_color_ = cgogn::make_unique<cgogn::rendering::VBO>(3);
-//		cgogn::rendering::update_vbo(vertex_normal_, vbo_color_.get(),[] (const Vec3& n) -> std::array<float,3>
-		cgogn::rendering::update_vbo(face_normal_, vbo_color_.get(),[] (const Vec3& n) -> std::array<float,3>
-		{
-			return {float(std::abs(n[0])), float(std::abs(n[1])), float(std::abs(n[2]))};
-		});
-
-		// fill a sphere size vbo
-		vbo_sphere_sz_ = cgogn::make_unique<cgogn::rendering::VBO>(1);
-//		cgogn::rendering::update_vbo(vertex_normal_, vbo_sphere_sz_.get(),[&] (const Vec3& n) -> float
-		cgogn::rendering::update_vbo(face_normal_, vbo_sphere_sz_.get(),[&] (const Vec3& n) -> float
-		{
-			return bb_.diag_size()/1000.0 * (1.0 + 2.0*std::abs(n[2]));
-		});
-
-		map_render_ = cgogn::make_unique<cgogn::rendering::MapRender>();
-		map_render_->init_primitives<Vec3>(map_, cgogn::rendering::POINTS);
-		map_render_->init_primitives<Vec3>(map_, cgogn::rendering::LINES);
-		map_render_->init_primitives<Vec3>(map_, cgogn::rendering::TRIANGLES, &vertex_position_);
-
-		param_point_sprite_ = cgogn::rendering::ShaderPointSpriteColorSize::generate_param();
-		param_point_sprite_->set_all_vbos(vbo_pos_.get(),vbo_color_.get(),vbo_sphere_sz_.get());
-
-		param_edge_ = cgogn::rendering::ShaderBoldLine::generate_param();
-		param_edge_->set_position_vbo(vbo_pos_.get());
-		param_edge_->color_ = QColor(255,255,0);
-		param_edge_->width_= 2.5f;
-
-		param_flat_ = cgogn::rendering::ShaderFlatColor::generate_param();
-		param_flat_->set_position_vbo(vbo_pos_.get());
-		param_flat_->ambiant_color_ = QColor(5,5,5);
-
-		param_volume_ = cgogn::rendering::ShaderExplodeVolumes::generate_param();
-		param_volume_->set_position_vbo(vbo_pos_.get());
+		volume_renderer_ = volume_drawer_->generate_renderer();
 	}
 
 	void update_geometry()
 	{
-		cgogn::rendering::update_vbo(vertex_position_, vbo_pos_.get());
-		cgogn::geometry::compute_normal_faces<Vec3>(map_, vertex_position_, face_normal_);
-		//cgogn::geometry::compute_normal_vertices<Vec3>(map_, vertex_position_, face_normal_, vertex_normal_);
-		cgogn::rendering::update_vbo(vertex_normal_, vbo_norm_.get());
+		volume_drawer_->update_face<Vec3>(map_, vertex_position_);
+		volume_drawer_->update_edge<Vec3>(map_, vertex_position_);
 	}
 
 	void update_topology()
 	{
-		map_render_->init_primitives<Vec3>(map_, cgogn::rendering::POINTS);
-		map_render_->init_primitives<Vec3>(map_, cgogn::rendering::LINES);
-		map_render_->init_primitives<Vec3>(map_, cgogn::rendering::TRIANGLES);
+		volume_drawer_->update_face<Vec3>(map_, vertex_position_);
+		volume_drawer_->update_edge<Vec3>(map_, vertex_position_);
 	}
 
 	void update_color(VertexAttribute<Scalar> scalar)
 	{
-		double min = std::numeric_limits<double>::max();
-		double max = std::numeric_limits<double>::min();
-		for(auto& v : scalar)
-		{
-			min = std::min(min, v);
-			max = std::max(max, v);
-		}
-
-		cgogn::rendering::update_vbo(scalar, vbo_color_.get(),
-									 [min, max] (const Scalar& n) -> std::array<float,3>
-		{
-			return cgogn::color_map_blue_green_red(cgogn::numerics::scale_to_0_1(n, min, max));
-//			return cgogn::color_map_hash(cgogn::numerics::scale_to_0_1(n, min, max));
-		});
+		volume_drawer_->update_face<Vec3>(map_, vertex_position_);
 	}
 
 	void draw_volume(const QMatrix4x4& proj, const QMatrix4x4& view)
 	{
-		param_volume_->bind(proj,view);
-		map_render_->draw(cgogn::rendering::TRIANGLES);
-		param_volume_->release();
+		volume_renderer_->draw_faces(proj, view, ogl33_);
 	}
 
 	void draw_flat(const QMatrix4x4& proj, const QMatrix4x4& view)
 	{
-		param_flat_->bind(proj,view);
-		map_render_->draw(cgogn::rendering::TRIANGLES);
-		param_flat_->release();
-	}
-
-	void draw_vertices(const QMatrix4x4& proj, const QMatrix4x4& view)
-	{
-		param_point_sprite_->bind(proj,view);
-		map_render_->draw(cgogn::rendering::POINTS);
-		param_point_sprite_->release();
+		volume_renderer_->draw_faces(proj, view, ogl33_);
 	}
 
 	void draw_edges(const QMatrix4x4& proj, const QMatrix4x4& view)
 	{
-		param_edge_->bind(proj,view);
-		//param_edge_->set_width(2.5f);
-		map_render_->draw(cgogn::rendering::LINES);
-		param_edge_->release();
-
-	}
-
-	void draw_normals(const QMatrix4x4& proj, const QMatrix4x4& view)
-	{
-		param_normal_->bind(proj,view);
-		map_render_->draw(cgogn::rendering::POINTS);
-		param_normal_->release();
+		volume_renderer_->draw_edges(proj, view, ogl33_);
 	}
 
 	cgogn::geometry::BoundingBox<Vec3> import(const std::string& filename)
@@ -269,13 +167,9 @@ public:
 		cgogn::io::import_volume<Vec3>(map_, filename);
 
 		vertex_position_ = map_.get_attribute<Vec3, Vertex::ORBIT>("position");
-		face_normal_ = map_.add_attribute<Vec3, cgogn::Orbit::PHI1>("face_normal");
-		vertex_normal_ = map_.add_attribute<Vec3, cgogn::Orbit::PHI21>("normal");
 		scalar_field_ = map_.add_attribute<Scalar, Vertex::ORBIT>("scalar_field_");
 		edge_metric_ = map_.add_attribute<Scalar, Edge::ORBIT>("edge_metric");
 
-		cgogn::geometry::compute_normal_faces<Vec3>(map_, vertex_position_, face_normal_);
-		//cgogn::geometry::compute_normal_vertices<Vec3>(map_, vertex_position_, face_normal_, vertex_normal_);
 		cgogn::geometry::compute_bounding_box(vertex_position_, bb_);
 
 		return bb_;
