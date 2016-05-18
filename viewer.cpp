@@ -35,8 +35,8 @@ Viewer::Viewer() :
 	topo_drawer_(nullptr),
 	topo_renderer_(nullptr),
 	surface_rendering_(true),
-	surface_phong_rendering_(false),
-	surface_flat_rendering_(true),
+	surface_phong_rendering_(true),
+	surface_flat_rendering_(false),
 	surface_vertices_rendering_(false),
 	surface_edge_rendering_(false),
 	surface_topo_rendering_(false),
@@ -71,7 +71,7 @@ void Viewer::draw()
 	}
 	glDisable(GL_POLYGON_OFFSET_FILL);
 
-	if (surface_vertices_rendering_)
+//	if (surface_vertices_rendering_)
 //		volume_.draw_vertices(proj,view);
 
 	//if(graph_vertices_rendering_)
