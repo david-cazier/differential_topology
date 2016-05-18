@@ -29,7 +29,7 @@
 #include <qoglviewer.h>
 #include <QKeyEvent>
 
-#include <gui/surface.h>
+#include <gui/volume.h>
 #include <gui/feature_points.h>
 #include <gui/graph.h>
 
@@ -63,16 +63,16 @@ public:
 	void import(const std::string& surfaceMesh);
 
 private:
-	Surface<Vec3> surface_;
+	VolumeMesh<Vec3> volume_;
 
 	cgogn::geometry::BoundingBox<Vec3> bb_;
-	std::unique_ptr<cgogn::rendering::DisplayListDrawer> drawer_;
-	std::unique_ptr<cgogn::rendering::DisplayListDrawer::Renderer> renderer_;
+	std::unique_ptr<cgogn::rendering::DisplayListDrawer> level_line_drawer_;
+	std::unique_ptr<cgogn::rendering::DisplayListDrawer::Renderer> level_line_renderer_;
 
 	std::unique_ptr<cgogn::rendering::TopoDrawer> topo_drawer_;
 	std::unique_ptr<cgogn::rendering::TopoDrawer::Renderer> topo_renderer_;
 
-	std::vector<Surface<Vec3>::Vertex> selected_vertices_;
+	std::vector<VolumeMesh<Vec3>::Vertex> selected_vertices_;
 
 	FeaturePoints<Vec3> feature_points_;
 	Graph reeb_graph_;
@@ -82,7 +82,6 @@ private:
 	bool surface_flat_rendering_;
 	bool surface_vertices_rendering_;
 	bool surface_edge_rendering_;
-	bool surface_normal_rendering_;
 	bool surface_topo_rendering_;
 
 	bool bb_rendering_;
@@ -92,4 +91,5 @@ private:
 
 	bool feature_points_rendering_;
 
+	float expl_;
 };

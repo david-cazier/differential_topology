@@ -22,21 +22,22 @@ set(HEADER_FILES
 	viewer.h
 
 	cgogn/dijkstra.h
-		cgogn/directed_graph.h
-		cgogn/graph_render.h
-		cgogn/helper_functions.h
+	cgogn/directed_graph.h
+	cgogn/graph_render.h
+	cgogn/helper_functions.h
 
-		cgogn/differential_topology/pl_functions.h
-		cgogn/differential_topology/reeb_graph.h
+	cgogn/differential_topology/pl_functions.h
+	cgogn/differential_topology/reeb_graph.h
 
 	cgogn/selection/collector_criterion.h
 	cgogn/selection/collector.h
 
 	cgogn/geometry/algos/curvature.h
 
+	gui/volume.h
 	gui/surface.h
-		gui/feature_points.h
-		gui/graph.h
+	gui/feature_points.h
+	gui/graph.h
 	)
 
 set(SOURCE_FILES
