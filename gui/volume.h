@@ -72,6 +72,7 @@ public:
 	CMap3 map_;
 
 	VertexAttribute<Vec3> vertex_position_;
+	VertexAttribute<Vec3> vertex_color_;
 	VertexAttribute<Scalar> scalar_field_;
 
 	EdgeAttribute<Scalar> edge_metric_;
@@ -88,6 +89,7 @@ public:
 	VolumeMesh(QOpenGLFunctions_3_3_Core* ogl33):
 		map_(),
 		vertex_position_(),
+		vertex_color_(),
 		scalar_field_(),
 		edge_metric_(),
 		bb_(),
@@ -149,11 +151,13 @@ public:
 
 	void draw_volume(const QMatrix4x4& proj, const QMatrix4x4& view)
 	{
+		volume_renderer_->set_explode_volume(0.8f);
 		volume_renderer_->draw_faces(proj, view, ogl33_);
 	}
 
 	void draw_flat(const QMatrix4x4& proj, const QMatrix4x4& view)
 	{
+		volume_renderer_->set_explode_volume(1.0f);
 		volume_renderer_->draw_faces(proj, view, ogl33_);
 	}
 
@@ -167,6 +171,7 @@ public:
 		cgogn::io::import_volume<Vec3>(map_, filename);
 
 		vertex_position_ = map_.get_attribute<Vec3, Vertex::ORBIT>("position");
+		vertex_color_ = map_.add_attribute<Vec3, Vertex::ORBIT>("color");
 		scalar_field_ = map_.add_attribute<Scalar, Vertex::ORBIT>("scalar_field_");
 		edge_metric_ = map_.add_attribute<Scalar, Edge::ORBIT>("edge_metric");
 
@@ -460,13 +465,7 @@ public:
 		// Draw the morse function and its critical points
 		update_color(scalar_field_);
 
-		std::vector<Vertex> maxima;
-		std::vector<Vertex> minima;
-		std::vector<Vertex> saddles;
-		cgogn::extract_critical_points<Scalar>(map_, scalar_field_, maxima, minima, saddles);
-		fp.draw_vertices(maxima, vertex_position_, 1.0f, 1.0f, 1.0f, 1.0f);
-		fp.draw_vertices(minima, vertex_position_, 1.0f, 0.0f, 0.0f, 0.8f);
-		fp.draw_vertices(saddles, vertex_position_, 1.0f, 1.0f, 0.0f, 0.8f);
+		fp.draw_critical_points(map_, scalar_field_, vertex_position_);
 	}
 
 	void curvature_weighted_morse_function(FeaturePoints<VEC3>& fp)
@@ -480,13 +479,7 @@ public:
 		// Draw the morse function and its critical points
 		update_color(scalar_field_);
 
-		std::vector<Vertex> maxima;
-		std::vector<Vertex> minima;
-		std::vector<Vertex> saddles;
-		cgogn::extract_critical_points<Scalar>(map_, scalar_field_, maxima, minima, saddles);
-		fp.draw_vertices(maxima, vertex_position_, 1.0f, 1.0f, 1.0f, 1.0f);
-		fp.draw_vertices(minima, vertex_position_, 1.0f, 0.0f, 0.0f, 0.8f);
-		fp.draw_vertices(saddles, vertex_position_, 1.0f, 1.0f, 0.0f, 0.8f);
+		fp.draw_critical_points(map_, scalar_field_, vertex_position_);
 	}
 
 	void show_level_sets(FeaturePoints<VEC3>& fp,

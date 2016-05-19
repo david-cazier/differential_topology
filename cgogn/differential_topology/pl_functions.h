@@ -94,12 +94,21 @@ CriticalVertex critical_vertex_type(
 	using Vertex = typename MAP::Vertex;
 
 	Vertex max = find_one_ring_maxima<T, MAP>(map, v, scalar_field);
-	if (scalar_field[max] < scalar_field[v])
+	std::cout << "max_value : " << max <<
+				 " center : " << scalar_field[v] << std::endl;
+	if (scalar_field[max] < scalar_field[v]) {
 		return CriticalVertex(CriticalVertexType::MAXIMUM);
+		std::cout << "MAXIMUM" << std::endl;
+	}
 
 	Vertex min = find_one_ring_minima<T, MAP>(map, v, scalar_field);
-	if (scalar_field[min] > scalar_field[v])
+	std::cout << "max_value : " << max <<
+				 " center : " << scalar_field[v] << std::endl;
+
+	if (scalar_field[min] > scalar_field[v]) {
 		return CriticalVertex(CriticalVertexType::MINIMUM);
+		std::cout << "MINIMUM" << std::endl;
+	}
 
 	return CriticalVertex(CriticalVertexType::REGULAR);
 
