@@ -81,8 +81,8 @@ public:
 
 	QOpenGLFunctions_3_3_Core* ogl33_;
 
-	std::unique_ptr<cgogn::rendering::VolumeDrawer> volume_drawer_;
-	std::unique_ptr<cgogn::rendering::VolumeDrawer::Renderer> volume_renderer_;
+    std::unique_ptr<cgogn::rendering::VolumeDrawerColor> volume_drawer_;
+    std::unique_ptr<cgogn::rendering::VolumeDrawerColor::Renderer> volume_renderer_;
 
 public:
 
@@ -125,35 +125,50 @@ public:
 
 	void init()
 	{
-		volume_drawer_ = cgogn::make_unique<cgogn::rendering::VolumeDrawer>();
-		volume_drawer_->update_face<Vec3>(map_, vertex_position_);
-		volume_drawer_->update_edge<Vec3>(map_, vertex_position_);
+        volume_drawer_ = cgogn::make_unique<cgogn::rendering::VolumeDrawerColor>();
+        volume_drawer_->update_face<Vec3>(map_, vertex_position_, vertex_color_);
+        volume_drawer_->update_edge<Vec3>(map_, vertex_position_);
 
 		volume_renderer_ = volume_drawer_->generate_renderer();
 	}
 
 	void update_geometry()
 	{
-		volume_drawer_->update_face<Vec3>(map_, vertex_position_);
-		volume_drawer_->update_edge<Vec3>(map_, vertex_position_);
+        volume_drawer_->update_face<Vec3>(map_, vertex_position_, vertex_color_);
+        volume_drawer_->update_edge<Vec3>(map_, vertex_position_);
 	}
 
 	void update_topology()
 	{
-		volume_drawer_->update_face<Vec3>(map_, vertex_position_);
-		volume_drawer_->update_edge<Vec3>(map_, vertex_position_);
+        volume_drawer_->update_face<Vec3>(map_, vertex_position_, vertex_color_);
+        volume_drawer_->update_edge<Vec3>(map_, vertex_position_);
 	}
 
 	void update_color(VertexAttribute<Scalar> scalar)
 	{
-		volume_drawer_->update_face<Vec3>(map_, vertex_position_);
+        double min = std::numeric_limits<double>::max();
+        double max = std::numeric_limits<double>::min();
+        for(auto& v : scalar)
+        {
+            min = std::min(min, v);
+            max = std::max(max, v);
+        }
+
+        map_.foreach_cell([&](Vertex v)
+        {
+            std::array<Scalar,3> color = cgogn::color_map_blue_green_red(
+                        cgogn::numerics::scale_to_0_1(scalar[v], min, max));
+            vertex_color_[v] = Vec3(color[0], color[1], color[2]);
+        });
+        volume_drawer_->update_face<Vec3>(map_, vertex_position_, vertex_color_);
 	}
 
 	void draw_volume(const QMatrix4x4& proj, const QMatrix4x4& view)
 	{
 		volume_renderer_->set_explode_volume(0.8f);
 		volume_renderer_->draw_faces(proj, view, ogl33_);
-	}
+        volume_renderer_->draw_edges(proj, view, ogl33_);
+    }
 
 	void draw_flat(const QMatrix4x4& proj, const QMatrix4x4& view)
 	{

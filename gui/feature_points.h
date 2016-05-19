@@ -63,7 +63,7 @@ public:
 					CMap3::VertexAttribute<Vec3> position,
 					float r, float g, float b)
 	{
-		Scalar width = bb_.max_size()/50.0f;
+        Scalar width = 10.0f * bb_.max_size()/50.0f;
 		if (!edges.empty()) {
 			drawer_->line_width(width);
 			drawer_->begin(GL_LINES);

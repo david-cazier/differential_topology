@@ -84,7 +84,7 @@ void Viewer::draw()
 	//	if(graph_edges_rendering_)
 	//		reeb_graph_.draw(proj,view);
 
-	glDisable(GL_BLEND);
+    glDisable(GL_BLEND);
 
 	if(feature_points_rendering_)
 		feature_points_.draw(proj, view);

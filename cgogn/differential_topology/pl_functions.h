@@ -49,7 +49,7 @@ typename MAP::Vertex find_one_ring_maxima(
 	using Vertex = typename MAP::Vertex;
 
 	Vertex max_vertex = u;
-	T max_value = scalar_field[u];
+    T max_value = std::numeric_limits<T>::min();
 
 	map.foreach_adjacent_vertex_through_edge(u, [&](Vertex v)
 	{
@@ -71,7 +71,7 @@ typename MAP::Vertex find_one_ring_minima(
 	using Vertex = typename MAP::Vertex;
 
 	Vertex min_vertex = u;
-	T min_value = scalar_field[u];
+    T min_value = std::numeric_limits<T>::max();
 
 	map.foreach_adjacent_vertex_through_edge(u, [&](Vertex v)
 	{
@@ -94,21 +94,12 @@ CriticalVertex critical_vertex_type(
 	using Vertex = typename MAP::Vertex;
 
 	Vertex max = find_one_ring_maxima<T, MAP>(map, v, scalar_field);
-	std::cout << "max_value : " << max <<
-				 " center : " << scalar_field[v] << std::endl;
-	if (scalar_field[max] < scalar_field[v]) {
+    if (scalar_field[max] < scalar_field[v])
 		return CriticalVertex(CriticalVertexType::MAXIMUM);
-		std::cout << "MAXIMUM" << std::endl;
-	}
 
 	Vertex min = find_one_ring_minima<T, MAP>(map, v, scalar_field);
-	std::cout << "max_value : " << max <<
-				 " center : " << scalar_field[v] << std::endl;
-
-	if (scalar_field[min] > scalar_field[v]) {
+    if (scalar_field[min] > scalar_field[v])
 		return CriticalVertex(CriticalVertexType::MINIMUM);
-		std::cout << "MINIMUM" << std::endl;
-	}
 
 	return CriticalVertex(CriticalVertexType::REGULAR);
 

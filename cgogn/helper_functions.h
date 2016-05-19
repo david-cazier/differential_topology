@@ -4,7 +4,8 @@
 namespace cgogn
 {
 
-inline std::array<float,3> color_map_blue_green_red(float x)
+template <typename T>
+inline std::array<T,3> color_map_blue_green_red(T x)
 {
 	if (x < 0.0f)
 		return {0.0f, 0.0f, 1.0f} ;
@@ -18,7 +19,8 @@ inline std::array<float,3> color_map_blue_green_red(float x)
 	return {1.0f, 0.0f, 0.0f};
 }
 
-inline std::array<float,3> color_map_hash(float x)
+template <typename T>
+inline std::array<T,3> color_map_hash(T x)
 {
 	if (x < 0.0f)
 		return {0.0f, 0.0f, 1.0f} ;
