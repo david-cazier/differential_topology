@@ -223,10 +223,10 @@ void Viewer::keyPressEvent(QKeyEvent *e)
 			using namespace cgogn;
 			level_line_drawer_->new_list();
 
-			using Vertex = typename VolumeMesh<Vec3>::Vertex;
-			using Edge = typename VolumeMesh<Vec3>::Edge;
-			using Face = typename VolumeMesh<Vec3>::Face;
-			using Volume = typename VolumeMesh<Vec3>::Volume;
+			using Vertex = VolumeMesh<Vec3>::Vertex;
+			using Edge = VolumeMesh<Vec3>::Edge;
+			using Face = VolumeMesh<Vec3>::Face;
+			using Volume = VolumeMesh<Vec3>::Volume;
 			using uint32 = numerics::uint32;
 
 			Vec3 center = volume_.map_centroid<Vec3>(volume_.map_, volume_.vertex_position_);
