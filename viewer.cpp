@@ -179,7 +179,8 @@ void Viewer::keyPressEvent(QKeyEvent *e)
 		case Qt::Key_0:
 		{
 			feature_points_.begin_draw();
-			volume_.height_function(feature_points_);
+			//volume_.height_function(feature_points_);
+			volume_.distance_to_boundary_function(feature_points_);
 			feature_points_.end_draw();
 			break;
 		}

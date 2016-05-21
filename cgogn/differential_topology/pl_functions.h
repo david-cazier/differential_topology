@@ -108,7 +108,7 @@ CriticalVertex volume_critical_vertex_type(
 	map.foreach_adjacent_vertex_through_edge(v, [&](Vertex u)
 	{
 		T value = scalar_field[u];
-		if (value > center_value)
+		if (value >= center_value)
 		{
 			sup_vertex_marker.mark(u);
 			sup_link.push_back(u.dart);
@@ -261,11 +261,33 @@ void height_pl_function(
 }
 
 template <typename T, typename MAP>
+void distance_to_boundary_pl_function(
+	MAP& map,
+	const typename MAP::template EdgeAttribute<T>& weight,
+	typename MAP::template VertexAttribute<T>& distance_to_source)
+{
+	using Vertex = typename MAP::Vertex;
+	typename MAP::template VertexAttribute<Vertex> path_to_source = map.template add_attribute<Vertex, Vertex::ORBIT>("path_to_source");
+
+	std::vector<typename MAP::Vertex> boundary_vertices;
+
+	map.foreach_cell([&](Vertex v)
+	{
+		if (map.is_incident_to_boundary(v))
+			boundary_vertices.push_back(v);
+	});
+	std::cout << "Boundary vertices : " << boundary_vertices.size() << std::endl;
+
+	cgogn::dijkstra_compute_paths<T>(map, weight, boundary_vertices, distance_to_source, path_to_source);
+	map.remove_attribute(path_to_source);
+}
+
+template <typename T, typename MAP>
 void geodesic_distance_pl_function(
-		MAP& map,
-		const std::vector<typename MAP::Vertex> vertices,
-		const typename MAP::template EdgeAttribute<T>& weight,
-		typename MAP::template VertexAttribute<T>& distance_to_source)
+	MAP& map,
+	const std::vector<typename MAP::Vertex> vertices,
+	const typename MAP::template EdgeAttribute<T>& weight,
+	typename MAP::template VertexAttribute<T>& distance_to_source)
 {
 	using Vertex = typename MAP::Vertex;
 	typename MAP::template VertexAttribute<Vertex> path_to_source = map.template add_attribute<Vertex, Vertex::ORBIT>("path_to_source");

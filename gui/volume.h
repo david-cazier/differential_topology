@@ -427,12 +427,22 @@ public:
 		fp.draw_critical_points(map_, scalar_field_, vertex_position_);
 	}
 
+	void distance_to_boundary_function(FeaturePoints<Vec3>& fp)
+	{
+		compute_length(edge_metric_);
+
+		cgogn::distance_to_boundary_pl_function<Scalar>(map_, edge_metric_, scalar_field_);
+
+		update_color(scalar_field_);
+		fp.draw_critical_points(map_, scalar_field_, vertex_position_);
+	}
+
 	void distance_to_center_function(FeaturePoints<Vec3>& fp)
 	{
 		compute_length(edge_metric_);
 
 		Vertex v0 = central_vertex();
-		cgogn::geodesic_distance_pl_function<Scalar>(map_, {v0}, edge_metric_, scalar_field_);
+		cgogn::geodesic_distance_pl_function<Scalar>(map_, { v0 }, edge_metric_, scalar_field_);
 
 		update_color(scalar_field_);
 		fp.draw_critical_points(map_, scalar_field_, vertex_position_);
