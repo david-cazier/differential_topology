@@ -448,6 +448,8 @@ public:
 		// Build the scalar field from the selected features
 		cgogn::geodesic_distance_pl_function<Scalar>(map_, features, edge_metric_, scalar_field_);
 
+		for (auto& s : scalar_field_) s = Scalar(1) - s;
+
 		// Draw the result
 		update_color(scalar_field_);
 		fp.draw_critical_points(map_, scalar_field_, vertex_position_);
@@ -462,6 +464,8 @@ public:
 
 		// Build the scalar field from the selected features
 		cgogn::geodesic_distance_pl_function<Scalar>(map_, features, edge_metric_, scalar_field_);
+
+		for (auto& s : scalar_field_) s = Scalar(1) - s;
 
 		// Draw the result
 		update_color(scalar_field_);
@@ -529,10 +533,7 @@ public:
 		cgogn::normalized_geodesic_distance_pl_function<Scalar>(map_, features, edge_metric, dist_to_feature);
 
 		// 2 inverse the normalized distance so that the maxima are on the features
-		map_.foreach_cell([&] (Vertex v)
-		{
-			dist_to_feature[v] = 1 - dist_to_feature[v];
-		});
+		for (auto& s : dist_to_feature) s = Scalar(1) - s;
 
 		// 3 function perturbation (to remove extra minima and saddles)
 		// Run dijkstra using dist_to_feature in place of estimated geodesic distances

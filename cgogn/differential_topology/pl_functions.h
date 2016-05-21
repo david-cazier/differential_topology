@@ -40,73 +40,125 @@ struct CriticalVertex
 	{}
 };
 
+// The link vector contains selected vertices in the link of a central vertex C
+// For every dart d in this vector, phi2(d) belong to C
 template <typename T, typename MAP>
-typename MAP::Vertex find_one_ring_maxima(
-		MAP& map,
-		typename MAP::Vertex u,
-		const typename MAP::template VertexAttribute<T>& scalar_field)
+int nb_marked_cc_in_link(
+	MAP& map,
+	std::vector<Dart> link,
+	typename cgogn::CellMarkerStore<MAP, MAP::Vertex::ORBIT>& vertex_marker)
 {
 	using Vertex = typename MAP::Vertex;
+	using Edge = typename MAP::Edge;
+	using Face = typename MAP::Face;
 
-	Vertex max_vertex = u;
-    T max_value = std::numeric_limits<T>::min();
-
-	map.foreach_adjacent_vertex_through_edge(u, [&](Vertex v)
+	int nb = 0;
+	while (!link.empty())
 	{
-		if(scalar_field[v] > max_value)
+		// Search a marked vertex in the link (initially selected in the link)
+		Dart d;
+		do {
+			d = link.back();
+			link.pop_back();
+		} while (!vertex_marker.is_marked(Vertex(d)) && !link.empty());
+		
+		// If a marked vertex has been found, its connected component is counted and unmarked
+		if (vertex_marker.is_marked(Vertex(d)))
 		{
-			max_value = scalar_field[v];
-			max_vertex = v;
+			++nb;
+			std::vector<Dart> cc;
+			cc.push_back(d);
+			while (!cc.empty())
+			{
+				Dart e = cc.back();
+				vertex_marker.unmark(Vertex(e));
+				cc.pop_back();
+
+				map.foreach_incident_face(Edge(e), [&](Face f)
+				{
+					// The vertex of dart adj is adjacent to the vertex of e through an edge and
+					// the dart phi2(adj) belongs to the central vertex C
+					Dart adj = map.phi2(map.phi_1(map.phi_1(f.dart)));
+					if (vertex_marker.is_marked(Vertex(adj)))
+						cc.push_back(adj);
+				});
+			}
 		}
-	});
-	return max_vertex;
+	}
+	return nb;
 }
 
 template <typename T, typename MAP>
-typename MAP::Vertex find_one_ring_minima(
-		MAP& map,
-		typename MAP::Vertex u,
-		const typename MAP::template VertexAttribute<T>& scalar_field)
+CriticalVertex volume_critical_vertex_type(
+	MAP& map,
+	const typename MAP::Vertex v,
+	const typename MAP::template VertexAttribute<T>& scalar_field)
 {
 	using Vertex = typename MAP::Vertex;
+	using VertexMarkerStore = typename cgogn::CellMarkerStore<MAP, Vertex::ORBIT>;
 
-	Vertex min_vertex = u;
-    T min_value = std::numeric_limits<T>::max();
+	VertexMarkerStore sup_vertex_marker(map);
+	VertexMarkerStore inf_vertex_marker(map);
 
-	map.foreach_adjacent_vertex_through_edge(u, [&](Vertex v)
+	std::vector<Dart> sup_link;
+	std::vector<Dart> inf_link;
+
+	// Mark and store the vertices that are in the sup_link and inf_link of v
+	T center_value = scalar_field[v];
+	map.foreach_adjacent_vertex_through_edge(v, [&](Vertex u)
 	{
-		if(scalar_field[v] < min_value)
+		T value = scalar_field[u];
+		if (value > center_value)
 		{
-			min_value = scalar_field[v];
-			min_vertex = v;
+			sup_vertex_marker.mark(u);
+			sup_link.push_back(u.dart);
+		}
+		else if (value < center_value)
+		{
+			inf_vertex_marker.mark(u);
+			inf_link.push_back(u.dart);
+		}
+		else
+		{
+			std::cout << "Egal " << value << std::endl;
+			inf_vertex_marker.mark(u);
+			inf_link.push_back(u.dart);
 		}
 	});
-	return min_vertex;
-}
 
+	// Count the number of connected components in the inf and sup links
+	int nb_inf = nb_marked_cc_in_link<T, MAP>(map, inf_link, inf_vertex_marker);
+	int nb_sup = nb_marked_cc_in_link<T, MAP>(map, sup_link, sup_vertex_marker);
 
-template <typename T, typename MAP>
-CriticalVertex critical_vertex_type(
-		MAP& map,
-		const typename MAP::Vertex v,
-		const typename MAP::template VertexAttribute<T>& scalar_field)
-{
-	using Vertex = typename MAP::Vertex;
-
-	Vertex max = find_one_ring_maxima<T, MAP>(map, v, scalar_field);
-    if (scalar_field[max] < scalar_field[v])
+	if (nb_inf == 0 && nb_sup == 1)
 		return CriticalVertex(CriticalVertexType::MAXIMUM);
 
-	Vertex min = find_one_ring_minima<T, MAP>(map, v, scalar_field);
-    if (scalar_field[min] > scalar_field[v])
+	if (nb_inf == 1 && nb_sup == 0)
 		return CriticalVertex(CriticalVertexType::MINIMUM);
 
-	return CriticalVertex(CriticalVertexType::REGULAR);
+	if (nb_inf == 1 && nb_sup == 1)
+		return CriticalVertex(CriticalVertexType::REGULAR);
 
-	// Ci-dessous le code fonctionnant pour les surfaces
+	if (nb_inf == 2 && nb_sup == 1)
+		return CriticalVertex(CriticalVertexType::SADDLE, 1);
+
+	if (nb_inf == 1 && nb_sup == 2)
+		return CriticalVertex(CriticalVertexType::SADDLE, 2);
+
+	std::cerr << "Warning: UNKNOW Volume Critical Type " << nb_inf << ", " << nb_sup << std::endl;
+	return CriticalVertex(CriticalVertexType::UNKNOWN);
+}
+
+template <typename T, typename MAP>
+CriticalVertex surface_critical_vertex_type(
+	MAP& map,
+	const typename MAP::Vertex v,
+	const typename MAP::template VertexAttribute<T>& scalar_field)
+{
+	using Vertex = typename MAP::Vertex;
 	Dart next = v.dart;
 	Dart prev;
-	T center  = scalar_field[v];
+	T center = scalar_field[v];
 	T previous;
 	int up = 0;
 	int down = 0;
@@ -128,9 +180,9 @@ CriticalVertex critical_vertex_type(
 	do
 	{
 		T current = scalar_field[Vertex(map.phi2(next))];
-		if(current < center && previous > center)
+		if (current < center && previous > center)
 			++down;
-		else if(current > center && previous < center)
+		else if (current > center && previous < center)
 			++up;
 		// Skip the vertex whose value is equal to the center
 		// (that alter the detection of variations)
@@ -166,7 +218,7 @@ void extract_maxima(
 {
 	map.foreach_cell([&](typename MAP::Vertex v)
 	{
-		CriticalVertex i = critical_vertex_type<T>(map,v,scalar_field);
+		CriticalVertex i = volume_critical_vertex_type<T>(map,v,scalar_field);
 		if (i.v_ == CriticalVertexType::MAXIMUM)
 			maxima.push_back(v);
 	});
@@ -182,7 +234,7 @@ void extract_critical_points(
 {
 	map.foreach_cell([&](typename MAP::Vertex v)
 	{
-		CriticalVertex i = critical_vertex_type<T>(map,v,scalar_field);
+		CriticalVertex i = volume_critical_vertex_type<T>(map,v,scalar_field);
 		if (i.v_ == CriticalVertexType::MAXIMUM)
 			maxima.push_back(v);
 		if (i.v_ == CriticalVertexType::MINIMUM)
@@ -265,7 +317,7 @@ void extract_level_sets(
 	// Add all local maxima as level set sources
 	map.foreach_cell([&](typename MAP::Vertex v)
 	{
-		CriticalVertex type = critical_vertex_type<Scalar>(map, v, scalar_field);
+		CriticalVertex type = volume_critical_vertex_type<Scalar>(map, v, scalar_field);
 		vertex_type[v] = type.v_;
 		if (type.v_ == CriticalVertexType::MAXIMUM)
 		{

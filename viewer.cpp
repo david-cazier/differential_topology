@@ -234,7 +234,7 @@ void Viewer::keyPressEvent(QKeyEvent *e)
 			std::vector<Vertex> tab_vertices;
 			volume_.map_.foreach_cell([&] (Vertex v)
 			{
-				if(cgogn::critical_vertex_type<Vec3::Scalar>(volume_.map_, v, volume_.scalar_field_).v_ == cgogn::CriticalVertexType::SADDLE)
+				if(cgogn::volume_critical_vertex_type<Vec3::Scalar>(volume_.map_, v, volume_.scalar_field_).v_ == cgogn::CriticalVertexType::SADDLE)
 				{
 					tab_vertices.push_back(v);
 				}
@@ -378,7 +378,7 @@ int main(int argc, char** argv)
 	if (argc < 2)
 	{
 		std::cout << "USAGE: " << argv[0] << " [filename]" << std::endl;
-		filename = std::string(DEFAULT_MESH_PATH) + std::string("aneurysm3D_1.off");
+		filename = std::string("D:/Dev/CGoGN_2/data/meshes/tet/hand.tet");
 		std::cout << "Using default mesh : " << filename << std::endl;
 	}
 	else

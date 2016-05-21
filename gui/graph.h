@@ -40,7 +40,7 @@ public:
 		using Node = cgogn::ReebGraph<Vec3, CMap2>::Node;
 		using Arc = cgogn::ReebGraph<Vec3, CMap2>::Arc;
 
-		using Vertex = typename CMap2::Vertex;
+		using Vertex = CMap2::Vertex;
 
 		//init le dessin
 		drawer_->new_list();
