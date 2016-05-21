@@ -130,10 +130,10 @@ CriticalVertex volume_critical_vertex_type(
 	int nb_inf = nb_marked_cc_in_link<T, MAP>(map, inf_link, inf_vertex_marker);
 	int nb_sup = nb_marked_cc_in_link<T, MAP>(map, sup_link, sup_vertex_marker);
 
-	if (nb_inf == 0 && nb_sup == 1)
+	if (nb_inf == 1 && nb_sup == 0)
 		return CriticalVertex(CriticalVertexType::MAXIMUM);
 
-	if (nb_inf == 1 && nb_sup == 0)
+	if (nb_inf == 0 && nb_sup == 1)
 		return CriticalVertex(CriticalVertexType::MINIMUM);
 
 	if (nb_inf == 1 && nb_sup == 1)

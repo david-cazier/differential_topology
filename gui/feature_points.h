@@ -89,8 +89,8 @@ public:
 		std::cout << "minima : " << minima.size() << std::endl;
 		std::cout << "saddles : " << saddles.size() << std::endl;
 		this->draw_vertices(maxima, position, 1.0f, 1.0f, 1.0f, 1.0f);
-		this->draw_vertices(minima, position, 1.0f, 0.0f, 0.0f, 0.8f);
-		this->draw_vertices(saddles, position, 1.0f, 1.0f, 0.0f, 0.6f);
+		this->draw_vertices(minima, position, 1.0f, 0.0f, 0.0f, 1.0f);
+		this->draw_vertices(saddles, position, 1.0f, 1.0f, 0.0f, 0.8f);
 	}
 
 	void draw_vertices(std::vector<Vertex> vertices,

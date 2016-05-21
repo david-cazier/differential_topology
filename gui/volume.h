@@ -509,13 +509,7 @@ public:
 		update_color(scalar_field);
 		fp.draw_edges(map_, level_lines, vertex_position_, 1.0f, 1.0f, 1.0f);
 
-		std::vector<Vertex> maxima;
-		std::vector<Vertex> minima;
-		std::vector<Vertex> saddles;
-		cgogn::extract_critical_points<Scalar>(map_, scalar_field, maxima, minima, saddles);
-		fp.draw_vertices(maxima, vertex_position_, 1.0f, 1.0f, 1.0f, 1.0f);
-		fp.draw_vertices(minima, vertex_position_, 1.0f, 0.0f, 0.0f, 0.8f);
-		fp.draw_vertices(saddles, vertex_position_, 1.0f, 1.0f, 0.0f, 0.8f);
+		fp.draw_critical_points(map_, scalar_field, vertex_position_);
 	}
 
 	void morse_function(FeaturePoints<VEC3>& fp,
