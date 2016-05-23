@@ -63,7 +63,7 @@ public:
 					CMap3::VertexAttribute<Vec3> position,
 					float r, float g, float b)
 	{
-        Scalar width = 10.0f * bb_.max_size()/50.0f;
+		Scalar width = 10.0f * bb_.max_size()/50.0f;
 		if (!edges.empty()) {
 			drawer_->line_width(width);
 			drawer_->begin(GL_LINES);
@@ -89,8 +89,8 @@ public:
 		std::cout << "minima : " << minima.size() << std::endl;
 		std::cout << "saddles : " << saddles.size() << std::endl;
 		this->draw_vertices(maxima, position, 1.0f, 1.0f, 1.0f, 1.0f);
-		this->draw_vertices(minima, position, 1.0f, 0.0f, 0.0f, 0.3f);
-		this->draw_vertices(saddles, position, 1.0f, 1.0f, 0.0f, 0.8f);
+		this->draw_vertices(minima, position, 1.0f, 0.0f, 0.0f, 0.1f);
+		this->draw_vertices(saddles, position, 1.0f, 1.0f, 0.0f, 0.4f);
 	}
 
 	void draw_vertices(std::vector<Vertex> vertices,

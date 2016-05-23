@@ -11,12 +11,12 @@ set(CMAKE_AUTOUIC ON)
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
 
-set(CGOGN_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../CGoGN_2)
-set(CGOGN_BUILD_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../CGoGN_2-build/lib/Release)
+set(CGOGN_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../CGoGN2)
+set(CGOGN_BUILD_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../CGoGN2-build/lib/)
 #set(CGOGN_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../CGoGN_2)
 #set(CGOGN_BUILD_DIR ${CGOGN_ROOT_DIR}/build/debug/lib/)
 
-#SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC -std=c++11")
+SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC -std=c++11")
 
 set(HEADER_FILES
 	viewer.h
@@ -63,4 +63,4 @@ include_directories(
 link_directories(${CGOGN_BUILD_DIR})  #${CMAKE_BUILD_TYPE} in place of debug
 
 add_executable(${PROJECT_NAME} ${HEADER_FILES} ${SOURCE_FILES})# ${SOURCE_MOC} ${SOURCE_UI})
-target_link_libraries(${PROJECT_NAME} cgogn_core cgogn_geometry cgogn_io cgogn_rendering QOGLViewer Qt5::Widgets tinyxml2 lm6 ply)
+target_link_libraries(${PROJECT_NAME} cgogn_core_d cgogn_geometry_d cgogn_io_d cgogn_rendering_d QOGLViewer Qt5::Widgets tinyxml2 lm6 ply)
