@@ -379,7 +379,7 @@ int main(int argc, char** argv)
 	if (argc < 2)
 	{
 		std::cout << "USAGE: " << argv[0] << " [filename]" << std::endl;
-		filename = std::string("D:/Dev/CGoGN_2/data/meshes/tet/hand.tet");
+		filename = std::string(DEFAULT_MESH_PATH)+std::string("/tet/hand.tet");
 		std::cout << "Using default mesh : " << filename << std::endl;
 	}
 	else

@@ -38,7 +38,8 @@
 #include <cgogn/geometry/algos/bounding_box.h>
 #include <cgogn/rendering/drawer.h>
 
-#define DEFAULT_MESH_PATH CGOGN_STR("D:/Dev/CGoGN_2/data/meshes")
+#define DEFAULT_MESH_PATH CGOGN_STR(CGOGN_TEST_MESHES_PATH)
+
 
 class Viewer : public QOGLViewer
 {
