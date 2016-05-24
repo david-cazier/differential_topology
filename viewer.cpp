@@ -224,13 +224,13 @@ void Viewer::keyPressEvent(QKeyEvent *e)
 			using namespace cgogn;
 			level_line_drawer_->new_list();
 
-			using Vertex = VolumeMesh<Vec3>::Vertex;
-			using Edge = VolumeMesh<Vec3>::Edge;
-			using Face = VolumeMesh<Vec3>::Face;
-			using Volume = VolumeMesh<Vec3>::Volume;
+			using Vertex = MorseSmallComplex<Vec3, CMap3>::Vertex;
+			using Edge = MorseSmallComplex<Vec3, CMap3>::Edge;
+			using Face = MorseSmallComplex<Vec3, CMap3>::Face;
+			using Volume = MorseSmallComplex<Vec3, CMap3>::Volume;
 			using uint32 = numerics::uint32;
 
-			Vec3 center = volume_.map_centroid<Vec3>(volume_.map_, volume_.vertex_position_);
+			Vec3 center = volume_.centroid();
 
 			std::vector<Vertex> tab_vertices;
 			volume_.map_.foreach_cell([&] (Vertex v)
@@ -247,8 +247,8 @@ void Viewer::keyPressEvent(QKeyEvent *e)
 			for(const auto& v : tab_vertices)
 			{
 				// 1 . sub-level set
-				CellMarker<VolumeMesh<Vec3>::CMap3, Vertex::ORBIT> vm(volume_.map_);
-				CellMarker<VolumeMesh<Vec3>::CMap3, Face::ORBIT> fm(volume_.map_);
+				CellMarker<CMap3, Vertex::ORBIT> vm(volume_.map_);
+				CellMarker<CMap3, Face::ORBIT> fm(volume_.map_);
 
 				inside_vertices.push_back(v);
 				const Scalar v_value = volume_.scalar_field_[v];
