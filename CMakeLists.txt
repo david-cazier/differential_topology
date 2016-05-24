@@ -10,9 +10,6 @@ else()
 	message(FATAL_ERROR "No local options file specifying CGOGN directory: CMakeOptions.txt (see CMakeOptions.txt.sample)")
 endif()
 
-set(CGOGN_TEST_MESHES_PATH "${CGOGN_ROOT_DIR}/data/meshes/")
-add_definitions("-DCGOGN_TEST_MESHES_PATH=${CGOGN_TEST_MESHES_PATH}")
-
 #### Default build type
 if(NOT CMAKE_BUILD_TYPE)
 	set(CMAKE_BUILD_TYPE "release")
@@ -22,7 +19,7 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
-list(APPEND CMAKE_PREFIX_PATH "${CGOGN_BUILD_DIR}")
+list(APPEND CMAKE_PREFIX_PATH "${CGOGN_RELEASE_BUILD_DIR}")
 
 find_package(cgogn_core REQUIRED)
 find_package(cgogn_geometry REQUIRED)
@@ -59,9 +56,11 @@ set(SOURCE_FILES
 	viewer.cpp
 	)
 
+set(CGOGN_TEST_MESHES_PATH ${CGOGN_ROOT_DIR}/data/meshes)
+add_definitions("-DCGOGN_TEST_MESHES_PATH=${CGOGN_TEST_MESHES_PATH}")
 
 add_executable(${PROJECT_NAME} ${HEADER_FILES} ${SOURCE_FILES})
 
-target_link_libraries(${PROJECT_NAME}
-	${cgogn_core_LIBRARIES} ${cgogn_geometry_LIBRARIES} ${cgogn_io_LIBRARIES} ${cgogn_rendering_LIBRARIES}
+target_link_libraries(${PROJECT_NAME} 
+	${cgogn_core_LIBRARIES} ${cgogn_geometry_LIBRARIES} ${cgogn_io_LIBRARIES} ${cgogn_rendering_LIBRARIES} 
 	${Qt5Widgets_LIBRARIES} ${QOGLViewer_LIBRARIES})
