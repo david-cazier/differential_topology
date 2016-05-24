@@ -61,7 +61,7 @@ int nb_marked_cc_in_link(
 			d = link.back();
 			link.pop_back();
 		} while (!vertex_marker.is_marked(Vertex(d)) && !link.empty());
-		
+
 		// If a marked vertex has been found, its connected component is counted and unmarked
 		if (vertex_marker.is_marked(Vertex(d)))
 		{
@@ -108,7 +108,7 @@ CriticalVertex volume_critical_vertex_type(
 	map.foreach_adjacent_vertex_through_edge(v, [&](Vertex u)
 	{
 		T value = scalar_field[u];
-		if (value >= center_value)
+		if (value > center_value)
 		{
 			sup_vertex_marker.mark(u);
 			sup_link.push_back(u.dart);
@@ -120,9 +120,9 @@ CriticalVertex volume_critical_vertex_type(
 		}
 		else
 		{
-			std::cout << "Egal " << value << std::endl;
-			inf_vertex_marker.mark(u);
-			inf_link.push_back(u.dart);
+//			std::cout << "Egal " << value << std::endl;
+			sup_vertex_marker.mark(u);
+			sup_link.push_back(u.dart);
 		}
 	});
 
@@ -140,10 +140,19 @@ CriticalVertex volume_critical_vertex_type(
 		return CriticalVertex(CriticalVertexType::REGULAR);
 
 	if (nb_inf == 2 && nb_sup == 1)
-		return CriticalVertex(CriticalVertexType::SADDLE, 1);
+		return CriticalVertex(CriticalVertexType::SADDLE, 12);
+
+	if (nb_inf == 3 && nb_sup == 1)
+		return CriticalVertex(CriticalVertexType::SADDLE, 13);
 
 	if (nb_inf == 1 && nb_sup == 2)
-		return CriticalVertex(CriticalVertexType::SADDLE, 2);
+		return CriticalVertex(CriticalVertexType::SADDLE, 21);
+
+	if (nb_inf == 1 && nb_sup == 3)
+		return CriticalVertex(CriticalVertexType::SADDLE, 31);
+
+	if (nb_inf == 2 && nb_sup == 2)
+		return CriticalVertex(CriticalVertexType::SADDLE, 22);
 
 	std::cerr << "Warning: UNKNOW Volume Critical Type " << nb_inf << ", " << nb_sup << std::endl;
 	return CriticalVertex(CriticalVertexType::UNKNOWN);
@@ -309,6 +318,103 @@ void normalized_geodesic_distance_pl_function(
 	cgogn::dijkstra_compute_normalized_paths<T>(map, weight, vertices, distance_to_source, path_to_source);
 	map.remove_attribute(path_to_source);
 }
+
+template <typename Scalar, typename MAP>
+void extract_level_sets(
+		MAP& map,
+		const typename MAP::template VertexAttribute<Scalar>& scalar_field,
+		std::vector<typename MAP::Edge>& level_lines)
+{
+	using Vertex = typename MAP::Vertex;
+	using Edge = typename MAP::Edge;
+	using Face = typename MAP::Face;
+
+	using VertexMarkerStore = typename cgogn::CellMarkerStore<MAP, Vertex::ORBIT>;
+	using FaceMarkerStore = typename cgogn::CellMarkerStore<MAP, Face::ORBIT>;
+
+	VertexMarkerStore vertex_marker(map);
+	FaceMarkerStore face_marker(map);
+	std::vector<Face> level_set_faces;
+
+	typename MAP::template VertexAttribute<uint32> vertex_type =
+			map.template add_attribute<uint32, Vertex::ORBIT>("vertex_type");
+
+	using my_pair = std::pair<Scalar, unsigned int>;
+	using my_queue = std::priority_queue<my_pair, std::vector<my_pair>>;
+
+	my_queue level_sets_queue;
+	my_queue vertex_queue;
+
+	// Add all local maxima as level set sources
+	map.foreach_cell([&](typename MAP::Vertex v)
+	{
+		CriticalVertex type = volume_critical_vertex_type<Scalar>(map, v, scalar_field);
+		vertex_type[v] = type.v_;
+		if (type.v_ == CriticalVertexType::MAXIMUM)
+		{
+			level_sets_queue.push(std::make_pair(scalar_field[v], v.dart.index));
+		}
+	});
+
+	// Tant qu'il reste des maxima locaux => génère un level set
+	while (!level_sets_queue.empty()) {
+		// Initialise un nouveau front pour calculer le level set suivant
+		my_pair p = level_sets_queue.top();
+		level_sets_queue.pop();
+		vertex_queue.push(p);
+
+		Scalar saddle_value = Scalar(0);
+
+		// Tant qu'il reste des sommets dans le front courrant
+		while (!vertex_queue.empty())
+		{
+			Vertex u = Vertex(Dart(vertex_queue.top().second));
+			vertex_queue.pop();
+
+			// We are still in the current level set
+			if (!vertex_marker.is_marked(u) && scalar_field[u] > saddle_value) {
+				// We reach a saddle (the nearest one)
+				if (vertex_type[u] == CriticalVertexType::SADDLE) {
+					saddle_value = scalar_field[u];
+				}
+				else {
+					vertex_marker.mark(u);
+					// Extend the front of the level set
+					map.foreach_adjacent_vertex_through_edge(u, [&] (Vertex v)
+					{
+						if (!vertex_marker.is_marked(v) && scalar_field[v] > saddle_value)
+						{
+							vertex_queue.push(std::make_pair(scalar_field[v], v.dart.index));
+						}
+					});
+					map.foreach_incident_face(u, [&] (Face f)
+					{
+						if (!face_marker.is_marked(f))
+						{
+							level_set_faces.push_back(f);
+							face_marker.mark(f);
+						}
+					});
+				}
+			}
+		}
+		// The marked vertices and faces define the interior and closure of the level set
+		for (Face f : level_set_faces)
+		{
+			map.foreach_incident_edge(f, [&](Edge e)
+			{
+				std::pair<Vertex, Vertex> p = map.vertices(e);
+				if (!vertex_marker.is_marked(p.first) && !vertex_marker.is_marked(p.second))
+					level_lines.push_back(e);
+			});
+		}
+		level_set_faces.clear();
+		vertex_marker.unmark_all();
+		face_marker.unmark_all();
+	}
+	map.remove_attribute(vertex_type);
+}
+
 
 template <typename Scalar, typename MAP>
 void extract_level_sets(

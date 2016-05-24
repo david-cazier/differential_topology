@@ -208,65 +208,6 @@ typename MAP::Vertex argmin(
 	return d_min;
 }
 
-//Function value driven dijkstra based function
-template <typename T, typename MAP>
-void dijkstra_compute_perturbated_function(
-		MAP& map,
-		const typename MAP::template VertexAttribute<T>& f,
-		typename MAP::template VertexAttribute<T>& f_pertubated)
-{
-	using Vertex = typename MAP::Vertex ;
-
-	unsigned int i = 0;
-	std::map<unsigned int, Dart> visited;
-	std::map<unsigned int, Dart> candidates;
-
-	Dart dmin = argmin<T>(map, f);
-	candidates.insert(std::pair<unsigned int, Dart>(map.template get_embedding(Vertex(dmin)), dmin));
-
-	unsigned int Nv = map.template nb_cells<Vertex::ORBIT>();
-
-	do
-	{
-		Dart vt = argmin<T,MAP>(candidates, f);
-
-		f_pertubated[Vertex(vt)] = static_cast<T>(i) / static_cast<T>(Nv);
-
-		candidates.erase(map.template get_embedding(Vertex(vt)));
-
-		visited.insert(std::pair<unsigned int, Dart>(map.template get_embedding(Vertex(vt)), vt));
-
-		map.foreach_adjacent_vertex_through_edge(Vertex(vt), [&](Vertex v){
-			if(visited.find(map.template get_embedding(Vertex(v))) == visited.end())
-				candidates.insert(std::pair<unsigned int, Dart>(map.template get_embedding(Vertex(v)), v));
-		});
-
-		++i;
-	}
-	while(!candidates.empty());
-}
-
-template <typename MAP>
-void dijkstra_compute_shortest_path_to(
-		const typename MAP::Vertex v,
-		const typename MAP::template VertexAttribute< typename MAP::Vertex>& previous,
-		std::vector<Dart>& path)
-{
-	using Vertex = typename MAP::Vertex;
-
-	path.clear();
-	Dart source = v ;
-	Dart end = Dart();
-
-	for( ; source != end; source = previous[Vertex(source)])
-	{
-		path.push_back(source);
-	}
-
-	path.push_back(v);
-}
-
-
 template <typename Scalar, typename  MAP>
 void reeb_graph(
 		MAP& map,
