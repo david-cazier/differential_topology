@@ -65,7 +65,7 @@ public:
 private:
 	VolumeMesh<Vec3> volume_;
 
-	cgogn::geometry::BoundingBox<Vec3> bb_;
+	cgogn::geometry::AABB<Vec3> bb_;
 	std::unique_ptr<cgogn::rendering::DisplayListDrawer> level_line_drawer_;
 	std::unique_ptr<cgogn::rendering::DisplayListDrawer::Renderer> level_line_renderer_;
 

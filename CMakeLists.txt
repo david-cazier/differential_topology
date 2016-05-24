@@ -4,19 +4,31 @@ project(Viewer
 	LANGUAGES CXX C
 	)
 
-find_package(Qt5Widgets)
+if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/CMakeOptions.txt)
+	include(${CMAKE_CURRENT_SOURCE_DIR}/CMakeOptions.txt)
+else()
+	message(FATAL_ERROR "No local options file specifying CGOGN directory: CMakeOptions.txt (see CMakeOptions.txt.sample)")
+endif()
+
+#### Default build type
+if(NOT CMAKE_BUILD_TYPE)
+	set(CMAKE_BUILD_TYPE "release")
+endif()
 
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
+list(APPEND CMAKE_PREFIX_PATH "${CGOGN_BUILD_DIR}/${CMAKE_BUILD_TYPE}")
 
-set(CGOGN_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../CGoGN2)
-set(CGOGN_BUILD_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../CGoGN2-build/lib/)
-#set(CGOGN_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../CGoGN_2)
-#set(CGOGN_BUILD_DIR ${CGOGN_ROOT_DIR}/build/debug/lib/)
+find_package(cgogn_core REQUIRED)
+find_package(cgogn_geometry REQUIRED)
+find_package(cgogn_io REQUIRED)
+find_package(cgogn_rendering REQUIRED)
+find_package(QOGLViewer REQUIRED)
+find_package(Qt5Widgets REQUIRED)
 
-SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC -std=c++11")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC -std=c++11")
 
 set(HEADER_FILES
 	viewer.h
@@ -44,23 +56,9 @@ set(SOURCE_FILES
 	viewer.cpp
 	)
 
-# qt5_wrap_ui(SOURCE_UI
-# 	viewer.ui
-# 	)
 
-# qt5_wrap_cpp(SOURCE_MOC
-# 	viewer.h
-# 	)
+add_executable(${PROJECT_NAME} ${HEADER_FILES} ${SOURCE_FILES})
 
-include_directories(
-		${CGOGN_ROOT_DIR}
-		${CGOGN_ROOT_DIR}/thirdparty/libQGLViewer/QOGLViewer
-		${CGOGN_ROOT_DIR}/thirdparty/eigen-3.2.8
-		${CGOGN_ROOT_DIR}/thirdparty/TinyXml2
-		${CGOGN_ROOT_DIR}/thirdparty/ply
-		${CGOGN_ROOT_DIR}/thirdparty/lm6)
-
-link_directories(${CGOGN_BUILD_DIR})  #${CMAKE_BUILD_TYPE} in place of debug
-
-add_executable(${PROJECT_NAME} ${HEADER_FILES} ${SOURCE_FILES})# ${SOURCE_MOC} ${SOURCE_UI})
-target_link_libraries(${PROJECT_NAME} cgogn_core_d cgogn_geometry_d cgogn_io_d cgogn_rendering_d QOGLViewer Qt5::Widgets tinyxml2 lm6 ply)
+target_link_libraries(${PROJECT_NAME} 
+	${cgogn_core_LIBRARIES} ${cgogn_geometry_LIBRARIES} ${cgogn_io_LIBRARIES} ${cgogn_rendering_LIBRARIES} 
+	${Qt5Widgets_LIBRARIES} ${QOGLViewer_LIBRARIES})
