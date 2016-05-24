@@ -40,7 +40,6 @@
 
 #define DEFAULT_MESH_PATH CGOGN_STR(CGOGN_TEST_MESHES_PATH)
 
-
 class Viewer : public QOGLViewer
 {
 public:
