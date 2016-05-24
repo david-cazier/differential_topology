@@ -26,7 +26,7 @@ public:
 
 	std::unique_ptr<cgogn::rendering::DisplayListDrawer> drawer_;
 	std::unique_ptr<cgogn::rendering::DisplayListDrawer::Renderer> renderer_;
-	cgogn::geometry::BoundingBox<Vec3> bb_;
+	cgogn::geometry::AABB<Vec3> bb_;
 
 	QOpenGLFunctions_3_3_Core* ogl33_;
 
@@ -41,7 +41,7 @@ public:
 		drawer_.reset();
 	}
 
-	void init(cgogn::geometry::BoundingBox<Vec3> bb)
+	void init(cgogn::geometry::AABB<Vec3> bb)
 	{
 		drawer_ = cgogn::make_unique<cgogn::rendering::DisplayListDrawer>();
 		renderer_ = drawer_->generate_renderer();

@@ -77,7 +77,7 @@ public:
 
 	EdgeAttribute<Scalar> edge_metric_;
 
-	cgogn::geometry::BoundingBox<Vec3> bb_;
+	cgogn::geometry::AABB<Vec3> bb_;
 
 	QOpenGLFunctions_3_3_Core* ogl33_;
 
@@ -181,7 +181,7 @@ public:
 		volume_renderer_->draw_edges(proj, view, ogl33_);
 	}
 
-	cgogn::geometry::BoundingBox<Vec3> import(const std::string& filename)
+	cgogn::geometry::AABB<Vec3> import(const std::string& filename)
 	{
 		cgogn::io::import_volume<Vec3>(map_, filename);
 
@@ -190,7 +190,7 @@ public:
 		scalar_field_ = map_.add_attribute<Scalar, Vertex::ORBIT>("scalar_field_");
 		edge_metric_ = map_.add_attribute<Scalar, Edge::ORBIT>("edge_metric");
 
-		cgogn::geometry::compute_bounding_box(vertex_position_, bb_);
+		cgogn::geometry::compute_AABB(vertex_position_, bb_);
 
 		map_.foreach_cell([&](Vertex v)
 		{
