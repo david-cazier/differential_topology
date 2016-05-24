@@ -72,6 +72,7 @@ public:
 	CMap3 map_;
 
 	VertexAttribute<Vec3> vertex_position_;
+	VertexAttribute<Vec3> vertex_color_;
 	VertexAttribute<Scalar> scalar_field_;
 
 	EdgeAttribute<Scalar> edge_metric_;
@@ -80,14 +81,15 @@ public:
 
 	QOpenGLFunctions_3_3_Core* ogl33_;
 
-	std::unique_ptr<cgogn::rendering::VolumeDrawer> volume_drawer_;
-	std::unique_ptr<cgogn::rendering::VolumeDrawer::Renderer> volume_renderer_;
+	std::unique_ptr<cgogn::rendering::VolumeDrawerColor> volume_drawer_;
+	std::unique_ptr<cgogn::rendering::VolumeDrawerColor::Renderer> volume_renderer_;
 
 public:
 
 	VolumeMesh(QOpenGLFunctions_3_3_Core* ogl33):
 		map_(),
 		vertex_position_(),
+		vertex_color_(),
 		scalar_field_(),
 		edge_metric_(),
 		bb_(),
@@ -123,8 +125,8 @@ public:
 
 	void init()
 	{
-		volume_drawer_ = cgogn::make_unique<cgogn::rendering::VolumeDrawer>();
-		volume_drawer_->update_face<Vec3>(map_, vertex_position_);
+		volume_drawer_ = cgogn::make_unique<cgogn::rendering::VolumeDrawerColor>();
+		volume_drawer_->update_face<Vec3>(map_, vertex_position_, vertex_color_);
 		volume_drawer_->update_edge<Vec3>(map_, vertex_position_);
 
 		volume_renderer_ = volume_drawer_->generate_renderer();
@@ -132,28 +134,45 @@ public:
 
 	void update_geometry()
 	{
-		volume_drawer_->update_face<Vec3>(map_, vertex_position_);
+		volume_drawer_->update_face<Vec3>(map_, vertex_position_, vertex_color_);
 		volume_drawer_->update_edge<Vec3>(map_, vertex_position_);
 	}
 
 	void update_topology()
 	{
-		volume_drawer_->update_face<Vec3>(map_, vertex_position_);
+		volume_drawer_->update_face<Vec3>(map_, vertex_position_, vertex_color_);
 		volume_drawer_->update_edge<Vec3>(map_, vertex_position_);
 	}
 
 	void update_color(VertexAttribute<Scalar> scalar)
 	{
-		volume_drawer_->update_face<Vec3>(map_, vertex_position_);
+		double min = std::numeric_limits<double>::max();
+		double max = std::numeric_limits<double>::min();
+		for(auto& v : scalar)
+		{
+			min = std::min(min, v);
+			max = std::max(max, v);
+		}
+
+		map_.foreach_cell([&](Vertex v)
+		{
+			std::array<Scalar,3> color = cgogn::color_map_blue_green_red(
+						cgogn::numerics::scale_to_0_1(scalar[v], min, max));
+			vertex_color_[v] = Vec3(color[0], color[1], color[2]);
+		});
+		volume_drawer_->update_face<Vec3>(map_, vertex_position_, vertex_color_);
 	}
 
 	void draw_volume(const QMatrix4x4& proj, const QMatrix4x4& view)
 	{
+		volume_renderer_->set_explode_volume(0.8f);
 		volume_renderer_->draw_faces(proj, view, ogl33_);
+		volume_renderer_->draw_edges(proj, view, ogl33_);
 	}
 
 	void draw_flat(const QMatrix4x4& proj, const QMatrix4x4& view)
 	{
+		volume_renderer_->set_explode_volume(1.0f);
 		volume_renderer_->draw_faces(proj, view, ogl33_);
 	}
 
@@ -167,10 +186,17 @@ public:
 		cgogn::io::import_volume<Vec3>(map_, filename);
 
 		vertex_position_ = map_.get_attribute<Vec3, Vertex::ORBIT>("position");
+		vertex_color_ = map_.add_attribute<Vec3, Vertex::ORBIT>("color");
 		scalar_field_ = map_.add_attribute<Scalar, Vertex::ORBIT>("scalar_field_");
 		edge_metric_ = map_.add_attribute<Scalar, Edge::ORBIT>("edge_metric");
 
 		cgogn::geometry::compute_bounding_box(vertex_position_, bb_);
+
+		map_.foreach_cell([&](Vertex v)
+		{
+			vertex_color_[v] = vertex_position_[v];
+		});
+
 
 		return bb_;
 	}
@@ -407,12 +433,22 @@ public:
 		fp.draw_critical_points(map_, scalar_field_, vertex_position_);
 	}
 
+	void distance_to_boundary_function(FeaturePoints<Vec3>& fp)
+	{
+		compute_length(edge_metric_);
+
+		cgogn::distance_to_boundary_pl_function<Scalar>(map_, edge_metric_, scalar_field_);
+
+		update_color(scalar_field_);
+		fp.draw_critical_points(map_, scalar_field_, vertex_position_);
+	}
+
 	void distance_to_center_function(FeaturePoints<Vec3>& fp)
 	{
 		compute_length(edge_metric_);
 
 		Vertex v0 = central_vertex();
-		cgogn::geodesic_distance_pl_function<Scalar>(map_, {v0}, edge_metric_, scalar_field_);
+		cgogn::geodesic_distance_pl_function<Scalar>(map_, { v0 }, edge_metric_, scalar_field_);
 
 		update_color(scalar_field_);
 		fp.draw_critical_points(map_, scalar_field_, vertex_position_);
@@ -428,6 +464,8 @@ public:
 		// Build the scalar field from the selected features
 		cgogn::geodesic_distance_pl_function<Scalar>(map_, features, edge_metric_, scalar_field_);
 
+		for (auto& s : scalar_field_) s = Scalar(1) - s;
+
 		// Draw the result
 		update_color(scalar_field_);
 		fp.draw_critical_points(map_, scalar_field_, vertex_position_);
@@ -442,6 +480,8 @@ public:
 
 		// Build the scalar field from the selected features
 		cgogn::geodesic_distance_pl_function<Scalar>(map_, features, edge_metric_, scalar_field_);
+
+		for (auto& s : scalar_field_) s = Scalar(1) - s;
 
 		// Draw the result
 		update_color(scalar_field_);
@@ -460,13 +500,7 @@ public:
 		// Draw the morse function and its critical points
 		update_color(scalar_field_);
 
-		std::vector<Vertex> maxima;
-		std::vector<Vertex> minima;
-		std::vector<Vertex> saddles;
-		cgogn::extract_critical_points<Scalar>(map_, scalar_field_, maxima, minima, saddles);
-		fp.draw_vertices(maxima, vertex_position_, 1.0f, 1.0f, 1.0f, 1.0f);
-		fp.draw_vertices(minima, vertex_position_, 1.0f, 0.0f, 0.0f, 0.8f);
-		fp.draw_vertices(saddles, vertex_position_, 1.0f, 1.0f, 0.0f, 0.8f);
+		fp.draw_critical_points(map_, scalar_field_, vertex_position_);
 	}
 
 	void curvature_weighted_morse_function(FeaturePoints<VEC3>& fp)
@@ -480,13 +514,7 @@ public:
 		// Draw the morse function and its critical points
 		update_color(scalar_field_);
 
-		std::vector<Vertex> maxima;
-		std::vector<Vertex> minima;
-		std::vector<Vertex> saddles;
-		cgogn::extract_critical_points<Scalar>(map_, scalar_field_, maxima, minima, saddles);
-		fp.draw_vertices(maxima, vertex_position_, 1.0f, 1.0f, 1.0f, 1.0f);
-		fp.draw_vertices(minima, vertex_position_, 1.0f, 0.0f, 0.0f, 0.8f);
-		fp.draw_vertices(saddles, vertex_position_, 1.0f, 1.0f, 0.0f, 0.8f);
+		fp.draw_critical_points(map_, scalar_field_, vertex_position_);
 	}
 
 	void show_level_sets(FeaturePoints<VEC3>& fp,
@@ -497,13 +525,7 @@ public:
 		update_color(scalar_field);
 		fp.draw_edges(map_, level_lines, vertex_position_, 1.0f, 1.0f, 1.0f);
 
-		std::vector<Vertex> maxima;
-		std::vector<Vertex> minima;
-		std::vector<Vertex> saddles;
-		cgogn::extract_critical_points<Scalar>(map_, scalar_field, maxima, minima, saddles);
-		fp.draw_vertices(maxima, vertex_position_, 1.0f, 1.0f, 1.0f, 1.0f);
-		fp.draw_vertices(minima, vertex_position_, 1.0f, 0.0f, 0.0f, 0.8f);
-		fp.draw_vertices(saddles, vertex_position_, 1.0f, 1.0f, 0.0f, 0.8f);
+		fp.draw_critical_points(map_, scalar_field, vertex_position_);
 	}
 
 	void morse_function(FeaturePoints<VEC3>& fp,
@@ -521,10 +543,7 @@ public:
 		cgogn::normalized_geodesic_distance_pl_function<Scalar>(map_, features, edge_metric, dist_to_feature);
 
 		// 2 inverse the normalized distance so that the maxima are on the features
-		map_.foreach_cell([&] (Vertex v)
-		{
-			dist_to_feature[v] = 1 - dist_to_feature[v];
-		});
+		for (auto& s : dist_to_feature) s = Scalar(1) - s;
 
 		// 3 function perturbation (to remove extra minima and saddles)
 		// Run dijkstra using dist_to_feature in place of estimated geodesic distances

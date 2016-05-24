@@ -71,7 +71,7 @@ void Viewer::draw()
 	}
 	glDisable(GL_POLYGON_OFFSET_FILL);
 
-	if (surface_vertices_rendering_)
+//	if (surface_vertices_rendering_)
 //		volume_.draw_vertices(proj,view);
 
 	//if(graph_vertices_rendering_)
@@ -84,7 +84,7 @@ void Viewer::draw()
 	//	if(graph_edges_rendering_)
 	//		reeb_graph_.draw(proj,view);
 
-	glDisable(GL_BLEND);
+    glDisable(GL_BLEND);
 
 	if(feature_points_rendering_)
 		feature_points_.draw(proj, view);
@@ -179,7 +179,8 @@ void Viewer::keyPressEvent(QKeyEvent *e)
 		case Qt::Key_0:
 		{
 			feature_points_.begin_draw();
-			volume_.height_function(feature_points_);
+			//volume_.height_function(feature_points_);
+			volume_.distance_to_boundary_function(feature_points_);
 			feature_points_.end_draw();
 			break;
 		}
@@ -223,10 +224,10 @@ void Viewer::keyPressEvent(QKeyEvent *e)
 			using namespace cgogn;
 			level_line_drawer_->new_list();
 
-			using Vertex = typename VolumeMesh<Vec3>::Vertex;
-			using Edge = typename VolumeMesh<Vec3>::Edge;
-			using Face = typename VolumeMesh<Vec3>::Face;
-			using Volume = typename VolumeMesh<Vec3>::Volume;
+			using Vertex = VolumeMesh<Vec3>::Vertex;
+			using Edge = VolumeMesh<Vec3>::Edge;
+			using Face = VolumeMesh<Vec3>::Face;
+			using Volume = VolumeMesh<Vec3>::Volume;
 			using uint32 = numerics::uint32;
 
 			Vec3 center = volume_.map_centroid<Vec3>(volume_.map_, volume_.vertex_position_);
@@ -234,7 +235,7 @@ void Viewer::keyPressEvent(QKeyEvent *e)
 			std::vector<Vertex> tab_vertices;
 			volume_.map_.foreach_cell([&] (Vertex v)
 			{
-				if(cgogn::critical_vertex_type<Vec3::Scalar>(volume_.map_, v, volume_.scalar_field_).v_ == cgogn::CriticalVertexType::SADDLE)
+				if(cgogn::volume_critical_vertex_type<Vec3::Scalar>(volume_.map_, v, volume_.scalar_field_).v_ == cgogn::CriticalVertexType::SADDLE)
 				{
 					tab_vertices.push_back(v);
 				}
@@ -378,7 +379,7 @@ int main(int argc, char** argv)
 	if (argc < 2)
 	{
 		std::cout << "USAGE: " << argv[0] << " [filename]" << std::endl;
-		filename = std::string(DEFAULT_MESH_PATH) + std::string("aneurysm3D_1.off");
+		filename = std::string("D:/Dev/CGoGN_2/data/meshes/tet/hand.tet");
 		std::cout << "Using default mesh : " << filename << std::endl;
 	}
 	else

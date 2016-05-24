@@ -63,4 +63,4 @@ include_directories(
 link_directories(${CGOGN_BUILD_DIR})  #${CMAKE_BUILD_TYPE} in place of debug
 
 add_executable(${PROJECT_NAME} ${HEADER_FILES} ${SOURCE_FILES})# ${SOURCE_MOC} ${SOURCE_UI})
-target_link_libraries(${PROJECT_NAME} cgogn_core_d cgogn_geometry_d cgogn_io_d cgogn_rendering_d QOGLViewer Qt5::Widgets tinyxml2_d lm6_d ply_d)
+target_link_libraries(${PROJECT_NAME} cgogn_core_d cgogn_geometry_d cgogn_io_d cgogn_rendering_d QOGLViewer Qt5::Widgets tinyxml2 lm6 ply)
