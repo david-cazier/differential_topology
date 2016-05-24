@@ -84,7 +84,7 @@ void Viewer::draw()
 	//	if(graph_edges_rendering_)
 	//		reeb_graph_.draw(proj,view);
 
-    glDisable(GL_BLEND);
+	glDisable(GL_BLEND);
 
 	if(feature_points_rendering_)
 		feature_points_.draw(proj, view);
@@ -378,9 +378,9 @@ int main(int argc, char** argv)
 	std::string filename;
 	if (argc < 2)
 	{
-		std::cout << "USAGE: " << argv[0] << " [filename]" << std::endl;
-		filename = std::string("D:/Dev/CGoGN_2/data/meshes/tet/hand.tet");
-		std::cout << "Using default mesh : " << filename << std::endl;
+		cgogn_log_info("viewer") << "USAGE: " << argv[0] << " [filename]";
+		filename = std::string(DEFAULT_MESH_PATH) + std::string("tet/hand.tet");
+		cgogn_log_info("viewer") << "Using default mesh \"" << filename << "\".";
 	}
 	else
 		filename = std::string(argv[1]);

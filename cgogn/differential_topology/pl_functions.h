@@ -320,101 +320,224 @@ void normalized_geodesic_distance_pl_function(
 }
 
 template <typename Scalar, typename MAP>
-void extract_level_sets(
+void extract_ascending_manifold(
 		MAP& map,
 		const typename MAP::template VertexAttribute<Scalar>& scalar_field,
-		std::vector<typename MAP::Edge>& level_lines)
+		std::vector<typename MAP::Edge>& edges_set)
 {
 	using Vertex = typename MAP::Vertex;
 	using Edge = typename MAP::Edge;
 	using Face = typename MAP::Face;
 
 	using VertexMarkerStore = typename cgogn::CellMarkerStore<MAP, Vertex::ORBIT>;
-	using FaceMarkerStore = typename cgogn::CellMarkerStore<MAP, Face::ORBIT>;
-
-	VertexMarkerStore vertex_marker(map);
-	FaceMarkerStore face_marker(map);
-	std::vector<Face> level_set_faces;
 
 	typename MAP::template VertexAttribute<uint32> vertex_type =
 			map.template add_attribute<uint32, Vertex::ORBIT>("vertex_type");
 
-	using my_pair = std::pair<Scalar, unsigned int>;
-	using my_queue = std::priority_queue<my_pair, std::vector<my_pair>>;
-
-	my_queue level_sets_queue;
-	my_queue vertex_queue;
-
-	// Add all local maxima as level set sources
+	// Search for every 1-saddles the starts of the ascending 1-manifolds
+	// that link the saddles to the minima
+	// These starts are the minima of the connected components of the inf_link of the saddles
+	VertexMarkerStore vertex_marker(map);
+	std::vector<Dart> inf_link;
+	std::vector<Dart> saddles_to_minima;
 	map.foreach_cell([&](typename MAP::Vertex v)
 	{
 		CriticalVertex type = volume_critical_vertex_type<Scalar>(map, v, scalar_field);
 		vertex_type[v] = type.v_;
-		if (type.v_ == CriticalVertexType::MAXIMUM)
+		if (type.v_ == CriticalVertexType::SADDLE &&
+				(type.n_ == 12 || type.n_ == 13) )
 		{
-			level_sets_queue.push(std::make_pair(scalar_field[v], v.dart.index));
+			// Build the inf_link of v
+			Scalar center_value = scalar_field[v];
+			map.foreach_adjacent_vertex_through_edge(v, [&](Vertex u)
+			{
+				Scalar value = scalar_field[u];
+				if (value < center_value)
+				{
+					vertex_marker.mark(u);
+					inf_link.push_back(u.dart);
+				}
+			});
+			// Foreach connected component of the link, search its local minima
+			while (!inf_link.empty())
+			{
+				// Search a marked vertex in the link (initially selected in the link)
+				Dart d;
+				do {
+					d = inf_link.back();
+					inf_link.pop_back();
+				} while (!vertex_marker.is_marked(Vertex(d)) && !inf_link.empty());
+
+				// If a marked vertex has been found, its connected component is searched
+				// for a minima and unmarked
+				if (vertex_marker.is_marked(Vertex(d)))
+				{
+					std::vector<Dart> cc;
+					Vertex min_cc = Vertex(d);
+					Scalar min_value = scalar_field[min_cc];
+					cc.push_back(d);
+					while (!cc.empty())
+					{
+						Vertex current(cc.back());
+						cc.pop_back();
+						vertex_marker.unmark(current);
+						Scalar current_value = scalar_field[current];
+						if (current_value < min_value)
+						{
+							min_value = current_value;
+							min_cc = current;
+						}
+
+						map.foreach_incident_face(Edge(current.dart), [&](Face f)
+						{
+							// The vertex of dart adj is adjacent to the vertex of e through an edge and
+							// the dart phi2(adj) belongs to the central vertex C
+							Dart adj = map.phi2(map.phi_1(map.phi_1(f.dart)));
+							if (vertex_marker.is_marked(Vertex(adj)))
+								cc.push_back(adj);
+						});
+					}
+					saddles_to_minima.push_back(min_cc.dart);
+				}
+			}
+
 		}
 	});
 
-	// Tant qu'il reste des maxima locaux => génère un level set
-	while (!level_sets_queue.empty()) {
-		// Initialise un nouveau front pour calculer le level set suivant
-		my_pair p = level_sets_queue.top();
-		level_sets_queue.pop();
-		vertex_queue.push(p);
+	// For each found start descend its ascending 1-manifold
+	while (!saddles_to_minima.empty())
+	{
+		Edge e(saddles_to_minima.back());
+		saddles_to_minima.pop_back();
+		edges_set.push_back(e);
 
-		Scalar saddle_value = Scalar(0);
-
-		// Tant qu'il reste des sommets dans le front courrant
-		while (!vertex_queue.empty())
+		// Search for the next vertex in the descending path to the minimum
+		Vertex min_vertex = Vertex(e.dart);
+		Scalar min_value = scalar_field[min_vertex];
+		map.foreach_adjacent_vertex_through_edge(min_vertex, [&](Vertex u)
 		{
-			Vertex u = Vertex(Dart(vertex_queue.top().second));
-			vertex_queue.pop();
-
-			// We are still in the current level set
-			if (!vertex_marker.is_marked(u) && scalar_field[u] > saddle_value) {
-				// We reach a saddle (the nearest one)
-				if (vertex_type[u] == CriticalVertexType::SADDLE) {
-					saddle_value = scalar_field[u];
-				}
-				else {
-					vertex_marker.mark(u);
-					// Extend the front of the level set
-					map.foreach_adjacent_vertex_through_edge(u, [&] (Vertex v)
-					{
-						if (!vertex_marker.is_marked(v) && scalar_field[v] > saddle_value)
-						{
-							vertex_queue.push(std::make_pair(scalar_field[v], v.dart.index));
-						}
-					});
-					map.foreach_incident_face(u, [&] (Face f)
-					{
-						if (!face_marker.is_marked(f))
-						{
-							level_set_faces.push_back(f);
-							face_marker.mark(f);
-						}
-					});
-				}
-			}
-		}
-		// The marked vertices and faces define the interior and closure of the level set
-		for (Face f : level_set_faces)
-		{
-			map.foreach_incident_edge(f, [&](Edge e)
+			Scalar current_value = scalar_field[u];
+			if (current_value < min_value)
 			{
-				std::pair<Vertex, Vertex> p = map.vertices(e);
-				if (!vertex_marker.is_marked(p.first) && !vertex_marker.is_marked(p.second))
-					level_lines.push_back(e);
-			});
-		}
-		level_set_faces.clear();
-		vertex_marker.unmark_all();
-		face_marker.unmark_all();
+				min_value = current_value;
+				min_vertex = u;
+			}
+		});
+		if (min_vertex.dart != e.dart) saddles_to_minima.push_back(min_vertex.dart);
 	}
+
 	map.remove_attribute(vertex_type);
 }
 
+template <typename Scalar, typename MAP>
+void extract_descending_manifold(
+		MAP& map,
+		const typename MAP::template VertexAttribute<Scalar>& scalar_field,
+		std::vector<typename MAP::Edge>& edges_set)
+{
+	using Vertex = typename MAP::Vertex;
+	using Edge = typename MAP::Edge;
+	using Face = typename MAP::Face;
+
+	using VertexMarkerStore = typename cgogn::CellMarkerStore<MAP, Vertex::ORBIT>;
+
+	typename MAP::template VertexAttribute<uint32> vertex_type =
+			map.template add_attribute<uint32, Vertex::ORBIT>("vertex_type");
+
+	// Search for every 1-saddles the starts of the descending 1-manifolds
+	// that link the saddles to the maxima
+	// These starts are the maxima of the connected components of the sup_link of the saddles
+	VertexMarkerStore vertex_marker(map);
+	std::vector<Dart> sup_link;
+	std::vector<Dart> saddles_to_maxima;
+	map.foreach_cell([&](typename MAP::Vertex v)
+	{
+		CriticalVertex type = volume_critical_vertex_type<Scalar>(map, v, scalar_field);
+		vertex_type[v] = type.v_;
+		if (type.v_ == CriticalVertexType::SADDLE &&
+				(type.n_ == 21 || type.n_ == 31) )
+		{
+			// Build the inf_link of v
+			Scalar center_value = scalar_field[v];
+			map.foreach_adjacent_vertex_through_edge(v, [&](Vertex u)
+			{
+				Scalar value = scalar_field[u];
+				if (value > center_value)
+				{
+					vertex_marker.mark(u);
+					sup_link.push_back(u.dart);
+				}
+			});
+			// Foreach connected component of the link, search its local minima
+			while (!sup_link.empty())
+			{
+				// Search a marked vertex in the link (initially selected in the link)
+				Dart d;
+				do {
+					d = sup_link.back();
+					sup_link.pop_back();
+				} while (!vertex_marker.is_marked(Vertex(d)) && !sup_link.empty());
+
+				// If a marked vertex has been found, its connected component is searched
+				// for a minima and unmarked
+				if (vertex_marker.is_marked(Vertex(d)))
+				{
+					std::vector<Dart> cc;
+					Vertex max_cc = Vertex(d);
+					Scalar max_value = scalar_field[max_cc];
+					cc.push_back(d);
+					while (!cc.empty())
+					{
+						Vertex current(cc.back());
+						cc.pop_back();
+						vertex_marker.unmark(current);
+						Scalar current_value = scalar_field[current];
+						if (current_value > max_value)
+						{
+							max_value = current_value;
+							max_cc = current;
+						}
+
+						map.foreach_incident_face(Edge(current.dart), [&](Face f)
+						{
+							// The vertex of dart adj is adjacent to the vertex of e through an edge and
+							// the dart phi2(adj) belongs to the central vertex C
+							Dart adj = map.phi2(map.phi_1(map.phi_1(f.dart)));
+							if (vertex_marker.is_marked(Vertex(adj)))
+								cc.push_back(adj);
+						});
+					}
+					saddles_to_maxima.push_back(max_cc.dart);
+				}
+			}
+
+		}
+	});
+
+	// For each found start descend its ascending 1-manifold
+	while (!saddles_to_maxima.empty())
+	{
+		Edge e(saddles_to_maxima.back());
+		saddles_to_maxima.pop_back();
+		edges_set.push_back(e);
+
+		// Search for the next vertex in the descending path to the minimum
+		Vertex max_vertex = Vertex(e.dart);
+		Scalar max_value = scalar_field[max_vertex];
+		map.foreach_adjacent_vertex_through_edge(max_vertex, [&](Vertex u)
+		{
+			Scalar current_value = scalar_field[u];
+			if (current_value > max_value)
+			{
+				max_value = current_value;
+				max_vertex = u;
+			}
+		});
+		if (max_vertex.dart != e.dart) saddles_to_maxima.push_back(max_vertex.dart);
+	}
+
+	map.remove_attribute(vertex_type);
+}
 
 template <typename Scalar, typename MAP>
 void extract_level_sets(

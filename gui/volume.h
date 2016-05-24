@@ -409,15 +409,15 @@ public:
 		std::cout << "Selected features: " << features.size() << std::endl;
 
 		// Draw the unselected extrema in f1 and f2
-		fp.draw_vertices(vertices_f1, vertex_position_, 0.3f, 0.3f, 1.0f, 0.6f, 1);
+		// fp.draw_vertices(vertices_f1, vertex_position_, 0.3f, 0.3f, 1.0f, 0.6f, 1);
 		// std::cout << "F1 not filtered features: " << vertices_f1.size() << std::endl;
-		fp.draw_vertices(vertices_f2, vertex_position_, 0.3f, 1.0f, 0.3f, 0.6f, 2);
+		// fp.draw_vertices(vertices_f2, vertex_position_, 0.3f, 1.0f, 0.3f, 0.6f, 2);
 		// std::cout << "F2 not filtered features: " << vertices_f2.size() << std::endl;
 
 		// Draw the selected features that are not in the intersection
-		fp.draw_vertices(vertices_f1_filtered, vertex_position_, 1.0f, 0.2f, 1.0f, 0.8f, 1);
+		// fp.draw_vertices(vertices_f1_filtered, vertex_position_, 1.0f, 0.2f, 1.0f, 0.8f, 1);
 		// std::cout << "F1 not in F2 features: " << vertices_f1_filtered.size() << std::endl;
-		fp.draw_vertices(vertices_f2_filtered, vertex_position_, 1.0f, 0.4f, 0.4f, 0.8f, 2);
+		// fp.draw_vertices(vertices_f2_filtered, vertex_position_, 1.0f, 0.4f, 0.4f, 0.8f, 2);
 		// std::cout << "F2 not in F1 features: " << vertices_f2_filtered.size() << std::endl;
 
 		map_.remove_attribute(path_to_sources);
@@ -438,9 +438,17 @@ public:
 		compute_length(edge_metric_);
 
 		cgogn::distance_to_boundary_pl_function<Scalar>(map_, edge_metric_, scalar_field_);
-
 		update_color(scalar_field_);
+
 		fp.draw_critical_points(map_, scalar_field_, vertex_position_);
+
+		std::vector<Edge> ascending_1_manifold;
+		cgogn::extract_ascending_manifold<Scalar>(map_ , scalar_field_, ascending_1_manifold);
+		fp.draw_edges(map_, ascending_1_manifold, vertex_position_, 1.0f, 0.5f, 0.0f);
+
+		std::vector<Edge> descending_1_manifold;
+		cgogn::extract_descending_manifold<Scalar>(map_ , scalar_field_, descending_1_manifold);
+		fp.draw_edges(map_, descending_1_manifold, vertex_position_, 0.5f, 0.5f, 1.0f);
 	}
 
 	void distance_to_center_function(FeaturePoints<Vec3>& fp)
@@ -501,6 +509,14 @@ public:
 		update_color(scalar_field_);
 
 		fp.draw_critical_points(map_, scalar_field_, vertex_position_);
+
+		std::vector<Edge> ascending_1_manifold;
+		cgogn::extract_ascending_manifold<Scalar>(map_ , scalar_field_, ascending_1_manifold);
+		fp.draw_edges(map_, ascending_1_manifold, vertex_position_, 1.0f, 0.5f, 0.0f);
+
+		std::vector<Edge> descending_1_manifold;
+		cgogn::extract_descending_manifold<Scalar>(map_ , scalar_field_, descending_1_manifold);
+		fp.draw_edges(map_, descending_1_manifold, vertex_position_, 0.5f, 0.5f, 1.0f);
 	}
 
 	void curvature_weighted_morse_function(FeaturePoints<VEC3>& fp)
