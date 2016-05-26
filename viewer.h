@@ -29,7 +29,8 @@
 #include <qoglviewer.h>
 #include <QKeyEvent>
 
-#include <gui/morse_complex.h>
+#include <gui/volume.h>
+//#include <gui/morse_complex.h>
 #include <gui/feature_points.h>
 #include <gui/graph.h>
 
