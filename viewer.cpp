@@ -71,8 +71,8 @@ void Viewer::draw()
 	}
 	glDisable(GL_POLYGON_OFFSET_FILL);
 
-//	if (surface_vertices_rendering_)
-//		volume_.draw_vertices(proj,view);
+	//	if (surface_vertices_rendering_)
+	//		volume_.draw_vertices(proj,view);
 
 	//if(graph_vertices_rendering_)
 
@@ -80,14 +80,14 @@ void Viewer::draw()
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	if (surface_edge_rendering_)
 		volume_.draw_edges(proj,view);
+	glDisable(GL_BLEND);
 
 	//	if(graph_edges_rendering_)
 	//		reeb_graph_.draw(proj,view);
 
-	glDisable(GL_BLEND);
-
 	if(feature_points_rendering_)
 		feature_points_.draw(proj, view);
+
 
 	if (bb_rendering_ && level_line_drawer_)
 		level_line_renderer_->draw(proj, view, this);
@@ -224,10 +224,14 @@ void Viewer::keyPressEvent(QKeyEvent *e)
 			using namespace cgogn;
 			level_line_drawer_->new_list();
 
-			using Vertex = MorseSmallComplex<Vec3, CMap3>::Vertex;
-			using Edge = MorseSmallComplex<Vec3, CMap3>::Edge;
-			using Face = MorseSmallComplex<Vec3, CMap3>::Face;
-			using Volume = MorseSmallComplex<Vec3, CMap3>::Volume;
+			using Vertex = VolumeMesh<Vec3>::Vertex;
+			using Edge = VolumeMesh<Vec3>::Edge;
+			using Face = VolumeMesh<Vec3>::Face;
+			using Volume = VolumeMesh<Vec3>::Volume;
+			// using Vertex = MorseSmallComplex<Vec3, CMap3>::Vertex;
+			// using Edge = MorseSmallComplex<Vec3, CMap3>::Edge;
+			// using Face = MorseSmallComplex<Vec3, CMap3>::Face;
+			// using Volume = MorseSmallComplex<Vec3, CMap3>::Volume;
 			using uint32 = numerics::uint32;
 
 			Vec3 center = volume_.centroid();
@@ -303,7 +307,7 @@ void Viewer::keyPressEvent(QKeyEvent *e)
 				}
 				level_line_drawer_->end();
 
-//				surface_.map_.cut_surface(level_line_edges);
+				//				surface_.map_.cut_surface(level_line_edges);
 
 				inside_vertices.clear();
 				inside_faces.clear();
@@ -357,8 +361,8 @@ void Viewer::keyPressEvent(QKeyEvent *e)
 
 void Viewer::closeEvent(QCloseEvent*)
 {
-//	drawer_.reset();
-//	renderer_.reset();
+	//	drawer_.reset();
+	//	renderer_.reset();
 	topo_drawer_.reset();
 	topo_renderer_.reset();
 }

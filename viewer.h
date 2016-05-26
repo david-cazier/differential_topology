@@ -65,7 +65,8 @@ public:
 	void import(const std::string& surfaceMesh);
 
 private:
-	MorseSmallComplex<Vec3, CMap3> volume_;
+    VolumeMesh<Vec3> volume_;
+//    MorseSmallComplex<Vec3, CMap3> volume_;
 
 	cgogn::geometry::AABB<Vec3> bb_;
 	std::unique_ptr<cgogn::rendering::DisplayListDrawer> level_line_drawer_;
@@ -74,7 +75,8 @@ private:
 	std::unique_ptr<cgogn::rendering::TopoDrawer> topo_drawer_;
 	std::unique_ptr<cgogn::rendering::TopoDrawer::Renderer> topo_renderer_;
 
-	std::vector<MorseSmallComplex<Vec3, CMap3>::Vertex> selected_vertices_;
+    std::vector<VolumeMesh<Vec3>::Vertex> selected_vertices_;
+//    std::vector<MorseSmallComplex<Vec3, CMap3>::Vertex> selected_vertices_;
 
 	FeaturePoints<Vec3> feature_points_;
 	Graph reeb_graph_;
