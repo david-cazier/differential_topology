@@ -269,36 +269,6 @@ void height_pl_function(
 	});
 }
 
-template <typename T, typename MAP>
-void geodesic_distance_pl_function(
-	MAP& map,
-	const std::vector<typename MAP::Vertex> vertices,
-	const typename MAP::template EdgeAttribute<T>& weight,
-	typename MAP::template VertexAttribute<T>& distance_to_source)
-{
-	using Vertex = typename MAP::Vertex;
-	typename MAP::template VertexAttribute<Vertex> path_to_source = map.template add_attribute<Vertex, Vertex::ORBIT>("path_to_source");
-
-	cgogn::topology::DistanceField<T, MAP> distance_field(weight);
-	distance_field.dijkstra_compute_paths(map, vertices, distance_to_source, path_to_source);
-	map.remove_attribute(path_to_source);
-}
-
-template <typename T, typename MAP>
-void normalized_geodesic_distance_pl_function(
-		MAP& map,
-		const std::vector<typename MAP::Vertex> vertices,
-		const typename MAP::template EdgeAttribute<T>& weight,
-		typename MAP::template VertexAttribute<T>& distance_to_source)
-{
-	using Vertex = typename MAP::Vertex;
-	typename MAP::template VertexAttribute<Vertex> path_to_source = map.template add_attribute<Vertex, Vertex::ORBIT>("path_to_source");
-
-	cgogn::topology::DistanceField<T, MAP> distance_field(weight);
-	distance_field.dijkstra_compute_normalized_paths(map, vertices, distance_to_source, path_to_source);
-	map.remove_attribute(path_to_source);
-}
-
 template <typename Scalar, typename MAP>
 void extract_ascending_manifold(
 		MAP& map,

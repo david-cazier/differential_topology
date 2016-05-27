@@ -22,8 +22,8 @@
 *******************************************************************************/
 
 
-#ifndef VOLUME_H
-#define VOLUME_H
+#ifndef MORSE_COMPLEX_H
+#define MORSE_COMPLEX_H
 
 #include <cgogn/core/cmap/cmap3.h>
 #include <cgogn/core/utils/definitions.h>
@@ -31,8 +31,16 @@
 #include <cgogn/io/map_export.h>
 
 #include <cgogn/rendering/map_render.h>
+
 #include <cgogn/rendering/drawer.h>
 #include <cgogn/rendering/volume_drawer.h>
+
+#include <cgogn/rendering/shaders/shader_simple_color.h>
+#include <cgogn/rendering/shaders/shader_flat.h>
+#include <cgogn/rendering/shaders/shader_phong.h>
+#include <cgogn/rendering/shaders/shader_point_sprite.h>
+#include <cgogn/rendering/shaders/shader_vector_per_vertex.h>
+#include <cgogn/rendering/shaders/vbo.h>
 
 #include <cgogn/geometry/algos/normal.h>
 
@@ -51,27 +59,28 @@
 
 #include <cgogn/differential_topology/reeb_graph.h>
 
-template <typename VEC3>
-class VolumeMesh
+template <typename VEC3, typename MAP>
+class MorseSmallComplex
 {
 public:
 	using Vec3 = VEC3;
 	using Scalar = typename Vec3::Scalar;
 
-	using CMap3 = cgogn::CMap3<cgogn::DefaultMapTraits>;
-	using Vertex = CMap3::Vertex;
-	using Edge = CMap3::Edge;
-	using Face = CMap3::Face;
-	using Volume = CMap3::Volume;
+	using Vertex = typename MAP::Vertex;
+	using Edge = typename MAP::Edge;
+	using Face = typename MAP::Face;
+	using Volume = typename MAP::Volume;
 	template<typename T>
-	using VertexAttribute = CMap3::VertexAttribute<T>;
+	using VertexAttribute = typename MAP::template VertexAttribute<T>;
 	template<typename T>
-	using EdgeAttribute = CMap3::EdgeAttribute<T>;
+	using EdgeAttribute = typename MAP::template EdgeAttribute<T>;
 
 public:
-	CMap3 map_;
+	MAP map_;
+	static const unsigned int dimension_ = MAP::DIMENSION;
 
 	VertexAttribute<Vec3> vertex_position_;
+	VertexAttribute<Vec3> vertex_normal_;
 	VertexAttribute<Vec3> vertex_color_;
 	VertexAttribute<Scalar> scalar_field_;
 
@@ -84,33 +93,106 @@ public:
 	std::unique_ptr<cgogn::rendering::VolumeDrawerColor> volume_drawer_;
 	std::unique_ptr<cgogn::rendering::VolumeDrawerColor::Renderer> volume_renderer_;
 
+	std::unique_ptr<cgogn::rendering::MapRender> surface_render_;
+
+	std::unique_ptr<cgogn::rendering::VBO> vbo_pos_;
+	std::unique_ptr<cgogn::rendering::VBO> vbo_norm_;
+	std::unique_ptr<cgogn::rendering::VBO> vbo_color_;
+	std::unique_ptr<cgogn::rendering::VBO> vbo_sphere_sz_;
+
+	std::unique_ptr<cgogn::rendering::ShaderBoldLine::Param> param_edge_;
+	std::unique_ptr<cgogn::rendering::ShaderFlatColor::Param> param_flat_;
+	std::unique_ptr<cgogn::rendering::ShaderVectorPerVertex::Param> param_normal_;
+	std::unique_ptr<cgogn::rendering::ShaderPhongColor::Param> param_phong_;
+	std::unique_ptr<cgogn::rendering::ShaderPointSpriteColorSize::Param> param_point_sprite_;
+
 public:
 
-	VolumeMesh(QOpenGLFunctions_3_3_Core* ogl33):
+	MorseSmallComplex(QOpenGLFunctions_3_3_Core* ogl33):
 		map_(),
 		vertex_position_(),
+		vertex_normal_(),
 		vertex_color_(),
 		scalar_field_(),
 		edge_metric_(),
 		bb_(),
 		ogl33_(ogl33),
 		volume_drawer_(nullptr),
-		volume_renderer_(nullptr)
+		volume_renderer_(nullptr),
+		surface_render_(nullptr),
+		vbo_pos_(nullptr),
+		vbo_norm_(nullptr),
+		vbo_color_(nullptr),
+		vbo_sphere_sz_(nullptr)
 	{
 	}
 
-	~VolumeMesh()
+	~MorseSmallComplex()
 	{
 		volume_drawer_.reset();
+		surface_render_.reset();
+		vbo_pos_.reset();
+		vbo_norm_.reset();
+		vbo_color_.reset();
+		vbo_sphere_sz_.reset();
 	}
 
 	void init()
 	{
-		volume_drawer_ = cgogn::make_unique<cgogn::rendering::VolumeDrawerColor>();
-		volume_drawer_->update_face<Vec3>(map_, vertex_position_, vertex_color_);
-		volume_drawer_->update_edge<Vec3>(map_, vertex_position_);
+		if (dimension_ == 2)
+		{
+			vbo_pos_ = cgogn::make_unique<cgogn::rendering::VBO>(3);
+			cgogn::rendering::update_vbo(vertex_position_, vbo_pos_.get());
 
-		volume_renderer_ = volume_drawer_->generate_renderer();
+			vbo_norm_ = cgogn::make_unique<cgogn::rendering::VBO>(3);
+			cgogn::rendering::update_vbo(vertex_normal_, vbo_norm_.get());
+
+			// fill a color vbo with abs of normals
+			vbo_color_ = cgogn::make_unique<cgogn::rendering::VBO>(3);
+			cgogn::rendering::update_vbo(vertex_normal_, vbo_color_.get(),[] (const Vec3& n) -> std::array<float,3>
+			{
+				return {float(std::abs(n[0])), float(std::abs(n[1])), float(std::abs(n[2]))};
+			});
+
+			// fill a sphere size vbo
+			vbo_sphere_sz_ = cgogn::make_unique<cgogn::rendering::VBO>(1);
+			cgogn::rendering::update_vbo(vertex_normal_, vbo_sphere_sz_.get(),[&] (const Vec3& n) -> float
+			{
+				return bb_.diag_size()/1000.0 * (1.0 + 2.0*std::abs(n[2]));
+			});
+
+			surface_render_ = cgogn::make_unique<cgogn::rendering::MapRender>();
+			surface_render_->init_primitives<Vec3>(map_, cgogn::rendering::POINTS);
+			surface_render_->init_primitives<Vec3>(map_, cgogn::rendering::LINES);
+			surface_render_->init_primitives<Vec3>(map_, cgogn::rendering::TRIANGLES, &vertex_position_);
+
+			param_point_sprite_ = cgogn::rendering::ShaderPointSpriteColorSize::generate_param();
+			param_point_sprite_->set_all_vbos(vbo_pos_.get(),vbo_color_.get(),vbo_sphere_sz_.get());
+
+			param_edge_ = cgogn::rendering::ShaderBoldLine::generate_param();
+			param_edge_->set_position_vbo(vbo_pos_.get());
+			param_edge_->color_ = QColor(255,255,0);
+			param_edge_->width_= 2.5f;
+
+			param_flat_ = cgogn::rendering::ShaderFlatColor::generate_param();
+			param_flat_->set_position_vbo(vbo_pos_.get());
+			param_flat_->ambiant_color_ = QColor(5,5,5);
+
+			param_normal_ = cgogn::rendering::ShaderVectorPerVertex::generate_param();
+			param_normal_->set_all_vbos(vbo_pos_.get(), vbo_norm_.get());
+			param_normal_->color_ = QColor(200,0,200);
+			param_normal_->length_ = bb_.diag_size()/50;
+
+			param_phong_ = cgogn::rendering::ShaderPhongColor::generate_param();
+			param_phong_->set_all_vbos(vbo_pos_.get(), vbo_norm_.get(), vbo_color_.get());
+		}
+		else
+		{
+			volume_drawer_ = cgogn::make_unique<cgogn::rendering::VolumeDrawerColor>();
+			volume_drawer_->update_face<Vec3>(map_, vertex_position_, vertex_color_);
+			volume_drawer_->update_edge<Vec3>(map_, vertex_position_);
+			volume_renderer_ = volume_drawer_->generate_renderer();
+		}
 	}
 
 	void update_geometry()
@@ -162,23 +244,37 @@ public:
 		volume_renderer_->draw_edges(proj, view, ogl33_);
 	}
 
-	cgogn::geometry::AABB<Vec3> import(const std::string& filename)
+	template <typename T, typename std::enable_if<T::DIMENSION == 2>::type* = nullptr>
+	void import_nD(const std::string& filename)
+	{
+		cgogn::io::import_surface<Vec3>(map_, filename);
+		vertex_position_ = map_.template get_attribute<Vec3, Vertex::ORBIT>("position");
+		vertex_normal_ = map_.template add_attribute<Vec3, Vertex::ORBIT>("normal");
+
+		cgogn::geometry::compute_normal_vertices<Vec3>(map_, vertex_position_, vertex_normal_);
+	}
+
+	template <typename T, typename std::enable_if<T::DIMENSION == 3>::type* = nullptr>
+	void import_nD(const std::string& filename)
 	{
 		cgogn::io::import_volume<Vec3>(map_, filename);
-
-		vertex_position_ = map_.get_attribute<Vec3, Vertex::ORBIT>("position");
-		vertex_color_ = map_.add_attribute<Vec3, Vertex::ORBIT>("color");
-		scalar_field_ = map_.add_attribute<Scalar, Vertex::ORBIT>("scalar_field_");
-		edge_metric_ = map_.add_attribute<Scalar, Edge::ORBIT>("edge_metric");
-
-		cgogn::geometry::compute_AABB(vertex_position_, bb_);
+		vertex_position_ = map_.template get_attribute<Vec3, Vertex::ORBIT>("position");
+		vertex_color_ = map_.template add_attribute<Vec3, Vertex::ORBIT>("color");
 
 		map_.foreach_cell([&](Vertex v)
 		{
 			vertex_color_[v] = vertex_position_[v];
 		});
+	}
 
+	cgogn::geometry::AABB<Vec3> import(const std::string& filename)
+	{
+		import_nD<MAP>(filename);
 
+		scalar_field_ = map_.template add_attribute<Scalar, Vertex::ORBIT>("scalar_field_");
+		edge_metric_ = map_.template add_attribute<Scalar, Edge::ORBIT>("edge_metric");
+
+		cgogn::geometry::compute_AABB(vertex_position_, bb_);
 		return bb_;
 	}
 
@@ -186,7 +282,7 @@ public:
 	{
 		Vec3 result;
 		result.setZero();
-		unsigned int count = 0;
+		Scalar count = Scalar(0);
 
 		map_.foreach_cell([&](Vertex v)
 		{
@@ -194,7 +290,7 @@ public:
 			++count;
 		});
 
-		result /= Scalar(count);
+		result /= count;
 		return result;
 	}
 
@@ -234,8 +330,7 @@ public:
 							  VertexAttribute<Scalar>& scalar_field,
 							  VertexAttribute<Vertex>& path_to_sources)
 	{
-		cgogn::topology::DistanceField<Scalar, CMap3> distance_field(map_, edge_metric_);
-		distance_field.dijkstra_compute_paths(vertices, scalar_field, path_to_sources);
+		cgogn::dijkstra_compute_paths<Scalar>(map_, edge_metric_, vertices, scalar_field, path_to_sources);
 
 		Scalar max_distance = Scalar(0);
 		Vertex extremity = vertices[0];
@@ -348,14 +443,14 @@ public:
 					   VertexAttribute<Scalar>& scalar_field,
 					   std::vector<Vertex>& features)
 	{
-		VertexAttribute<Vertex> path_to_sources = map_.add_attribute<Vertex, Vertex::ORBIT>("path_to_filter");
+		VertexAttribute<Vertex> path_to_sources = map_.template add_attribute<Vertex, Vertex::ORBIT>("path_to_filter");
 
 		// Get the two farthest vertices v1 and v2 (making a maximal diameter)
 		// and their scalar field f1 and f2
 		Vertex v1;
 		Vertex v2;
-		VertexAttribute<Scalar> f1 = map_.add_attribute<Scalar, Vertex::ORBIT>("f1");
-		VertexAttribute<Scalar> f2 = map_.add_attribute<Scalar, Vertex::ORBIT>("f2");
+		VertexAttribute<Scalar> f1 = map_.template add_attribute<Scalar, Vertex::ORBIT>("f1");
+		VertexAttribute<Scalar> f2 = map_.template add_attribute<Scalar, Vertex::ORBIT>("f2");
 		Scalar max_distance = maximal_diameter(v1, f1, v2, f2, path_to_sources);
 		Scalar filter_distance = max_distance / Scalar(4);
 
@@ -372,8 +467,7 @@ public:
 		// Build a scalar field from {v1, v2}
 		features.push_back(v1);
 		features.push_back(v2);
-		cgogn::topology::DistanceField<Scalar, CMap3> distance_field(map_, edge_metric_);
-		distance_field.dijkstra_compute_paths(features, scalar_field, path_to_sources);
+		cgogn::dijkstra_compute_paths<Scalar>(map_, edge_metric_, features, scalar_field, path_to_sources);
 
 		// Initialize the sets of vertices filtered from f1 and f2 with v1 and v2
 		std::vector<Vertex> vertices_f1_filtered;
@@ -398,7 +492,7 @@ public:
 			actual_distance = scalar_field[v];
 			filter_distance = std::min(filter_distance, target_distance / Scalar(3));
 			// std::cout << actual_distance/max_distance << " ";
-			distance_field.dijkstra_compute_paths(features, scalar_field, path_to_sources);
+			cgogn::dijkstra_compute_paths<Scalar>(map_, edge_metric_, features, scalar_field, path_to_sources);
 			features_filter(vertices_f1, vertices_f1_filtered, filter_distance, scalar_field, path_to_sources);
 			features_filter(vertices_f2, vertices_f2_filtered, filter_distance, scalar_field, path_to_sources);
 		}
@@ -436,8 +530,7 @@ public:
 	{
 		compute_length(edge_metric_);
 
-		cgogn::topology::DistanceField<Scalar, CMap3> distance_field(map_,edge_metric_);
-		distance_field.distance_to_boundary(map_, scalar_field_);
+		cgogn::distance_to_boundary_pl_function<Scalar>(map_, edge_metric_, scalar_field_);
 		update_color(scalar_field_);
 
 		fp.draw_critical_points(map_, scalar_field_, vertex_position_);
@@ -456,8 +549,7 @@ public:
 		compute_length(edge_metric_);
 
 		Vertex v0 = central_vertex();
-		cgogn::topology::DistanceField<Scalar, CMap3> distance_field(map_,edge_metric_);
-		distance_field.dijkstra_compute_distances({ v0 }, scalar_field_);
+		cgogn::geodesic_distance_pl_function<Scalar>(map_, { v0 }, edge_metric_, scalar_field_);
 
 		update_color(scalar_field_);
 		fp.draw_critical_points(map_, scalar_field_, vertex_position_);
@@ -471,8 +563,7 @@ public:
 		find_features(fp, scalar_field_, features);
 
 		// Build the scalar field from the selected features
-		cgogn::topology::DistanceField<Scalar, CMap3> distance_field(map_,edge_metric_);
-		distance_field.dijkstra_compute_distances(features, scalar_field_);
+		cgogn::geodesic_distance_pl_function<Scalar>(map_, features, edge_metric_, scalar_field_);
 
 		for (auto& s : scalar_field_) s = Scalar(1) - s;
 
@@ -489,8 +580,7 @@ public:
 		find_features(fp, scalar_field_, features);
 
 		// Build the scalar field from the selected features
-		cgogn::topology::DistanceField<Scalar, CMap3> distance_field(map_);
-		distance_field.dijkstra_compute_distances(features, scalar_field_);
+		cgogn::geodesic_distance_pl_function<Scalar>(map_, features, edge_metric_, scalar_field_);
 
 		for (auto& s : scalar_field_) s = Scalar(1) - s;
 
@@ -553,14 +643,20 @@ public:
 	{
 		// Etape 1 get the two farthest vertices and their associated scalar field
 		// (the scalar field contains the geodesic distance to the nearest feature)
-		VertexAttribute<Scalar> dist_to_feature = map_.add_attribute<Scalar, Vertex::ORBIT>("dist_to_feature");
+		VertexAttribute<Scalar> dist_to_feature = map_.template add_attribute<Scalar, Vertex::ORBIT>("dist_to_feature");
 		std::vector<Vertex> features;
 		find_features(fp, dist_to_feature, features);
 
 		// Etape 2
+		// 1 initial function with Feature vertices as seeds
+		cgogn::normalized_geodesic_distance_pl_function<Scalar>(map_, features, edge_metric, dist_to_feature);
+
+		// 2 inverse the normalized distance so that the maxima are on the features
+		for (auto& s : dist_to_feature) s = Scalar(1) - s;
+
+		// 3 function perturbation (to remove extra minima and saddles)
 		// Run dijkstra using dist_to_feature in place of estimated geodesic distances
-		cgogn::topology::DistanceField<Scalar, CMap3> distance_field(map_, edge_metric);
-		distance_field.dijkstra_to_morse_function(map_, features, scalar_field);
+		cgogn::dijkstra_to_morse_function<Scalar>(map_, dist_to_feature, scalar_field);
 
 		map_.remove_attribute(dist_to_feature);
 	}
@@ -575,4 +671,4 @@ public:
 
 };
 
-#endif // VOLUME_H
+#endif // MORSE_COMPLEX_H

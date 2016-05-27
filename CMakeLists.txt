@@ -46,6 +46,7 @@ set(HEADER_FILES
 
 	cgogn/geometry/algos/curvature.h
 
+	gui/morse_complex.h
 	gui/volume.h
 	gui/surface.h
 	gui/feature_points.h
@@ -62,6 +63,6 @@ add_definitions("-DCGOGN_TEST_MESHES_PATH=${CGOGN_TEST_MESHES_PATH}")
 add_executable(${PROJECT_NAME} ${HEADER_FILES} ${SOURCE_FILES})
 
 target_link_libraries(${PROJECT_NAME}
-    ${cgogn_core_LIBRARIES} ${cgogn_geometry_LIBRARIES} ${cgogn_io_LIBRARIES} ${cgogn_rendering_LIBRARIES}
-    ${Qt5Widgets_LIBRARIES} ${QOGLViewer_LIBRARIES}
-    )
+	${cgogn_core_LIBRARIES} ${cgogn_geometry_LIBRARIES} ${cgogn_io_LIBRARIES} ${cgogn_rendering_LIBRARIES}
+	${Qt5Widgets_LIBRARIES} ${QOGLViewer_LIBRARIES}
+	)
