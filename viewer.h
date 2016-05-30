@@ -29,8 +29,7 @@
 #include <qoglviewer.h>
 #include <QKeyEvent>
 
-#include <gui/volume.h>
-//#include <gui/morse_complex.h>
+#include <gui/morse_complex.h>
 #include <gui/feature_points.h>
 #include <gui/graph.h>
 
@@ -46,6 +45,7 @@ class Viewer : public QOGLViewer
 public:
 	using Vec3 = Eigen::Vector3d;
 	using Scalar = Eigen::Vector3d::Scalar;
+	using CMap2 = cgogn::CMap2<cgogn::DefaultMapTraits>;
 	using CMap3 = cgogn::CMap3<cgogn::DefaultMapTraits>;
 
 public:
@@ -65,8 +65,9 @@ public:
 	void import(const std::string& surfaceMesh);
 
 private:
-    VolumeMesh<Vec3> volume_;
-//    MorseSmallComplex<Vec3, CMap3> volume_;
+	MorseSmallComplex<Vec3, CMap2> surface_;
+	MorseSmallComplex<Vec3, CMap3> volume_;
+	unsigned int dimension_;
 
 	cgogn::geometry::AABB<Vec3> bb_;
 	std::unique_ptr<cgogn::rendering::DisplayListDrawer> level_line_drawer_;
@@ -75,16 +76,14 @@ private:
 	std::unique_ptr<cgogn::rendering::TopoDrawer> topo_drawer_;
 	std::unique_ptr<cgogn::rendering::TopoDrawer::Renderer> topo_renderer_;
 
-    std::vector<VolumeMesh<Vec3>::Vertex> selected_vertices_;
-//    std::vector<MorseSmallComplex<Vec3, CMap3>::Vertex> selected_vertices_;
+	//	std::vector<MorseSmallComplex<Vec3, CMap3>::Vertex> selected_vertices_;
 
 	FeaturePoints<Vec3> feature_points_;
 	Graph reeb_graph_;
 
-	bool surface_rendering_;
-	bool surface_phong_rendering_;
-	bool surface_flat_rendering_;
-	bool surface_vertices_rendering_;
+	bool map_rendering_;
+	bool flat_rendering_;
+	bool vertices_rendering_;
 	bool surface_edge_rendering_;
 	bool surface_topo_rendering_;
 

@@ -16,16 +16,9 @@ public:
 	using Vec3 = VEC3;
 	using Scalar = typename Vec3::Scalar;
 
-	using Dart = cgogn::Dart;
-	using CMap3 = cgogn::CMap3<cgogn::DefaultMapTraits>;
-	using Vertex = CMap3::Vertex;
-	using Edge = CMap3::Edge;
-
-	template <typename T>
-	using VertexAttribute = CMap3::VertexAttribute<T>;
-
 	std::unique_ptr<cgogn::rendering::DisplayListDrawer> drawer_;
 	std::unique_ptr<cgogn::rendering::DisplayListDrawer::Renderer> renderer_;
+
 	cgogn::geometry::AABB<Vec3> bb_;
 
 	QOpenGLFunctions_3_3_Core* ogl33_;
@@ -58,11 +51,14 @@ public:
 		drawer_->end_list();
 	}
 
-	void draw_edges(CMap3& map,
-					std::vector<Edge> edges,
-					CMap3::VertexAttribute<Vec3> position,
+	template <typename MAP>
+	void draw_edges(MAP& map,
+					const std::vector<typename MAP::Edge>& edges,
+					const typename MAP::template VertexAttribute<Vec3>& position,
 					float r, float g, float b)
 	{
+		using Vertex = typename MAP::Vertex;
+
 		Scalar width = 10.0f * bb_.max_size()/50.0f;
 		if (!edges.empty()) {
 			drawer_->line_width(width);
@@ -77,10 +73,13 @@ public:
 		}
 	}
 
-	void draw_critical_points(CMap3& map,
-				 CMap3::VertexAttribute<Scalar> scalar,
-				 CMap3::VertexAttribute<Vec3> position)
+	template <typename MAP>
+	void draw_critical_points(MAP& map,
+							  const typename MAP::template VertexAttribute<Scalar>& scalar,
+							  const typename MAP::template VertexAttribute<Vec3>& position)
 	{
+		using Vertex = typename MAP::Vertex;
+
 		std::vector<Vertex> maxima;
 		std::vector<Vertex> minima;
 		std::vector<Vertex> saddles;
@@ -88,14 +87,18 @@ public:
 		std::cout << "maxima : " << maxima.size() << std::endl;
 		std::cout << "minima : " << minima.size() << std::endl;
 		std::cout << "saddles : " << saddles.size() << std::endl;
-		this->draw_vertices(maxima, position, 1.0f, 1.0f, 1.0f, 1.0f);
-		this->draw_vertices(minima, position, 1.0f, 0.0f, 0.0f, 0.1f);
-		this->draw_vertices(saddles, position, 1.0f, 1.0f, 0.0f, 0.4f);
+		this->draw_vertices<MAP>(maxima, position, 1.0f, 1.0f, 1.0f, 1.0f);
+		if (minima.size() < 100u)
+			this->draw_vertices<MAP>(minima, position, 1.0f, 0.0f, 0.0f, 1.0f);
+		else
+			this->draw_vertices<MAP>(minima, position, 1.0f, 0.0f, 0.0f, 0.1f);
+		this->draw_vertices<MAP>(saddles, position, 1.0f, 1.0f, 0.0f, 0.4f);
 	}
 
-	void draw_vertices(std::vector<Vertex> vertices,
-			  CMap3::VertexAttribute<Vec3> position,
-			  float r, float g, float b, float ratio, int shift=0)
+	template <typename MAP>
+	void draw_vertices(const std::vector<typename MAP::Vertex>& vertices,
+					   const typename MAP::template VertexAttribute<Vec3>& position,
+					   float r, float g, float b, float ratio, int shift=0)
 	{
 		Scalar radius = ratio*bb_.max_size()/50.0f;
 		if (!vertices.empty()) {

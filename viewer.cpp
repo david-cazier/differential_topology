@@ -26,7 +26,9 @@
 #include <cgogn/geometry/algos/picking.h>
 
 Viewer::Viewer() :
+	surface_(this),
 	volume_(this),
+	dimension_(0u),
 	bb_(),
 	feature_points_(this),
 	reeb_graph_(this),
@@ -34,10 +36,9 @@ Viewer::Viewer() :
 	level_line_renderer_(nullptr),
 	topo_drawer_(nullptr),
 	topo_renderer_(nullptr),
-	surface_rendering_(true),
-	surface_phong_rendering_(false),
-	surface_flat_rendering_(true),
-	surface_vertices_rendering_(false),
+	map_rendering_(true),
+	flat_rendering_(false),
+	vertices_rendering_(false),
 	surface_edge_rendering_(false),
 	surface_topo_rendering_(false),
 	graph_vertices_rendering_(false),
@@ -61,20 +62,26 @@ void Viewer::draw()
 	glEnable(GL_POLYGON_OFFSET_FILL);
 	glPolygonOffset(1.0f, 2.0f);
 
-	if(surface_rendering_)
+	if (map_rendering_)
 	{
-		if (surface_flat_rendering_)
-			volume_.draw_flat(proj,view);
-
-		if (surface_phong_rendering_)
-			volume_.draw_volume(proj,view);
+		if (flat_rendering_)
+			if (dimension_ == 2u)
+				surface_.draw_flat(proj, view);
+			else
+				volume_.draw_flat(proj, view);
+		else
+			if (dimension_ == 2u)
+				surface_.draw(proj, view);
+			else
+				volume_.draw(proj, view);
 	}
 	glDisable(GL_POLYGON_OFFSET_FILL);
 
-	//	if (surface_vertices_rendering_)
-	//		volume_.draw_vertices(proj,view);
-
-	//if(graph_vertices_rendering_)
+	if (vertices_rendering_)
+		if (dimension_ == 2u)
+			surface_.draw_vertices(proj, view);
+		else
+			volume_.draw_vertices(proj, view);
 
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -100,9 +107,12 @@ void Viewer::init()
 {
 	glClearColor(0.1f,0.1f,0.3f,0.0f);
 
-	volume_.init();
+	if (dimension_ == 2u)
+		surface_.init();
+	else
+		volume_.init();
+
 	feature_points_.init(bb_);
-	//	reeb_graph_.init();
 
 	// drawer for simple old-school g1 rendering
 	level_line_drawer_ = cgogn::make_unique<cgogn::rendering::DisplayListDrawer>();
@@ -111,7 +121,10 @@ void Viewer::init()
 	topo_drawer_ = cgogn::make_unique<cgogn::rendering::TopoDrawer>();
 	topo_renderer_ = topo_drawer_->generate_renderer();
 
-	topo_drawer_->update<Vec3>(volume_.map_,volume_.vertex_position_);
+	if (dimension_ == 2u)
+		topo_drawer_->update<Vec3>(surface_.map_,surface_.vertex_position_);
+	else
+		topo_drawer_->update<Vec3>(volume_.map_,volume_.vertex_position_);
 }
 
 void Viewer::mousePressEvent(QMouseEvent* e)
@@ -127,11 +140,11 @@ void Viewer::mousePressEvent(QMouseEvent* e)
 		Vec3 A(P[0],P[1],P[2]);
 		Vec3 B(Q[0],Q[1],Q[2]);
 
-		cgogn::geometry::picking_vertices<Vec3>(volume_.map_,volume_.vertex_position_,A,B,selected_vertices_);
-		std::cout << "Selected vertices: "<< selected_vertices_.size() << std::endl;
+		//		cgogn::geometry::picking_vertices<Vec3>(volume_.map_,volume_.vertex_position_,A,B,selected_vertices_);
+		//		std::cout << "Selected vertices: "<< selected_vertices_.size() << std::endl;
 
-		if(volume_.scalar_field_.is_valid())
-			std::cout << volume_.scalar_field_[selected_vertices_.front()] << std::endl;
+		//		if(volume_.scalar_field_.is_valid())
+		//			std::cout << volume_.scalar_field_[selected_vertices_.front()] << std::endl;
 
 	}
 	QOGLViewer::mousePressEvent(e);
@@ -140,19 +153,14 @@ void Viewer::mousePressEvent(QMouseEvent* e)
 void Viewer::keyPressEvent(QKeyEvent *e)
 {
 	switch (e->key()) {
-		case Qt::Key_S:
-			surface_rendering_ = !surface_rendering_;
-			break;
-		case Qt::Key_P:
-			surface_phong_rendering_ = true;
-			surface_flat_rendering_ = false;
+		case Qt::Key_M:
+			map_rendering_ = !map_rendering_;
 			break;
 		case Qt::Key_F:
-			surface_flat_rendering_ = true;
-			surface_phong_rendering_ = false;
+			flat_rendering_ = !flat_rendering_;
 			break;
 		case Qt::Key_V:
-			surface_vertices_rendering_ = !surface_vertices_rendering_;
+			vertices_rendering_ = !vertices_rendering_;
 			break;
 		case Qt::Key_E:
 			surface_edge_rendering_ = !surface_edge_rendering_;
@@ -179,43 +187,60 @@ void Viewer::keyPressEvent(QKeyEvent *e)
 		case Qt::Key_0:
 		{
 			feature_points_.begin_draw();
-			//volume_.height_function(feature_points_);
-			volume_.distance_to_boundary_function(feature_points_);
+			if (dimension_ == 2u)
+				surface_.height_function(feature_points_);
+			else
+				volume_.distance_to_boundary_function(feature_points_);
 			feature_points_.end_draw();
 			break;
 		}
 		case Qt::Key_1:
 		{
 			feature_points_.begin_draw();
-			volume_.distance_to_center_function(feature_points_);
+			if (dimension_ == 2u)
+				surface_.distance_to_center_function(feature_points_);
+			else
+				volume_.distance_to_center_function(feature_points_);
 			feature_points_.end_draw();
 			break;
 		}
 		case Qt::Key_2:
 		{
 			feature_points_.begin_draw();
-			volume_.edge_length_weighted_geodesic_distance_function(feature_points_);
+			if (dimension_ == 2u)
+				surface_.edge_length_weighted_geodesic_distance_function(feature_points_);
+			else
+				volume_.edge_length_weighted_geodesic_distance_function(feature_points_);
 			feature_points_.end_draw();
 			break;
 		}
 		case Qt::Key_3:
 		{
 			feature_points_.begin_draw();
-			volume_.curvature_weighted_geodesic_distance_function(feature_points_);
+			if (dimension_ == 2u)
+				surface_.curvature_weighted_geodesic_distance_function(feature_points_);
+			else
+				volume_.curvature_weighted_geodesic_distance_function(feature_points_);
 			feature_points_.end_draw();
 			break;
 		}
 		case Qt::Key_4:
 		{
 			feature_points_.begin_draw();
-			volume_.edge_length_weighted_morse_function(feature_points_);
+			if (dimension_ == 2u)
+				surface_.edge_length_weighted_morse_function(feature_points_);
+			else
+				volume_.edge_length_weighted_morse_function(feature_points_);
 			feature_points_.end_draw();
 			break;
 		}
 		case Qt::Key_5:
 		{
 			feature_points_.begin_draw();
-			volume_.curvature_weighted_morse_function(feature_points_);
+			if (dimension_ == 2u)
+				surface_.curvature_weighted_morse_function(feature_points_);
+			else
+				volume_.curvature_weighted_morse_function(feature_points_);
 			feature_points_.end_draw();
 			break;
 		}
@@ -224,22 +249,18 @@ void Viewer::keyPressEvent(QKeyEvent *e)
 			using namespace cgogn;
 			level_line_drawer_->new_list();
 
-			using Vertex = VolumeMesh<Vec3>::Vertex;
-			using Edge = VolumeMesh<Vec3>::Edge;
-			using Face = VolumeMesh<Vec3>::Face;
-			using Volume = VolumeMesh<Vec3>::Volume;
-			// using Vertex = MorseSmallComplex<Vec3, CMap3>::Vertex;
-			// using Edge = MorseSmallComplex<Vec3, CMap3>::Edge;
-			// using Face = MorseSmallComplex<Vec3, CMap3>::Face;
-			// using Volume = MorseSmallComplex<Vec3, CMap3>::Volume;
+			using Vertex = MorseSmallComplex<Vec3, CMap3>::Vertex;
+			using Edge = MorseSmallComplex<Vec3, CMap3>::Edge;
+			using Face = MorseSmallComplex<Vec3, CMap3>::Face;
+			using Volume = MorseSmallComplex<Vec3, CMap3>::Volume;
 			using uint32 = numerics::uint32;
 
-			Vec3 center = volume_.centroid();
+			Vec3 center = cgogn::geometry::centroid<Vec3, CMap3>(volume_.map_, volume_.vertex_position_);
 
 			std::vector<Vertex> tab_vertices;
 			volume_.map_.foreach_cell([&] (Vertex v)
 			{
-				if(cgogn::volume_critical_vertex_type<Vec3::Scalar>(volume_.map_, v, volume_.scalar_field_).v_ == cgogn::CriticalVertexType::SADDLE)
+				if(cgogn::critical_vertex_type<Vec3::Scalar>(volume_.map_, v, volume_.scalar_field_).v_ == cgogn::CriticalVertexType::SADDLE)
 				{
 					tab_vertices.push_back(v);
 				}
@@ -345,7 +366,10 @@ void Viewer::keyPressEvent(QKeyEvent *e)
 		case Qt::Key_7:
 		{
 			feature_points_.begin_draw();
-			volume_.show_level_sets(feature_points_, volume_.scalar_field_);
+			if (dimension_ == 2u)
+				surface_.show_level_sets(feature_points_, surface_.scalar_field_);
+			else
+				volume_.show_level_sets(feature_points_, volume_.scalar_field_);
 			feature_points_.end_draw();
 			break;
 		}
@@ -369,7 +393,20 @@ void Viewer::closeEvent(QCloseEvent*)
 
 void Viewer::import(const std::string& filename)
 {
-	bb_ = volume_.import(filename);
+	if(filename.rfind(".tet") == filename.size()-4)
+	{
+		volume_.import(filename);
+		dimension_ = 3u;
+		cgogn::geometry::compute_AABB(volume_.vertex_position_, bb_);
+		volume_.bb_ = bb_;
+	}
+	else
+	{
+		surface_.import(filename);
+		dimension_ = 2u;
+		cgogn::geometry::compute_AABB(surface_.vertex_position_, bb_);
+		surface_.bb_ = bb_;
+	}
 
 	setSceneRadius(bb_.diag_size()/2.0);
 	Vec3 center = bb_.center();

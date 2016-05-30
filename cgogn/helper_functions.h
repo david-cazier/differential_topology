@@ -5,7 +5,7 @@ namespace cgogn
 {
 
 template <typename T>
-inline std::array<T,3> color_map_blue_green_red(T x)
+inline std::array<float,3> color_map_blue_green_red(T x)
 {
 	if (x < 0.0f)
 		return {0.0f, 0.0f, 1.0f} ;
@@ -20,7 +20,7 @@ inline std::array<T,3> color_map_blue_green_red(T x)
 }
 
 template <typename T>
-inline std::array<T,3> color_map_hash(T x)
+inline std::array<float,3> color_map_hash(T x)
 {
 	if (x < 0.0f)
 		return {0.0f, 0.0f, 1.0f} ;

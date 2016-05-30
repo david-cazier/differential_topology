@@ -88,8 +88,8 @@ int nb_marked_cc_in_link(
 	return nb;
 }
 
-template <typename T, typename MAP>
-CriticalVertex volume_critical_vertex_type(
+template <typename T, typename MAP, typename std::enable_if<MAP::DIMENSION == 3>::type* = nullptr>
+CriticalVertex critical_vertex_type(
 	MAP& map,
 	const typename MAP::Vertex v,
 	const typename MAP::template VertexAttribute<T>& scalar_field)
@@ -158,8 +158,8 @@ CriticalVertex volume_critical_vertex_type(
 	return CriticalVertex(CriticalVertexType::UNKNOWN);
 }
 
-template <typename T, typename MAP>
-CriticalVertex surface_critical_vertex_type(
+template <typename T, typename MAP, typename std::enable_if<MAP::DIMENSION == 2>::type* = nullptr>
+CriticalVertex critical_vertex_type(
 	MAP& map,
 	const typename MAP::Vertex v,
 	const typename MAP::template VertexAttribute<T>& scalar_field)
@@ -219,6 +219,15 @@ CriticalVertex surface_critical_vertex_type(
 	return CriticalVertex(CriticalVertexType::UNKNOWN);
 }
 
+//template <typename T, typename MAP>
+//CriticalVertex critical_vertex_type(
+//	MAP& map,
+//	const typename MAP::Vertex v,
+//	const typename MAP::template VertexAttribute<T>& scalar_field)
+//{
+//	critical_vertex_type_concrete<MAP>(map, v, scalar_field);
+//}
+
 template <typename T, typename MAP>
 void extract_maxima(
 		MAP& map,
@@ -227,7 +236,7 @@ void extract_maxima(
 {
 	map.foreach_cell([&](typename MAP::Vertex v)
 	{
-		CriticalVertex i = volume_critical_vertex_type<T>(map,v,scalar_field);
+		CriticalVertex i = critical_vertex_type<T>(map,v,scalar_field);
 		if (i.v_ == CriticalVertexType::MAXIMUM)
 			maxima.push_back(v);
 	});
@@ -243,7 +252,7 @@ void extract_critical_points(
 {
 	map.foreach_cell([&](typename MAP::Vertex v)
 	{
-		CriticalVertex i = volume_critical_vertex_type<T>(map,v,scalar_field);
+		CriticalVertex i = critical_vertex_type<T>(map,v,scalar_field);
 		if (i.v_ == CriticalVertexType::MAXIMUM)
 			maxima.push_back(v);
 		if (i.v_ == CriticalVertexType::MINIMUM)
@@ -292,7 +301,7 @@ void extract_ascending_manifold(
 	std::vector<Dart> saddles_to_minima;
 	map.foreach_cell([&](typename MAP::Vertex v)
 	{
-		CriticalVertex type = volume_critical_vertex_type<Scalar>(map, v, scalar_field);
+		CriticalVertex type = critical_vertex_type<Scalar>(map, v, scalar_field);
 		vertex_type[v] = type.v_;
 		if (type.v_ == CriticalVertexType::SADDLE &&
 				(type.n_ == 12 || type.n_ == 13) )
@@ -402,7 +411,7 @@ void extract_descending_manifold(
 	std::vector<Dart> saddles_to_maxima;
 	map.foreach_cell([&](typename MAP::Vertex v)
 	{
-		CriticalVertex type = volume_critical_vertex_type<Scalar>(map, v, scalar_field);
+		CriticalVertex type = critical_vertex_type<Scalar>(map, v, scalar_field);
 		vertex_type[v] = type.v_;
 		if (type.v_ == CriticalVertexType::SADDLE &&
 				(type.n_ == 21 || type.n_ == 31) )
@@ -518,7 +527,7 @@ void extract_level_sets(
 	// Add all local maxima as level set sources
 	map.foreach_cell([&](typename MAP::Vertex v)
 	{
-		CriticalVertex type = volume_critical_vertex_type<Scalar>(map, v, scalar_field);
+		CriticalVertex type = critical_vertex_type<Scalar>(map, v, scalar_field);
 		vertex_type[v] = type.v_;
 		if (type.v_ == CriticalVertexType::MAXIMUM)
 		{

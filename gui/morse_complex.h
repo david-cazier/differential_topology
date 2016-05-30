@@ -186,25 +186,52 @@ public:
 			param_phong_ = cgogn::rendering::ShaderPhongColor::generate_param();
 			param_phong_->set_all_vbos(vbo_pos_.get(), vbo_norm_.get(), vbo_color_.get());
 		}
-		else
+		else if (dimension_ == 3u)
 		{
 			volume_drawer_ = cgogn::make_unique<cgogn::rendering::VolumeDrawerColor>();
 			volume_drawer_->update_face<Vec3>(map_, vertex_position_, vertex_color_);
 			volume_drawer_->update_edge<Vec3>(map_, vertex_position_);
 			volume_renderer_ = volume_drawer_->generate_renderer();
 		}
+		else
+			cgogn_log_warning("draw_flat") << "invalid dimension";
+	}
+
+	template <typename T, typename std::enable_if<T::DIMENSION == 2>::type* = nullptr>
+	void update_geometry_concrete()
+	{
+		cgogn::rendering::update_vbo(vertex_position_, vbo_pos_.get());
+		cgogn::geometry::compute_normal_vertices<Vec3, MAP>(map_, vertex_position_, vertex_normal_);
+		cgogn::rendering::update_vbo(vertex_normal_, vbo_norm_.get());
+	}
+
+	template <typename T, typename std::enable_if<T::DIMENSION == 3>::type* = nullptr>
+	void update_geometry_concrete()
+	{
+		volume_drawer_->update_face<Vec3>(map_, vertex_position_, vertex_color_);
+		volume_drawer_->update_edge<Vec3>(map_, vertex_position_);
 	}
 
 	void update_geometry()
 	{
-		volume_drawer_->update_face<Vec3>(map_, vertex_position_, vertex_color_);
-		volume_drawer_->update_edge<Vec3>(map_, vertex_position_);
+		update_geometry_concrete<MAP>();
 	}
 
 	void update_topology()
 	{
-		volume_drawer_->update_face<Vec3>(map_, vertex_position_, vertex_color_);
-		volume_drawer_->update_edge<Vec3>(map_, vertex_position_);
+		if (dimension_ == 2u)
+		{
+			surface_render_->init_primitives<Vec3>(map_, cgogn::rendering::POINTS);
+			surface_render_->init_primitives<Vec3>(map_, cgogn::rendering::LINES);
+			surface_render_->init_primitives<Vec3>(map_, cgogn::rendering::TRIANGLES);
+		}
+		else if (dimension_ == 3u)
+		{
+			volume_drawer_->update_face<Vec3>(map_, vertex_position_, vertex_color_);
+			volume_drawer_->update_edge<Vec3>(map_, vertex_position_);
+		}
+		else
+			cgogn_log_warning("draw_flat") << "invalid dimension";
 	}
 
 	void update_color(VertexAttribute<Scalar> scalar)
@@ -217,45 +244,113 @@ public:
 			max = std::max(max, v);
 		}
 
-		map_.foreach_cell([&](Vertex v)
+		if (dimension_ == 2u)
 		{
-			std::array<Scalar,3> color = cgogn::color_map_blue_green_red(
-						cgogn::numerics::scale_to_0_1(scalar[v], min, max));
-			vertex_color_[v] = Vec3(color[0], color[1], color[2]);
-		});
-		volume_drawer_->update_face<Vec3>(map_, vertex_position_, vertex_color_);
+			cgogn::rendering::update_vbo(scalar, vbo_color_.get(),
+										 [min, max] (const Scalar& n) -> std::array<float,3>
+			{
+				return cgogn::color_map_blue_green_red(cgogn::numerics::scale_to_0_1(n, min, max));
+				// return cgogn::color_map_hash(cgogn::numerics::scale_to_0_1(n, min, max));
+			});
+		}
+		else if (dimension_ == 3u)
+		{
+			map_.foreach_cell([&](Vertex v)
+			{
+				std::array<float,3> color = cgogn::color_map_blue_green_red(
+							cgogn::numerics::scale_to_0_1(scalar[v], min, max));
+				vertex_color_[v] = Vec3(color[0], color[1], color[2]);
+			});
+			volume_drawer_->update_face<Vec3>(map_, vertex_position_, vertex_color_);
+		}
+		else
+			cgogn_log_warning("draw_flat") << "invalid dimension";
 	}
 
-	void draw_volume(const QMatrix4x4& proj, const QMatrix4x4& view)
+	void draw(const QMatrix4x4& proj, const QMatrix4x4& view)
 	{
-		volume_renderer_->set_explode_volume(0.8f);
-		volume_renderer_->draw_faces(proj, view, ogl33_);
-		volume_renderer_->draw_edges(proj, view, ogl33_);
+		if (dimension_ == 2u)
+		{
+			param_phong_->bind(proj,view);
+			surface_render_->draw(cgogn::rendering::TRIANGLES);
+			param_phong_->release();
+		}
+		else if (dimension_ == 3u)
+		{
+			volume_renderer_->set_explode_volume(0.8f);
+			volume_renderer_->draw_faces(proj, view, ogl33_);
+		}
+		else
+			cgogn_log_warning("draw_flat") << "invalid dimension";
 	}
 
 	void draw_flat(const QMatrix4x4& proj, const QMatrix4x4& view)
 	{
-		volume_renderer_->set_explode_volume(1.0f);
-		volume_renderer_->draw_faces(proj, view, ogl33_);
+		if (dimension_ == 2u)
+		{
+			param_flat_->bind(proj,view);
+			surface_render_->draw(cgogn::rendering::TRIANGLES);
+			param_flat_->release();
+		}
+		else if (dimension_ == 3u)
+		{
+			volume_renderer_->set_explode_volume(1.0f);
+			volume_renderer_->draw_faces(proj, view, ogl33_);
+			volume_renderer_->draw_edges(proj, view, ogl33_);
+		}
+		else
+			cgogn_log_warning("draw_flat") << "invalid dimension";
 	}
 
 	void draw_edges(const QMatrix4x4& proj, const QMatrix4x4& view)
 	{
-		volume_renderer_->draw_edges(proj, view, ogl33_);
+		if (dimension_ == 2u)
+		{
+			param_edge_->bind(proj,view);
+			//param_edge_->set_width(2.5f);
+			surface_render_->draw(cgogn::rendering::LINES);
+			param_edge_->release();
+		}
+		else if (dimension_ == 3u)
+		{
+			volume_renderer_->draw_edges(proj, view, ogl33_);
+		}
+		else
+			cgogn_log_warning("draw_flat") << "invalid dimension";
+	}
+
+	void draw_vertices(const QMatrix4x4& proj, const QMatrix4x4& view)
+	{
+		if (dimension_ == 2u)
+		{
+			param_point_sprite_->bind(proj,view);
+			surface_render_->draw(cgogn::rendering::POINTS);
+			param_point_sprite_->release();
+			}
+		else if (dimension_ == 3u)
+		{
+		}
+		else
+			cgogn_log_warning("draw_flat") << "invalid dimension";
 	}
 
 	template <typename T, typename std::enable_if<T::DIMENSION == 2>::type* = nullptr>
-	void import_nD(const std::string& filename)
+	void import_concrete(const std::string& filename)
 	{
 		cgogn::io::import_surface<Vec3>(map_, filename);
 		vertex_position_ = map_.template get_attribute<Vec3, Vertex::ORBIT>("position");
+		if (!vertex_position_.is_valid())
+		{
+			cgogn_log_error("import") << "Missing attribute position. Aborting.";
+			std::exit(EXIT_FAILURE);
+		}
 		vertex_normal_ = map_.template add_attribute<Vec3, Vertex::ORBIT>("normal");
 
 		cgogn::geometry::compute_normal_vertices<Vec3>(map_, vertex_position_, vertex_normal_);
 	}
 
 	template <typename T, typename std::enable_if<T::DIMENSION == 3>::type* = nullptr>
-	void import_nD(const std::string& filename)
+	void import_concrete(const std::string& filename)
 	{
 		cgogn::io::import_volume<Vec3>(map_, filename);
 		vertex_position_ = map_.template get_attribute<Vec3, Vertex::ORBIT>("position");
@@ -267,83 +362,12 @@ public:
 		});
 	}
 
-	cgogn::geometry::AABB<Vec3> import(const std::string& filename)
+	void import(const std::string& filename)
 	{
-		import_nD<MAP>(filename);
+		import_concrete<MAP>(filename);
 
 		scalar_field_ = map_.template add_attribute<Scalar, Vertex::ORBIT>("scalar_field_");
 		edge_metric_ = map_.template add_attribute<Scalar, Edge::ORBIT>("edge_metric");
-
-		cgogn::geometry::compute_AABB(vertex_position_, bb_);
-		return bb_;
-	}
-
-	Vec3 centroid()
-	{
-		Vec3 result;
-		result.setZero();
-		Scalar count = Scalar(0);
-
-		map_.foreach_cell([&](Vertex v)
-		{
-			result += vertex_position_[v];
-			++count;
-		});
-
-		result /= count;
-		return result;
-	}
-
-	Vertex central_vertex()
-	{
-		Vec3 barycenter = centroid();
-
-		Scalar min_distance = std::numeric_limits<Scalar>::max();
-		Vertex min_vertex;
-
-		map_.foreach_cell([&](Vertex v)
-		{
-			Vec3 diffenre = vertex_position_[v] - barycenter;
-			Scalar distance = diffenre.norm();
-
-			if(distance < min_distance)
-			{
-				min_distance = distance;
-				min_vertex = v;
-			}
-		});
-		return min_vertex;
-	}
-
-	Vertex find_source(Vertex v,
-					   VertexAttribute<Scalar>& scalar_field,
-					   VertexAttribute<Vertex>& path_to_source)
-	{
-		Vertex u = v;
-		while (scalar_field[u] > Scalar(0)) {
-			u = path_to_source[u];
-		}
-		return u;
-	}
-
-	Vertex farthest_extremity(const std::vector<Vertex> vertices,
-							  VertexAttribute<Scalar>& scalar_field,
-							  VertexAttribute<Vertex>& path_to_sources)
-	{
-		cgogn::dijkstra_compute_paths<Scalar>(map_, edge_metric_, vertices, scalar_field, path_to_sources);
-
-		Scalar max_distance = Scalar(0);
-		Vertex extremity = vertices[0];
-		map_.foreach_cell([&](Vertex v)
-		{
-			Scalar distance = scalar_field[v];
-			if(distance > max_distance) {
-				max_distance = distance;
-				extremity = v;
-			}
-		});
-
-		return extremity;
 	}
 
 	// Search a couple of vertices that maximizes their geodesic distance
@@ -352,23 +376,31 @@ public:
 							Vertex& v2, VertexAttribute<Scalar>& scalar_field2,
 							VertexAttribute<Vertex>& path_to_sources)
 	{
+		cgogn::topology::DistanceField<Scalar, MAP> distance_field(map_, edge_metric_);
+		Scalar max_distance;
+
 		// Init v1 with a vertex near the center of the mesh
-		v1 = central_vertex();
+		v1 = cgogn::geometry::central_vertex<Vec3, MAP>(map_, vertex_position_);
 
 		// Init v2 with the farthest vertice from v1
-		v2 = farthest_extremity({v1}, scalar_field1, path_to_sources);
+		distance_field.dijkstra_compute_paths({v1}, scalar_field1, path_to_sources);
+		v2 = distance_field.find_maximum(scalar_field1);
+		max_distance = scalar_field1[v2];
 
 		// Try to optimize these two vertices by maximizing their distance
-		Scalar maximal = scalar_field1[v2];
-		Scalar current = maximal;
+		Scalar current_distance = max_distance;
 		do {
-			v1 = farthest_extremity({v2}, scalar_field2, path_to_sources);
-			v2 = farthest_extremity({v1}, scalar_field1, path_to_sources);
-			current = maximal;
-			maximal = scalar_field1[v2];
-		} while (current < maximal);
+			current_distance = max_distance;
 
-		return maximal;
+			distance_field.dijkstra_compute_paths({v2}, scalar_field2, path_to_sources);
+			v1 = distance_field.find_maximum(scalar_field2);
+
+			distance_field.dijkstra_compute_paths({v1}, scalar_field1, path_to_sources);
+			v2 = distance_field.find_maximum(scalar_field1);
+			max_distance = scalar_field1[v2];
+		} while (current_distance < max_distance);
+
+		return max_distance;
 	}
 
 	// Remove the vertices whose distance to local minima (their sources)
@@ -398,7 +430,9 @@ public:
 		// A vertex that is near a source has been found
 		if (min_dist <= threshold)
 		{
-			Vertex source = find_source(min_vertex, scalar_field, path_to_sources);
+			Vertex source = min_vertex;
+			while (path_to_sources[source].dart != source.dart)
+				source = path_to_sources[source];
 			filtered.push_back(source);
 		}
 		// Replace the initial vertices by the filtered ones
@@ -467,7 +501,8 @@ public:
 		// Build a scalar field from {v1, v2}
 		features.push_back(v1);
 		features.push_back(v2);
-		cgogn::dijkstra_compute_paths<Scalar>(map_, edge_metric_, features, scalar_field, path_to_sources);
+		cgogn::topology::DistanceField<Scalar, MAP> distance_field(map_, edge_metric_);
+		distance_field.dijkstra_compute_paths(features, scalar_field, path_to_sources);
 
 		// Initialize the sets of vertices filtered from f1 and f2 with v1 and v2
 		std::vector<Vertex> vertices_f1_filtered;
@@ -487,12 +522,13 @@ public:
 		Scalar actual_distance = max_distance;
 		// std::cout << "Distances: (" << max_distance << ") 1.0 ";
 		while (target_distance < actual_distance && !(vertices_f1.empty() && vertices_f2.empty())) {
-			Vertex v = farthest_extremity(features, scalar_field, path_to_sources);
+			distance_field.dijkstra_compute_paths(features, scalar_field, path_to_sources);
+			Vertex v = distance_field.find_maximum(scalar_field);
 			features.push_back(v);
 			actual_distance = scalar_field[v];
 			filter_distance = std::min(filter_distance, target_distance / Scalar(3));
 			// std::cout << actual_distance/max_distance << " ";
-			cgogn::dijkstra_compute_paths<Scalar>(map_, edge_metric_, features, scalar_field, path_to_sources);
+			distance_field.dijkstra_compute_paths(features, scalar_field, path_to_sources);
 			features_filter(vertices_f1, vertices_f1_filtered, filter_distance, scalar_field, path_to_sources);
 			features_filter(vertices_f2, vertices_f2_filtered, filter_distance, scalar_field, path_to_sources);
 		}
@@ -530,7 +566,8 @@ public:
 	{
 		compute_length(edge_metric_);
 
-		cgogn::distance_to_boundary_pl_function<Scalar>(map_, edge_metric_, scalar_field_);
+		cgogn::topology::DistanceField<Scalar, MAP> distance_field(map_,edge_metric_);
+		distance_field.distance_to_boundary(scalar_field_);
 		update_color(scalar_field_);
 
 		fp.draw_critical_points(map_, scalar_field_, vertex_position_);
@@ -548,8 +585,8 @@ public:
 	{
 		compute_length(edge_metric_);
 
-		Vertex v0 = central_vertex();
-		cgogn::geodesic_distance_pl_function<Scalar>(map_, { v0 }, edge_metric_, scalar_field_);
+		cgogn::topology::DistanceField<Scalar, MAP> distance_field(map_,edge_metric_);
+		distance_field.distance_to_center(vertex_position_, scalar_field_);
 
 		update_color(scalar_field_);
 		fp.draw_critical_points(map_, scalar_field_, vertex_position_);
@@ -563,7 +600,8 @@ public:
 		find_features(fp, scalar_field_, features);
 
 		// Build the scalar field from the selected features
-		cgogn::geodesic_distance_pl_function<Scalar>(map_, features, edge_metric_, scalar_field_);
+		cgogn::topology::DistanceField<Scalar, MAP> distance_field(map_,edge_metric_);
+		distance_field.dijkstra_compute_distances(features, scalar_field_);
 
 		for (auto& s : scalar_field_) s = Scalar(1) - s;
 
@@ -580,7 +618,8 @@ public:
 		find_features(fp, scalar_field_, features);
 
 		// Build the scalar field from the selected features
-		cgogn::geodesic_distance_pl_function<Scalar>(map_, features, edge_metric_, scalar_field_);
+		cgogn::topology::DistanceField<Scalar, MAP> distance_field(map_);
+		distance_field.dijkstra_compute_distances(features, scalar_field_);
 
 		for (auto& s : scalar_field_) s = Scalar(1) - s;
 
@@ -648,15 +687,9 @@ public:
 		find_features(fp, dist_to_feature, features);
 
 		// Etape 2
-		// 1 initial function with Feature vertices as seeds
-		cgogn::normalized_geodesic_distance_pl_function<Scalar>(map_, features, edge_metric, dist_to_feature);
-
-		// 2 inverse the normalized distance so that the maxima are on the features
-		for (auto& s : dist_to_feature) s = Scalar(1) - s;
-
-		// 3 function perturbation (to remove extra minima and saddles)
 		// Run dijkstra using dist_to_feature in place of estimated geodesic distances
-		cgogn::dijkstra_to_morse_function<Scalar>(map_, dist_to_feature, scalar_field);
+		cgogn::topology::DistanceField<Scalar, MAP> distance_field(map_, edge_metric);
+		distance_field.dijkstra_to_morse_function(features, scalar_field);
 
 		map_.remove_attribute(dist_to_feature);
 	}
