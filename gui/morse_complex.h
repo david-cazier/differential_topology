@@ -296,7 +296,6 @@ public:
 		{
 			volume_renderer_->set_explode_volume(1.0f);
 			volume_renderer_->draw_faces(proj, view, ogl33_);
-			volume_renderer_->draw_edges(proj, view, ogl33_);
 		}
 		else
 			cgogn_log_warning("draw_flat") << "invalid dimension";
@@ -490,12 +489,12 @@ public:
 
 		// Get the maxima in the scalar field f1
 		std::vector<Vertex> vertices_f1;
-		cgogn::extract_maxima<Scalar>(map_, f1, vertices_f1);
+		cgogn::topology::extract_maxima<Scalar>(map_, f1, vertices_f1);
 		// std::cout << "F1 size: " << vertices_f1.size() << std::endl;
 
 		// Get the maxima in the scalar field f2
 		std::vector<Vertex> vertices_f2;
-		cgogn::extract_maxima<Scalar>(map_, f2, vertices_f2);
+		cgogn::topology::extract_maxima<Scalar>(map_, f2, vertices_f2);
 		// std::cout << "F2 size: " << vertices_f2.size() << std::endl;
 
 		// Build a scalar field from {v1, v2}
@@ -556,7 +555,7 @@ public:
 
 	void height_function(FeaturePoints<Vec3>& fp)
 	{
-		cgogn::height_pl_function<Vec3>(map_, vertex_position_, scalar_field_);
+		cgogn::topology::height_pl_function<Vec3>(map_, vertex_position_, scalar_field_);
 
 		update_color(scalar_field_);
 		fp.draw_critical_points(map_, scalar_field_, vertex_position_);
@@ -573,11 +572,11 @@ public:
 		fp.draw_critical_points(map_, scalar_field_, vertex_position_);
 
 		std::vector<Edge> ascending_1_manifold;
-		cgogn::extract_ascending_manifold<Scalar>(map_ , scalar_field_, ascending_1_manifold);
+		cgogn::topology::extract_ascending_manifold<Scalar>(map_ , scalar_field_, ascending_1_manifold);
 		fp.draw_edges(map_, ascending_1_manifold, vertex_position_, 1.0f, 0.5f, 0.0f);
 
 		std::vector<Edge> descending_1_manifold;
-		cgogn::extract_descending_manifold<Scalar>(map_ , scalar_field_, descending_1_manifold);
+		cgogn::topology::extract_descending_manifold<Scalar>(map_ , scalar_field_, descending_1_manifold);
 		fp.draw_edges(map_, descending_1_manifold, vertex_position_, 0.5f, 0.5f, 1.0f);
 	}
 
@@ -643,11 +642,11 @@ public:
 		fp.draw_critical_points(map_, scalar_field_, vertex_position_);
 
 		std::vector<Edge> ascending_1_manifold;
-		cgogn::extract_ascending_manifold<Scalar>(map_ , scalar_field_, ascending_1_manifold);
+		cgogn::topology::extract_ascending_manifold<Scalar>(map_ , scalar_field_, ascending_1_manifold);
 		fp.draw_edges(map_, ascending_1_manifold, vertex_position_, 1.0f, 0.5f, 0.0f);
 
 		std::vector<Edge> descending_1_manifold;
-		cgogn::extract_descending_manifold<Scalar>(map_ , scalar_field_, descending_1_manifold);
+		cgogn::topology::extract_descending_manifold<Scalar>(map_ , scalar_field_, descending_1_manifold);
 		fp.draw_edges(map_, descending_1_manifold, vertex_position_, 0.5f, 0.5f, 1.0f);
 	}
 
@@ -669,7 +668,7 @@ public:
 						 const VertexAttribute<Scalar>& scalar_field)
 	{
 		std::vector<Edge> level_lines;
-		cgogn::extract_level_sets<Scalar>(map_ , scalar_field, level_lines);
+		cgogn::topology::extract_level_sets<Scalar>(map_ , scalar_field, level_lines);
 		update_color(scalar_field);
 		fp.draw_edges(map_, level_lines, vertex_position_, 1.0f, 1.0f, 1.0f);
 

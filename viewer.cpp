@@ -260,7 +260,7 @@ void Viewer::keyPressEvent(QKeyEvent *e)
 			std::vector<Vertex> tab_vertices;
 			volume_.map_.foreach_cell([&] (Vertex v)
 			{
-				if(cgogn::critical_vertex_type<Vec3::Scalar>(volume_.map_, v, volume_.scalar_field_).v_ == cgogn::CriticalVertexType::SADDLE)
+				if(cgogn::topology::critical_vertex_type<Vec3::Scalar>(volume_.map_, v, volume_.scalar_field_).v_ == cgogn::topology::CriticalVertexType::SADDLE)
 				{
 					tab_vertices.push_back(v);
 				}

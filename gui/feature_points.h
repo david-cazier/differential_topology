@@ -83,7 +83,7 @@ public:
 		std::vector<Vertex> maxima;
 		std::vector<Vertex> minima;
 		std::vector<Vertex> saddles;
-		cgogn::extract_critical_points<Scalar>(map, scalar, maxima, minima, saddles);
+		cgogn::topology::extract_critical_points<Scalar>(map, scalar, maxima, minima, saddles);
 		std::cout << "maxima : " << maxima.size() << std::endl;
 		std::cout << "minima : " << minima.size() << std::endl;
 		std::cout << "saddles : " << saddles.size() << std::endl;

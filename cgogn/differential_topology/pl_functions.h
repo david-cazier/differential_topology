@@ -2,9 +2,13 @@
 #define DIFFERENTIAL_TOPOLOGY_PL_FUNCTIONS_H
 
 #include <array>
+#include <cgogn/topology/types/critical_point.h>
 #include <cgogn/topology/algos/distance_field.h>
 
 namespace cgogn
+{
+
+namespace topology
 {
 
 template <typename Scalar, typename MAP>
@@ -19,26 +23,6 @@ struct EquivalenceClass
 	std::vector<Edge> edges_;
 };
 
-enum CriticalVertexType: unsigned int
-{
-	REGULAR = 0,
-	MAXIMUM = 1,
-	MINIMUM = 2,
-	SADDLE  = 4,
-	UNKNOWN = 8
-};
-
-struct CriticalVertex
-{
-	unsigned int n_;
-	CriticalVertexType v_;
-
-	inline CriticalVertex(CriticalVertexType v): v_(v), n_(0)
-	{}
-
-	inline CriticalVertex(CriticalVertexType v, unsigned int n) : v_(v), n_(n)
-	{}
-};
 
 // The link vector contains selected vertices in the link of a central vertex C
 // For every dart d in this vector, phi2(d) belong to C
@@ -594,6 +578,8 @@ void extract_level_sets(
 	map.remove_attribute(vertex_type);
 }
 
-}
+} // namespace topology
+
+} // namespace cgogn
 
 #endif // DIFFERENTIAL_TOPOLOGY_PL_FUNCTIONS_H

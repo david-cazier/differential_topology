@@ -47,8 +47,8 @@ set(HEADER_FILES
 	cgogn/geometry/algos/curvature.h
 
 	gui/morse_complex.h
-	gui/volume.h
-	gui/surface.h
+#	gui/volume.h
+#	gui/surface.h
 	gui/feature_points.h
 	gui/graph.h
 	)
