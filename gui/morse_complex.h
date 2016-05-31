@@ -57,7 +57,7 @@
 
 #include <gui/feature_points.h>
 
-#include <cgogn/differential_topology/reeb_graph.h>
+#include <cgogn/topology/algos/distance_field.h>
 
 template <typename VEC3, typename MAP>
 class MorseSmallComplex
@@ -488,13 +488,15 @@ public:
 		Scalar filter_distance = max_distance / Scalar(4);
 
 		// Get the maxima in the scalar field f1
-		std::vector<Vertex> vertices_f1;
-		cgogn::topology::extract_maxima<Scalar>(map_, f1, vertices_f1);
+		cgogn::topology::ScalarField<Scalar, MAP> scalar_field1(map_, f1);
+		scalar_field1.differential_analysis();
+		std::vector<Vertex> vertices_f1 = scalar_field1.get_maxima();
 		// std::cout << "F1 size: " << vertices_f1.size() << std::endl;
 
 		// Get the maxima in the scalar field f2
-		std::vector<Vertex> vertices_f2;
-		cgogn::topology::extract_maxima<Scalar>(map_, f2, vertices_f2);
+		cgogn::topology::ScalarField<Scalar, MAP> scalar_field2(map_, f2);
+		scalar_field2.differential_analysis();
+		std::vector<Vertex> vertices_f2 = scalar_field2.get_maxima();
 		// std::cout << "F2 size: " << vertices_f2.size() << std::endl;
 
 		// Build a scalar field from {v1, v2}
@@ -555,7 +557,10 @@ public:
 
 	void height_function(FeaturePoints<Vec3>& fp)
 	{
-		cgogn::topology::height_pl_function<Vec3>(map_, vertex_position_, scalar_field_);
+		map_.foreach_cell([&] (Vertex v)
+		{
+			scalar_field_[v] = vertex_position_[v][0];
+		});
 
 		update_color(scalar_field_);
 		fp.draw_critical_points(map_, scalar_field_, vertex_position_);
@@ -572,12 +577,12 @@ public:
 		fp.draw_critical_points(map_, scalar_field_, vertex_position_);
 
 		std::vector<Edge> ascending_1_manifold;
-		cgogn::topology::extract_ascending_manifold<Scalar>(map_ , scalar_field_, ascending_1_manifold);
-		fp.draw_edges(map_, ascending_1_manifold, vertex_position_, 1.0f, 0.5f, 0.0f);
+//		cgogn::topology::extract_ascending_manifold<Scalar>(map_ , scalar_field_, ascending_1_manifold);
+//		fp.draw_edges(map_, ascending_1_manifold, vertex_position_, 1.0f, 0.5f, 0.0f);
 
 		std::vector<Edge> descending_1_manifold;
-		cgogn::topology::extract_descending_manifold<Scalar>(map_ , scalar_field_, descending_1_manifold);
-		fp.draw_edges(map_, descending_1_manifold, vertex_position_, 0.5f, 0.5f, 1.0f);
+//		cgogn::topology::extract_descending_manifold<Scalar>(map_ , scalar_field_, descending_1_manifold);
+//		fp.draw_edges(map_, descending_1_manifold, vertex_position_, 0.5f, 0.5f, 1.0f);
 	}
 
 	void distance_to_center_function(FeaturePoints<Vec3>& fp)
@@ -600,7 +605,7 @@ public:
 
 		// Build the scalar field from the selected features
 		cgogn::topology::DistanceField<Scalar, MAP> distance_field(map_,edge_metric_);
-		distance_field.dijkstra_compute_distances(features, scalar_field_);
+		distance_field.distance_to_features(features, scalar_field_);
 
 		for (auto& s : scalar_field_) s = Scalar(1) - s;
 
@@ -618,7 +623,7 @@ public:
 
 		// Build the scalar field from the selected features
 		cgogn::topology::DistanceField<Scalar, MAP> distance_field(map_);
-		distance_field.dijkstra_compute_distances(features, scalar_field_);
+		distance_field.distance_to_features(features, scalar_field_);
 
 		for (auto& s : scalar_field_) s = Scalar(1) - s;
 
@@ -631,10 +636,13 @@ public:
 	void edge_length_weighted_morse_function(FeaturePoints<VEC3>& fp)
 	{
 		// Find features for the edge_metric
+		std::vector<Vertex> features;
 		compute_length(edge_metric_);
+		find_features(fp, scalar_field_, features);
 
-		// Compute a morse function with the metric
-		morse_function(fp, scalar_field_, edge_metric_);
+		// Build the scalar field from the selected features
+		cgogn::topology::DistanceField<Scalar, MAP> distance_field(map_, edge_metric_);
+		distance_field.morse_distance_to_features(features, scalar_field_);
 
 		// Draw the morse function and its critical points
 		update_color(scalar_field_);
@@ -642,21 +650,24 @@ public:
 		fp.draw_critical_points(map_, scalar_field_, vertex_position_);
 
 		std::vector<Edge> ascending_1_manifold;
-		cgogn::topology::extract_ascending_manifold<Scalar>(map_ , scalar_field_, ascending_1_manifold);
-		fp.draw_edges(map_, ascending_1_manifold, vertex_position_, 1.0f, 0.5f, 0.0f);
+//		cgogn::topology::extract_ascending_manifold<Scalar>(map_ , scalar_field_, ascending_1_manifold);
+//		fp.draw_edges(map_, ascending_1_manifold, vertex_position_, 1.0f, 0.5f, 0.0f);
 
 		std::vector<Edge> descending_1_manifold;
-		cgogn::topology::extract_descending_manifold<Scalar>(map_ , scalar_field_, descending_1_manifold);
-		fp.draw_edges(map_, descending_1_manifold, vertex_position_, 0.5f, 0.5f, 1.0f);
+//		cgogn::topology::extract_descending_manifold<Scalar>(map_ , scalar_field_, descending_1_manifold);
+//		fp.draw_edges(map_, descending_1_manifold, vertex_position_, 0.5f, 0.5f, 1.0f);
 	}
 
 	void curvature_weighted_morse_function(FeaturePoints<VEC3>& fp)
 	{
 		// Find features for the edge_metric
+		std::vector<Vertex> features;
 		compute_length(edge_metric_);
+		find_features(fp, scalar_field_, features);
 
-		// Compute a morse function with the metric
-		morse_function(fp, scalar_field_, edge_metric_);
+		// Build the scalar field from the selected features
+		cgogn::topology::DistanceField<Scalar, MAP> distance_field(map_);
+		distance_field.morse_distance_to_features(features, scalar_field_);
 
 		// Draw the morse function and its critical points
 		update_color(scalar_field_);
@@ -665,32 +676,16 @@ public:
 	}
 
 	void show_level_sets(FeaturePoints<VEC3>& fp,
-						 const VertexAttribute<Scalar>& scalar_field)
+						 const VertexAttribute<Scalar>& scalar)
 	{
 		std::vector<Edge> level_lines;
-		cgogn::topology::extract_level_sets<Scalar>(map_ , scalar_field, level_lines);
-		update_color(scalar_field);
+		cgogn::topology::ScalarField<Scalar, MAP> scalar_field(map_, scalar);
+		scalar_field.extract_level_sets(level_lines);
+
+		update_color(scalar);
 		fp.draw_edges(map_, level_lines, vertex_position_, 1.0f, 1.0f, 1.0f);
 
-		fp.draw_critical_points(map_, scalar_field, vertex_position_);
-	}
-
-	void morse_function(FeaturePoints<VEC3>& fp,
-						VertexAttribute<Scalar>& scalar_field,
-						const EdgeAttribute<Scalar>& edge_metric)
-	{
-		// Etape 1 get the two farthest vertices and their associated scalar field
-		// (the scalar field contains the geodesic distance to the nearest feature)
-		VertexAttribute<Scalar> dist_to_feature = map_.template add_attribute<Scalar, Vertex::ORBIT>("dist_to_feature");
-		std::vector<Vertex> features;
-		find_features(fp, dist_to_feature, features);
-
-		// Etape 2
-		// Run dijkstra using dist_to_feature in place of estimated geodesic distances
-		cgogn::topology::DistanceField<Scalar, MAP> distance_field(map_, edge_metric);
-		distance_field.dijkstra_to_morse_function(features, scalar_field);
-
-		map_.remove_attribute(dist_to_feature);
+		fp.draw_critical_points(map_, scalar, vertex_position_);
 	}
 
 	void compute_length(EdgeAttribute<Scalar>& length)

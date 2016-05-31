@@ -257,15 +257,9 @@ void Viewer::keyPressEvent(QKeyEvent *e)
 
 			Vec3 center = cgogn::geometry::centroid<Vec3, CMap3>(volume_.map_, volume_.vertex_position_);
 
-			std::vector<Vertex> tab_vertices;
-			volume_.map_.foreach_cell([&] (Vertex v)
-			{
-				if(cgogn::topology::critical_vertex_type<Vec3::Scalar>(volume_.map_, v, volume_.scalar_field_).v_ == cgogn::topology::CriticalVertexType::SADDLE)
-				{
-					tab_vertices.push_back(v);
-				}
-			});
-
+			cgogn::topology::ScalarField<Scalar, CMap3> scalar_field(volume_.map_, volume_.scalar_field_);
+			scalar_field.differential_analysis();
+			std::vector<Vertex> tab_vertices = scalar_field.get_saddles();
 
 			std::vector<Vertex> inside_vertices;
 			std::vector<Face> inside_faces;

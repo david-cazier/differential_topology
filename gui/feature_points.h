@@ -3,7 +3,7 @@
 
 #include <vector>
 
-#include <cgogn/differential_topology/pl_functions.h>
+#include <cgogn/topology/algos/scalar_field.h>
 #include <cgogn/rendering/drawer.h>
 
 #include <cgogn/core/cmap/cmap2.h>
@@ -80,19 +80,17 @@ public:
 	{
 		using Vertex = typename MAP::Vertex;
 
-		std::vector<Vertex> maxima;
-		std::vector<Vertex> minima;
-		std::vector<Vertex> saddles;
-		cgogn::topology::extract_critical_points<Scalar>(map, scalar, maxima, minima, saddles);
-		std::cout << "maxima : " << maxima.size() << std::endl;
-		std::cout << "minima : " << minima.size() << std::endl;
-		std::cout << "saddles : " << saddles.size() << std::endl;
-		this->draw_vertices<MAP>(maxima, position, 1.0f, 1.0f, 1.0f, 1.0f);
-		if (minima.size() < 100u)
-			this->draw_vertices<MAP>(minima, position, 1.0f, 0.0f, 0.0f, 1.0f);
+		cgogn::topology::ScalarField<Scalar, MAP> scalar_field(map, scalar);
+		scalar_field.differential_analysis();
+		std::cout << "maxima : " << scalar_field.get_maxima().size() << std::endl;
+		std::cout << "minima : " << scalar_field.get_minima().size() << std::endl;
+		std::cout << "saddles : " << scalar_field.get_saddles().size() << std::endl;
+		this->draw_vertices<MAP>(scalar_field.get_maxima(), position, 1.0f, 1.0f, 1.0f, 1.0f);
+		if (scalar_field.get_minima().size() < 100u)
+			this->draw_vertices<MAP>(scalar_field.get_minima(), position, 1.0f, 0.0f, 0.0f, 1.0f);
 		else
-			this->draw_vertices<MAP>(minima, position, 1.0f, 0.0f, 0.0f, 0.1f);
-		this->draw_vertices<MAP>(saddles, position, 1.0f, 1.0f, 0.0f, 0.4f);
+			this->draw_vertices<MAP>(scalar_field.get_minima(), position, 1.0f, 0.0f, 0.0f, 0.1f);
+		this->draw_vertices<MAP>(scalar_field.get_saddles(), position, 1.0f, 1.0f, 0.0f, 0.4f);
 	}
 
 	template <typename MAP>
