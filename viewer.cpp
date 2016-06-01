@@ -238,9 +238,9 @@ void Viewer::keyPressEvent(QKeyEvent *e)
 		{
 			feature_points_.begin_draw();
 			if (dimension_ == 2u)
-				surface_.curvature_weighted_morse_function(feature_points_);
+				surface_.curvature_weighted_morse_function<CMap2>(feature_points_);
 			else
-				volume_.curvature_weighted_morse_function(feature_points_);
+				volume_.curvature_weighted_morse_function<CMap3>(feature_points_);
 			feature_points_.end_draw();
 			break;
 		}

@@ -201,7 +201,7 @@ public:
 	void update_geometry_concrete()
 	{
 		cgogn::rendering::update_vbo(vertex_position_, vbo_pos_.get());
-		cgogn::geometry::compute_normal_vertices<Vec3, MAP>(map_, vertex_position_, vertex_normal_);
+		cgogn::geometry::compute_normal<Vec3, MAP>(map_, vertex_position_, vertex_normal_);
 		cgogn::rendering::update_vbo(vertex_normal_, vbo_norm_.get());
 	}
 
@@ -345,7 +345,7 @@ public:
 		}
 		vertex_normal_ = map_.template add_attribute<Vec3, Vertex::ORBIT>("normal");
 
-		cgogn::geometry::compute_normal_vertices<Vec3>(map_, vertex_position_, vertex_normal_);
+		cgogn::geometry::compute_normal<Vec3>(map_, vertex_position_, vertex_normal_);
 	}
 
 	template <typename T, typename std::enable_if<T::DIMENSION == 3>::type* = nullptr>
@@ -618,11 +618,11 @@ public:
 	{
 		// Find features for the edge_metric
 		std::vector<Vertex> features;
-		compute_length(edge_metric_);
+//		compute_curvature(edge_metric_);
 		find_features(fp, scalar_field_, features);
 
 		// Build the scalar field from the selected features
-		cgogn::topology::DistanceField<Scalar, MAP> distance_field(map_);
+		cgogn::topology::DistanceField<Scalar, MAP> distance_field(map_, edge_metric_);
 		distance_field.distance_to_features(features, scalar_field_);
 
 		for (auto& s : scalar_field_) s = Scalar(1) - s;
@@ -630,7 +630,6 @@ public:
 		// Draw the result
 		update_color(scalar_field_);
 		fp.draw_critical_points(map_, scalar_field_, vertex_position_);
-
 	}
 
 	void edge_length_weighted_morse_function(FeaturePoints<VEC3>& fp)
@@ -658,11 +657,29 @@ public:
 //		fp.draw_edges(map_, descending_1_manifold, vertex_position_, 0.5f, 0.5f, 1.0f);
 	}
 
+	template <typename CONCRETE_MAP, typename std::enable_if<CONCRETE_MAP::DIMENSION == 2>::type* = nullptr>
 	void curvature_weighted_morse_function(FeaturePoints<VEC3>& fp)
 	{
 		// Find features for the edge_metric
 		std::vector<Vertex> features;
-		compute_length(edge_metric_);
+		compute_curvature<CONCRETE_MAP>(edge_metric_);
+		find_features(fp, scalar_field_, features);
+
+		// Build the scalar field from the selected features
+		cgogn::topology::DistanceField<Scalar, MAP> distance_field(map_, edge_metric_);
+		distance_field.morse_distance_to_features(features, scalar_field_);
+
+		// Draw the morse function and its critical points
+		update_color(scalar_field_);
+
+		fp.draw_critical_points(map_, scalar_field_, vertex_position_);
+	}
+
+	template <typename CONCRETE_MAP, typename std::enable_if<CONCRETE_MAP::DIMENSION == 3>::type* = nullptr>
+	void curvature_weighted_morse_function(FeaturePoints<VEC3>& fp)
+	{
+		// Find features for the edge_metric
+		std::vector<Vertex> features;
 		find_features(fp, scalar_field_, features);
 
 		// Build the scalar field from the selected features
@@ -692,10 +709,118 @@ public:
 	{
 		map_.foreach_cell([&](Edge e)
 		{
-			length[e] = cgogn::geometry::edge_length<Vec3>(map_, e, vertex_position_);
+			length[e] = cgogn::geometry::length<Vec3>(map_, e, vertex_position_);
 		});
 	}
 
+	template <typename CONCRETE_MAP, typename std::enable_if<CONCRETE_MAP::DIMENSION == 2>::type* = nullptr>
+	void compute_curvature(EdgeAttribute<Scalar>& edge_metric)
+		{
+			EdgeAttribute<Scalar> length = map_.template add_attribute<Scalar, Edge::ORBIT>("lenght");
+			EdgeAttribute<Scalar> edgeangle = map_.template add_attribute<Scalar, Edge::ORBIT>("edgeangle");
+			EdgeAttribute<Scalar> edgeaera = map_.template add_attribute<Scalar, Edge::ORBIT>("edgeaera");
+
+			VertexAttribute<Scalar> kmax = map_.template add_attribute<Scalar, Vertex::ORBIT>("kmax");
+			VertexAttribute<Scalar> kmin = map_.template add_attribute<Scalar, Vertex::ORBIT>("kmin");
+			VertexAttribute<Vec3> Kmax = map_.template add_attribute<Vec3, Vertex::ORBIT>("Kmax");
+			VertexAttribute<Vec3> Kmin = map_.template add_attribute<Vec3, Vertex::ORBIT>("Kmin");
+			VertexAttribute<Vec3> knormal = map_.template add_attribute<Vec3, Vertex::ORBIT>("knormal");
+
+			compute_length(length);
+
+			cgogn::geometry::compute_angle_between_face_normals<Vec3, MAP>(map_, vertex_position_, edgeangle);
+			cgogn::geometry::compute_incident_faces_area<Vec3, Edge, MAP>(map_, vertex_position_, edgeaera);
+
+			Scalar meanEdgeLength = cgogn::geometry::mean_edge_length<Vec3>(map_, vertex_position_);
+
+			Scalar radius = Scalar(2.0) * meanEdgeLength;
+
+			cgogn::geometry::compute_curvature<Vec3>(map_,radius, vertex_position_, vertex_normal_,edgeangle,edgeaera,kmax,kmin,Kmax,Kmin,knormal);
+
+			//compute kmean
+			VertexAttribute<Scalar> kmean = map_.template add_attribute<Scalar, Vertex::ORBIT>("kmean");
+
+			double min = std::numeric_limits<double>::max();
+			double max = std::numeric_limits<double>::min();
+
+			map_.foreach_cell([&](Vertex v)
+			{
+				kmean[v] = (kmin[v] + kmax[v]) / Scalar(2.0);
+				min = std::min(min, kmean[v]);
+				max = std::max(max, kmean[v]);
+			});
+
+			//compute kgaussian
+			VertexAttribute<Scalar> kgaussian = map_.template add_attribute<Scalar, Vertex::ORBIT>("kgaussian");
+
+			min = std::numeric_limits<double>::max();
+			max = std::numeric_limits<double>::min();
+
+			map_.foreach_cell([&](Vertex v)
+			{
+				kgaussian[v] = (kmin[v] * kmax[v]);
+				min = std::min(min, kgaussian[v]);
+				max = std::max(max, kgaussian[v]);
+			});
+
+			//compute kindex
+			VertexAttribute<Scalar> k1 = map_.template add_attribute<Scalar, Vertex::ORBIT>("k1");
+			VertexAttribute<Scalar> k2 = map_.template add_attribute<Scalar, Vertex::ORBIT>("k2");
+			VertexAttribute<Scalar> kI = map_.template add_attribute<Scalar, Vertex::ORBIT>("kI");
+
+			map_.foreach_cell([&](Vertex v)
+			{
+				k1[v] = kmean[v] + std::sqrt(kmean[v] * kmean[v] - kgaussian[v]);
+				k2[v] = kmean[v] - std::sqrt(kmean[v] * kmean[v] - kgaussian[v]);
+
+				if(k1[v] == k2[v])
+					kI[v] = 0.0;
+				else
+					kI[v] = (2 / M_PI) * std::atan((k1[v] + k2[v]) / (k1[v] - k2[v]));
+			});
+
+			update_color(kI);
+
+			//build a metric to feed dijkstra
+			Scalar avg_e(0);
+			Scalar avg_ki(0);
+			cgogn::numerics::uint32 nbe = 0;
+
+			map_.foreach_cell([&](Edge e)
+			{
+				avg_e = length[e];
+				avg_ki = kI[Vertex(e.dart)] + kI[Vertex(map_.phi1(e.dart))];
+				++nbe;
+			});
+			avg_e /= nbe;
+			avg_ki /= nbe;
+
+			map_.foreach_cell([&](Edge e)
+			{
+				Scalar diffKI = kI[Vertex(e.dart)] - kI[Vertex(map_.phi1(e.dart))];
+
+				Scalar w(0.0);
+				if(kI[Vertex(e.dart)] < 0.0 && kI[Vertex(map_.phi1(e.dart))] < 0.0)
+					w = 0.05;
+
+				edge_metric[e] = (length[e] / avg_e) + (w * (diffKI / avg_ki));
+			});
+
+			map_.remove_attribute(length);
+			map_.remove_attribute(edgeangle);
+			map_.remove_attribute(edgeaera);
+			map_.remove_attribute(kmax);
+			map_.remove_attribute(kmin);
+			map_.remove_attribute(Kmax);
+			map_.remove_attribute(Kmin);
+			map_.remove_attribute(knormal);
+
+			map_.remove_attribute(kmean);
+			map_.remove_attribute(kgaussian);
+			map_.remove_attribute(k1);
+			map_.remove_attribute(k2);
+			map_.remove_attribute(kI);
+		}
 };
 
 #endif // MORSE_COMPLEX_H
