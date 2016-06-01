@@ -26,7 +26,7 @@
 #include <QApplication>
 #include <QMatrix4x4>
 
-#include <QOGLViewer/qoglviewer.h>
+#include <qoglviewer.h>
 #include <QKeyEvent>
 
 #include <gui/morse_complex.h>

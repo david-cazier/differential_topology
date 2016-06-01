@@ -57,7 +57,7 @@
 
 #include <gui/feature_points.h>
 
-#include <cgogn/topology/algos/distance_field.h>
+#include <cgogn/topology/algos/features.h>
 
 template <typename VEC3, typename MAP>
 class MorseSmallComplex
@@ -369,39 +369,6 @@ public:
 		edge_metric_ = map_.template add_attribute<Scalar, Edge::ORBIT>("edge_metric");
 	}
 
-	// Search a couple of vertices that maximizes their geodesic distance
-	// and compute their respective scalar field (geodesic distance to themselves)
-	Scalar maximal_diameter(Vertex& v1, VertexAttribute<Scalar>& scalar_field1,
-							Vertex& v2, VertexAttribute<Scalar>& scalar_field2,
-							VertexAttribute<Vertex>& path_to_sources)
-	{
-		cgogn::topology::DistanceField<Scalar, MAP> distance_field(map_, edge_metric_);
-		Scalar max_distance;
-
-		// Init v1 with a vertex near the center of the mesh
-		v1 = cgogn::geometry::central_vertex<Vec3, MAP>(map_, vertex_position_);
-
-		// Init v2 with the farthest vertice from v1
-		distance_field.dijkstra_compute_paths({v1}, scalar_field1, path_to_sources);
-		v2 = distance_field.find_maximum(scalar_field1);
-		max_distance = scalar_field1[v2];
-
-		// Try to optimize these two vertices by maximizing their distance
-		Scalar current_distance = max_distance;
-		do {
-			current_distance = max_distance;
-
-			distance_field.dijkstra_compute_paths({v2}, scalar_field2, path_to_sources);
-			v1 = distance_field.find_maximum(scalar_field2);
-
-			distance_field.dijkstra_compute_paths({v1}, scalar_field1, path_to_sources);
-			v2 = distance_field.find_maximum(scalar_field1);
-			max_distance = scalar_field1[v2];
-		} while (current_distance < max_distance);
-
-		return max_distance;
-	}
-
 	// Remove the vertices whose distance to local minima (their sources)
 	// of the given scalar field is below the threshold
 	// and (if any) add the source of the closest to the filtered set
@@ -474,7 +441,7 @@ public:
 	//	Find features in the scalar field
 	void find_features(FeaturePoints<VEC3>& fp,
 					   VertexAttribute<Scalar>& scalar_field,
-					   std::vector<Vertex>& features)
+					   std::vector<Vertex>& features_set)
 	{
 		VertexAttribute<Vertex> path_to_sources = map_.template add_attribute<Vertex, Vertex::ORBIT>("path_to_filter");
 
@@ -484,7 +451,13 @@ public:
 		Vertex v2;
 		VertexAttribute<Scalar> f1 = map_.template add_attribute<Scalar, Vertex::ORBIT>("f1");
 		VertexAttribute<Scalar> f2 = map_.template add_attribute<Scalar, Vertex::ORBIT>("f2");
-		Scalar max_distance = maximal_diameter(v1, f1, v2, f2, path_to_sources);
+
+		Vertex center = cgogn::geometry::central_vertex<Vec3, MAP>(map_, vertex_position_);
+		Scalar max_distance;
+
+		cgogn::topology::Features<Scalar, MAP> features(map_, edge_metric_);
+		max_distance = features.maximal_diameter(center, features_set);
+
 		Scalar filter_distance = max_distance / Scalar(4);
 
 		// Get the maxima in the scalar field f1
@@ -500,10 +473,8 @@ public:
 		// std::cout << "F2 size: " << vertices_f2.size() << std::endl;
 
 		// Build a scalar field from {v1, v2}
-		features.push_back(v1);
-		features.push_back(v2);
 		cgogn::topology::DistanceField<Scalar, MAP> distance_field(map_, edge_metric_);
-		distance_field.dijkstra_compute_paths(features, scalar_field, path_to_sources);
+		distance_field.dijkstra_compute_paths(features_set, scalar_field, path_to_sources);
 
 		// Initialize the sets of vertices filtered from f1 and f2 with v1 and v2
 		std::vector<Vertex> vertices_f1_filtered;
@@ -523,20 +494,20 @@ public:
 		Scalar actual_distance = max_distance;
 		// std::cout << "Distances: (" << max_distance << ") 1.0 ";
 		while (target_distance < actual_distance && !(vertices_f1.empty() && vertices_f2.empty())) {
-			distance_field.dijkstra_compute_paths(features, scalar_field, path_to_sources);
+			distance_field.dijkstra_compute_paths(features_set, scalar_field, path_to_sources);
 			Vertex v = distance_field.find_maximum(scalar_field);
-			features.push_back(v);
+			features_set.push_back(v);
 			actual_distance = scalar_field[v];
 			filter_distance = std::min(filter_distance, target_distance / Scalar(3));
 			// std::cout << actual_distance/max_distance << " ";
-			distance_field.dijkstra_compute_paths(features, scalar_field, path_to_sources);
+			distance_field.dijkstra_compute_paths(features_set, scalar_field, path_to_sources);
 			features_filter(vertices_f1, vertices_f1_filtered, filter_distance, scalar_field, path_to_sources);
 			features_filter(vertices_f2, vertices_f2_filtered, filter_distance, scalar_field, path_to_sources);
 		}
 		// std::cout << std::endl;
 
-		intersection(vertices_f1_filtered, vertices_f2_filtered, features);
-		std::cout << "Selected features: " << features.size() << std::endl;
+		intersection(vertices_f1_filtered, vertices_f2_filtered, features_set);
+		std::cout << "Selected features: " << features_set.size() << std::endl;
 
 		// Draw the unselected extrema in f1 and f2
 		// fp.draw_vertices(vertices_f1, vertex_position_, 0.3f, 0.3f, 1.0f, 0.6f, 1);

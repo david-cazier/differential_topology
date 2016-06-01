@@ -45,11 +45,6 @@ set(HEADER_FILES
 	cgogn/differential_topology/pl_functions.h
 	cgogn/differential_topology/reeb_graph.h
 
-	cgogn/selection/collector_criterion.h
-	cgogn/selection/collector.h
-
-	cgogn/geometry/algos/curvature.h
-
 	gui/morse_complex.h
 #	gui/volume.h
 #	gui/surface.h
