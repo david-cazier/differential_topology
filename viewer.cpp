@@ -44,7 +44,6 @@ Viewer::Viewer() :
 	graph_vertices_rendering_(false),
 	graph_edges_rendering_(false),
 	feature_points_rendering_(true),
-	bb_rendering_(true),
 	expl_(0.8f)
 {}
 
@@ -83,24 +82,17 @@ void Viewer::draw()
 		else
 			volume_.draw_vertices(proj, view);
 
+	if(feature_points_rendering_)
+		feature_points_.draw(proj, view);
+
+	if(surface_topo_rendering_)
+		topo_renderer_->draw(proj,view, this);
+
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	if (surface_edge_rendering_)
 		volume_.draw_edges(proj,view);
 	glDisable(GL_BLEND);
-
-	//	if(graph_edges_rendering_)
-	//		reeb_graph_.draw(proj,view);
-
-	if(feature_points_rendering_)
-		feature_points_.draw(proj, view);
-
-
-	if (bb_rendering_ && level_line_drawer_)
-		level_line_renderer_->draw(proj, view, this);
-
-	if(surface_topo_rendering_)
-		topo_renderer_->draw(proj,view, this);
 }
 
 void Viewer::init()
@@ -165,9 +157,6 @@ void Viewer::keyPressEvent(QKeyEvent *e)
 		case Qt::Key_E:
 			surface_edge_rendering_ = !surface_edge_rendering_;
 			break;
-		case Qt::Key_B:
-			bb_rendering_ = !bb_rendering_;
-			break;
 		case Qt::Key_G:
 			graph_vertices_rendering_ = !graph_vertices_rendering_;
 			graph_edges_rendering_ = !graph_edges_rendering_;
@@ -218,9 +207,9 @@ void Viewer::keyPressEvent(QKeyEvent *e)
 		{
 			feature_points_.begin_draw();
 			if (dimension_ == 2u)
-				surface_.curvature_weighted_geodesic_distance_function(feature_points_);
+				surface_.curvature_weighted_geodesic_distance_function_2d(feature_points_);
 			else
-				volume_.curvature_weighted_geodesic_distance_function(feature_points_);
+				volume_.curvature_weighted_geodesic_distance_function_3d(feature_points_);
 			feature_points_.end_draw();
 			break;
 		}
@@ -238,9 +227,9 @@ void Viewer::keyPressEvent(QKeyEvent *e)
 		{
 			feature_points_.begin_draw();
 			if (dimension_ == 2u)
-				surface_.curvature_weighted_morse_function<CMap2>(feature_points_);
+				surface_.curvature_weighted_morse_function_2d(feature_points_);
 			else
-				volume_.curvature_weighted_morse_function<CMap3>(feature_points_);
+				volume_.curvature_weighted_morse_function_3d(feature_points_);
 			feature_points_.end_draw();
 			break;
 		}

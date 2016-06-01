@@ -90,8 +90,6 @@ private:
 	bool surface_edge_rendering_;
 	bool surface_topo_rendering_;
 
-	bool bb_rendering_;
-
 	bool graph_vertices_rendering_;
 	bool graph_edges_rendering_;
 

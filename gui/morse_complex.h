@@ -614,15 +614,32 @@ public:
 		fp.draw_critical_points(map_, scalar_field_, vertex_position_);
 	}
 
-	void curvature_weighted_geodesic_distance_function(FeaturePoints<VEC3>& fp)
+	void curvature_weighted_geodesic_distance_function_2d(FeaturePoints<VEC3>& fp)
 	{
 		// Find features for the edge_metric
 		std::vector<Vertex> features;
-//		compute_curvature(edge_metric_);
+		compute_curvature<MAP>(edge_metric_);
 		find_features(fp, scalar_field_, features);
 
 		// Build the scalar field from the selected features
 		cgogn::topology::DistanceField<Scalar, MAP> distance_field(map_, edge_metric_);
+		distance_field.distance_to_features(features, scalar_field_);
+
+		for (auto& s : scalar_field_) s = Scalar(1) - s;
+
+		// Draw the result
+		update_color(scalar_field_);
+		fp.draw_critical_points(map_, scalar_field_, vertex_position_);
+	}
+
+	void curvature_weighted_geodesic_distance_function_3d(FeaturePoints<VEC3>& fp)
+	{
+		// Find features for the edge_metric
+		std::vector<Vertex> features;
+		find_features(fp, scalar_field_, features);
+
+		// Build the scalar field from the selected features
+		cgogn::topology::DistanceField<Scalar, MAP> distance_field(map_);
 		distance_field.distance_to_features(features, scalar_field_);
 
 		for (auto& s : scalar_field_) s = Scalar(1) - s;
@@ -657,12 +674,11 @@ public:
 //		fp.draw_edges(map_, descending_1_manifold, vertex_position_, 0.5f, 0.5f, 1.0f);
 	}
 
-	template <typename CONCRETE_MAP, typename std::enable_if<CONCRETE_MAP::DIMENSION == 2>::type* = nullptr>
-	void curvature_weighted_morse_function(FeaturePoints<VEC3>& fp)
+	void curvature_weighted_morse_function_2d(FeaturePoints<VEC3>& fp)
 	{
 		// Find features for the edge_metric
 		std::vector<Vertex> features;
-		compute_curvature<CONCRETE_MAP>(edge_metric_);
+		compute_curvature<MAP>(edge_metric_);
 		find_features(fp, scalar_field_, features);
 
 		// Build the scalar field from the selected features
@@ -675,8 +691,7 @@ public:
 		fp.draw_critical_points(map_, scalar_field_, vertex_position_);
 	}
 
-	template <typename CONCRETE_MAP, typename std::enable_if<CONCRETE_MAP::DIMENSION == 3>::type* = nullptr>
-	void curvature_weighted_morse_function(FeaturePoints<VEC3>& fp)
+	void curvature_weighted_morse_function_3d(FeaturePoints<VEC3>& fp)
 	{
 		// Find features for the edge_metric
 		std::vector<Vertex> features;
@@ -700,9 +715,8 @@ public:
 		scalar_field.extract_level_sets(level_lines);
 
 		update_color(scalar);
-		fp.draw_edges(map_, level_lines, vertex_position_, 1.0f, 1.0f, 1.0f);
-
 		fp.draw_critical_points(map_, scalar, vertex_position_);
+		fp.draw_edges(map_, level_lines, vertex_position_, 1.0f, 1.0f, 1.0f);
 	}
 
 	void compute_length(EdgeAttribute<Scalar>& length)
