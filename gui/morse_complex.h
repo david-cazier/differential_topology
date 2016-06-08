@@ -35,7 +35,7 @@
 #include <cgogn/rendering/drawer.h>
 #include <cgogn/rendering/volume_drawer.h>
 
-#include <cgogn/rendering/shaders/shader_simple_color.h>
+#include <cgogn/rendering/shaders/shader_scalar_per_vertex.h>
 #include <cgogn/rendering/shaders/shader_flat.h>
 #include <cgogn/rendering/shaders/shader_phong.h>
 #include <cgogn/rendering/shaders/shader_point_sprite.h>
@@ -102,7 +102,7 @@ public:
 
 	std::unique_ptr<cgogn::rendering::ShaderBoldLine::Param> param_edge_;
 	std::unique_ptr<cgogn::rendering::ShaderFlatColor::Param> param_flat_;
-	std::unique_ptr<cgogn::rendering::ShaderVectorPerVertex::Param> param_normal_;
+	std::unique_ptr<cgogn::rendering::ShaderScalarPerVertex::Param> param_normal_;
 	std::unique_ptr<cgogn::rendering::ShaderPhongColor::Param> param_phong_;
 	std::unique_ptr<cgogn::rendering::ShaderPointSpriteColorSize::Param> param_point_sprite_;
 
@@ -148,11 +148,8 @@ public:
 			cgogn::rendering::update_vbo(vertex_normal_, vbo_norm_.get());
 
 			// fill a color vbo with abs of normals
-			vbo_color_ = cgogn::make_unique<cgogn::rendering::VBO>(3);
-			cgogn::rendering::update_vbo(vertex_normal_, vbo_color_.get(),[] (const Vec3& n) -> std::array<float,3>
-			{
-				return {float(std::abs(n[0])), float(std::abs(n[1])), float(std::abs(n[2]))};
-			});
+			vbo_color_ = cgogn::make_unique<cgogn::rendering::VBO>(1);
+			cgogn::rendering::update_vbo(scalar_field_, vbo_color_.get());
 
 			// fill a sphere size vbo
 			vbo_sphere_sz_ = cgogn::make_unique<cgogn::rendering::VBO>(1);
@@ -178,10 +175,12 @@ public:
 			param_flat_->set_position_vbo(vbo_pos_.get());
 			param_flat_->ambiant_color_ = QColor(5,5,5);
 
-			param_normal_ = cgogn::rendering::ShaderVectorPerVertex::generate_param();
+			param_normal_ = cgogn::rendering::ShaderScalarPerVertex::generate_param();
 			param_normal_->set_all_vbos(vbo_pos_.get(), vbo_norm_.get());
-			param_normal_->color_ = QColor(200,0,200);
-			param_normal_->length_ = bb_.diag_size()/50;
+			param_normal_->color_map_ = cgogn::rendering::ShaderScalarPerVertex::ColorMap::BWR;
+			param_normal_->show_iso_lines_ = true;
+			param_normal_->min_value_ = 0.0f;
+			param_normal_->max_value_ = 0.0f;
 
 			param_phong_ = cgogn::rendering::ShaderPhongColor::generate_param();
 			param_phong_->set_all_vbos(vbo_pos_.get(), vbo_norm_.get(), vbo_color_.get());
@@ -231,13 +230,13 @@ public:
 			volume_drawer_->update_edge<Vec3>(map_, vertex_position_);
 		}
 		else
-			cgogn_log_warning("draw_flat") << "invalid dimension";
+			cgogn_log_warning("update_topology") << "invalid dimension";
 	}
 
 	void update_color(VertexAttribute<Scalar> scalar)
 	{
-		double min = std::numeric_limits<double>::max();
-		double max = std::numeric_limits<double>::min();
+		Scalar min = std::numeric_limits<Scalar>::max();
+		Scalar max = std::numeric_limits<Scalar>::min();
 		for(auto& v : scalar)
 		{
 			min = std::min(min, v);
@@ -246,12 +245,11 @@ public:
 
 		if (dimension_ == 2u)
 		{
-			cgogn::rendering::update_vbo(scalar, vbo_color_.get(),
-										 [min, max] (const Scalar& n) -> std::array<float,3>
-			{
-				return cgogn::color_map_blue_green_red(cgogn::numerics::scale_to_0_1(n, min, max));
-				// return cgogn::color_map_hash(cgogn::numerics::scale_to_0_1(n, min, max));
-			});
+			param_normal_->color_map_ = cgogn::rendering::ShaderScalarPerVertex::ColorMap::BWR;
+			param_normal_->show_iso_lines_ = true;
+			param_normal_->min_value_ = min;
+			param_normal_->max_value_ = max;
+			cgogn::rendering::update_vbo(scalar_field_, vbo_color_.get());
 		}
 		else if (dimension_ == 3u)
 		{
@@ -464,13 +462,13 @@ public:
 		cgogn::topology::ScalarField<Scalar, MAP> scalar_field1(map_, f1);
 		scalar_field1.differential_analysis();
 		std::vector<Vertex> vertices_f1 = scalar_field1.get_maxima();
-		// std::cout << "F1 size: " << vertices_f1.size() << std::endl;
+		std::cout << "F1 size: " << vertices_f1.size() << std::endl;
 
 		// Get the maxima in the scalar field f2
 		cgogn::topology::ScalarField<Scalar, MAP> scalar_field2(map_, f2);
 		scalar_field2.differential_analysis();
 		std::vector<Vertex> vertices_f2 = scalar_field2.get_maxima();
-		// std::cout << "F2 size: " << vertices_f2.size() << std::endl;
+		std::cout << "F2 size: " << vertices_f2.size() << std::endl;
 
 		// Build a scalar field from {v1, v2}
 		cgogn::topology::DistanceField<Scalar, MAP> distance_field(map_, edge_metric_);
@@ -492,34 +490,34 @@ public:
 		// than 1/4 of the computed maximal diameter
 		Scalar target_distance = filter_distance;
 		Scalar actual_distance = max_distance;
-		// std::cout << "Distances: (" << max_distance << ") 1.0 ";
+		std::cout << "Distances: (" << max_distance << ") 1.0 ";
 		while (target_distance < actual_distance && !(vertices_f1.empty() && vertices_f2.empty())) {
 			distance_field.dijkstra_compute_paths(features_set, scalar_field, path_to_sources);
 			Vertex v = distance_field.find_maximum(scalar_field);
 			features_set.push_back(v);
 			actual_distance = scalar_field[v];
 			filter_distance = std::min(filter_distance, target_distance / Scalar(3));
-			// std::cout << actual_distance/max_distance << " ";
+			std::cout << actual_distance/max_distance << " ";
 			distance_field.dijkstra_compute_paths(features_set, scalar_field, path_to_sources);
 			features_filter(vertices_f1, vertices_f1_filtered, filter_distance, scalar_field, path_to_sources);
 			features_filter(vertices_f2, vertices_f2_filtered, filter_distance, scalar_field, path_to_sources);
 		}
-		// std::cout << std::endl;
+		std::cout << std::endl;
 
 		intersection(vertices_f1_filtered, vertices_f2_filtered, features_set);
 		std::cout << "Selected features: " << features_set.size() << std::endl;
 
 		// Draw the unselected extrema in f1 and f2
-		// fp.draw_vertices(vertices_f1, vertex_position_, 0.3f, 0.3f, 1.0f, 0.6f, 1);
-		// std::cout << "F1 not filtered features: " << vertices_f1.size() << std::endl;
-		// fp.draw_vertices(vertices_f2, vertex_position_, 0.3f, 1.0f, 0.3f, 0.6f, 2);
-		// std::cout << "F2 not filtered features: " << vertices_f2.size() << std::endl;
+		fp.template draw_vertices<MAP>(vertices_f1, vertex_position_, 0.3f, 0.3f, 1.0f, 0.6f, 1);
+		std::cout << "F1 not filtered features: " << vertices_f1.size() << std::endl;
+		fp.template draw_vertices<MAP>(vertices_f2, vertex_position_, 0.3f, 1.0f, 0.3f, 0.6f, 2);
+		std::cout << "F2 not filtered features: " << vertices_f2.size() << std::endl;
 
 		// Draw the selected features that are not in the intersection
-		// fp.draw_vertices(vertices_f1_filtered, vertex_position_, 1.0f, 0.2f, 1.0f, 0.8f, 1);
-		// std::cout << "F1 not in F2 features: " << vertices_f1_filtered.size() << std::endl;
-		// fp.draw_vertices(vertices_f2_filtered, vertex_position_, 1.0f, 0.4f, 0.4f, 0.8f, 2);
-		// std::cout << "F2 not in F1 features: " << vertices_f2_filtered.size() << std::endl;
+		fp.template draw_vertices<MAP>(vertices_f1_filtered, vertex_position_, 1.0f, 0.2f, 1.0f, 0.8f, 1);
+		std::cout << "F1 not in F2 features: " << vertices_f1_filtered.size() << std::endl;
+		fp.template draw_vertices<MAP>(vertices_f2_filtered, vertex_position_, 1.0f, 0.4f, 0.4f, 0.8f, 2);
+		std::cout << "F2 not in F1 features: " << vertices_f2_filtered.size() << std::endl;
 
 		map_.remove_attribute(path_to_sources);
 		map_.remove_attribute(f1);
