@@ -26,7 +26,7 @@
 #include <QApplication>
 #include <QMatrix4x4>
 
-#include <qoglviewer.h>
+#include <QOGLViewer/qoglviewer.h>
 #include <QKeyEvent>
 
 #include <gui/morse_complex.h>
@@ -85,10 +85,9 @@ private:
 	Graph reeb_graph_;
 
 	bool map_rendering_;
-	bool flat_rendering_;
 	bool vertices_rendering_;
-	bool surface_edge_rendering_;
-	bool surface_topo_rendering_;
+	bool edge_rendering_;
+	bool topo_rendering_;
 
 	bool graph_vertices_rendering_;
 	bool graph_edges_rendering_;

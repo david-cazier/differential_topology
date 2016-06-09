@@ -82,9 +82,6 @@ public:
 
 		cgogn::topology::ScalarField<Scalar, MAP> scalar_field(map, scalar);
 		scalar_field.differential_analysis();
-		std::cout << "maxima : " << scalar_field.get_maxima().size() << std::endl;
-		std::cout << "minima : " << scalar_field.get_minima().size() << std::endl;
-		std::cout << "saddles : " << scalar_field.get_saddles().size() << std::endl;
 		this->draw_vertices<MAP>(scalar_field.get_maxima(), position, 1.0f, 1.0f, 1.0f, 1.0f);
 		if (scalar_field.get_minima().size() < 100u)
 			this->draw_vertices<MAP>(scalar_field.get_minima(), position, 1.0f, 0.0f, 0.0f, 1.0f);

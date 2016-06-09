@@ -37,10 +37,9 @@ Viewer::Viewer() :
 	topo_drawer_(nullptr),
 	topo_renderer_(nullptr),
 	map_rendering_(true),
-	flat_rendering_(false),
 	vertices_rendering_(false),
-	surface_edge_rendering_(false),
-	surface_topo_rendering_(false),
+	edge_rendering_(false),
+	topo_rendering_(false),
 	graph_vertices_rendering_(false),
 	graph_edges_rendering_(false),
 	feature_points_rendering_(true),
@@ -60,19 +59,12 @@ void Viewer::draw()
 
 	glEnable(GL_POLYGON_OFFSET_FILL);
 	glPolygonOffset(1.0f, 2.0f);
-
 	if (map_rendering_)
 	{
-		if (flat_rendering_)
-			if (dimension_ == 2u)
-				surface_.draw_flat(proj, view);
-			else
-				volume_.draw_flat(proj, view);
+		if (dimension_ == 2u)
+			surface_.draw(proj, view);
 		else
-			if (dimension_ == 2u)
-				surface_.draw(proj, view);
-			else
-				volume_.draw(proj, view);
+			volume_.draw(proj, view);
 	}
 	glDisable(GL_POLYGON_OFFSET_FILL);
 
@@ -85,14 +77,14 @@ void Viewer::draw()
 	if(feature_points_rendering_)
 		feature_points_.draw(proj, view);
 
-	if(surface_topo_rendering_)
+	if(topo_rendering_)
 		topo_renderer_->draw(proj,view, this);
 
-	glEnable(GL_BLEND);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	if (surface_edge_rendering_)
-		volume_.draw_edges(proj,view);
-	glDisable(GL_BLEND);
+	if (edge_rendering_)
+		if (dimension_ == 2u)
+			surface_.draw_edges(proj, view);
+		else
+			volume_.draw_edges(proj,view);
 }
 
 void Viewer::init()
@@ -148,14 +140,11 @@ void Viewer::keyPressEvent(QKeyEvent *e)
 		case Qt::Key_M:
 			map_rendering_ = !map_rendering_;
 			break;
-		case Qt::Key_F:
-			flat_rendering_ = !flat_rendering_;
-			break;
 		case Qt::Key_V:
 			vertices_rendering_ = !vertices_rendering_;
 			break;
 		case Qt::Key_E:
-			surface_edge_rendering_ = !surface_edge_rendering_;
+			edge_rendering_ = !edge_rendering_;
 			break;
 		case Qt::Key_G:
 			graph_vertices_rendering_ = !graph_vertices_rendering_;
@@ -165,7 +154,7 @@ void Viewer::keyPressEvent(QKeyEvent *e)
 			feature_points_rendering_ = !feature_points_rendering_;
 			break;
 		case Qt::Key_T:
-			surface_topo_rendering_ = !surface_topo_rendering_;
+			topo_rendering_ = !topo_rendering_;
 			break;
 		case Qt::Key_Plus:
 			expl_ += 0.05f;
