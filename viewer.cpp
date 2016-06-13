@@ -30,7 +30,6 @@ Viewer::Viewer() :
 	volume_(this),
 	dimension_(0u),
 	bb_(),
-	feature_points_(this),
 	reeb_graph_(this),
 	level_line_drawer_(nullptr),
 	level_line_renderer_(nullptr),
@@ -75,7 +74,10 @@ void Viewer::draw()
 			volume_.draw_vertices(proj, view);
 
 	if(feature_points_rendering_)
-		feature_points_.draw(proj, view);
+		if (dimension_ == 2u)
+			surface_.draw_features(proj, view);
+		else
+			volume_.draw_features(proj, view);
 
 	if(topo_rendering_)
 		topo_renderer_->draw(proj,view, this);
@@ -95,8 +97,6 @@ void Viewer::init()
 		surface_.init();
 	else
 		volume_.init();
-
-	feature_points_.init(bb_);
 
 	// drawer for simple old-school g1 rendering
 	level_line_drawer_ = cgogn::make_unique<cgogn::rendering::DisplayListDrawer>();
@@ -164,62 +164,50 @@ void Viewer::keyPressEvent(QKeyEvent *e)
 			break;
 		case Qt::Key_0:
 		{
-			feature_points_.begin_draw();
 			if (dimension_ == 2u)
-				surface_.height_function(feature_points_);
+				surface_.height_function();
 			else
-				volume_.distance_to_boundary_function(feature_points_);
-			feature_points_.end_draw();
+				volume_.distance_to_boundary_function();
 			break;
 		}
 		case Qt::Key_1:
 		{
-			feature_points_.begin_draw();
 			if (dimension_ == 2u)
-				surface_.distance_to_center_function(feature_points_);
+				surface_.distance_to_center_function();
 			else
-				volume_.distance_to_center_function(feature_points_);
-			feature_points_.end_draw();
+				volume_.distance_to_center_function();
 			break;
 		}
 		case Qt::Key_2:
 		{
-			feature_points_.begin_draw();
 			if (dimension_ == 2u)
-				surface_.edge_length_weighted_geodesic_distance_function(feature_points_);
+				surface_.edge_length_weighted_geodesic_distance_function();
 			else
-				volume_.edge_length_weighted_geodesic_distance_function(feature_points_);
-			feature_points_.end_draw();
+				volume_.edge_length_weighted_geodesic_distance_function();
 			break;
 		}
 		case Qt::Key_3:
 		{
-			feature_points_.begin_draw();
 			if (dimension_ == 2u)
-				surface_.curvature_weighted_geodesic_distance_function_2d(feature_points_);
+				surface_.curvature_weighted_geodesic_distance_function_2d();
 			else
-				volume_.curvature_weighted_geodesic_distance_function_3d(feature_points_);
-			feature_points_.end_draw();
+				volume_.curvature_weighted_geodesic_distance_function_3d();
 			break;
 		}
 		case Qt::Key_4:
 		{
-			feature_points_.begin_draw();
 			if (dimension_ == 2u)
-				surface_.edge_length_weighted_morse_function(feature_points_);
+				surface_.edge_length_weighted_morse_function();
 			else
-				volume_.edge_length_weighted_morse_function(feature_points_);
-			feature_points_.end_draw();
+				volume_.edge_length_weighted_morse_function();
 			break;
 		}
 		case Qt::Key_5:
 		{
-			feature_points_.begin_draw();
 			if (dimension_ == 2u)
-				surface_.curvature_weighted_morse_function_2d(feature_points_);
+				surface_.curvature_weighted_morse_function_2d();
 			else
-				volume_.curvature_weighted_morse_function_3d(feature_points_);
-			feature_points_.end_draw();
+				volume_.curvature_weighted_morse_function_3d();
 			break;
 		}
 		case Qt::Key_6:
@@ -235,8 +223,8 @@ void Viewer::keyPressEvent(QKeyEvent *e)
 
 			Vec3 center = cgogn::geometry::centroid<Vec3, CMap3>(volume_.map_, volume_.vertex_position_);
 
-			cgogn::topology::ScalarField<Scalar, CMap3> scalar_field(volume_.map_, volume_.scalar_field_);
-			scalar_field.differential_analysis();
+			cgogn::topology::ScalarField<Scalar, CMap3> scalar_field(volume_.map_, volume_.adjacency_cache_, volume_.scalar_field_);
+			scalar_field.critical_vertex_analysis();
 			std::vector<Vertex> tab_vertices = scalar_field.get_saddles();
 
 			std::vector<Vertex> inside_vertices;
@@ -337,12 +325,10 @@ void Viewer::keyPressEvent(QKeyEvent *e)
 		}
 		case Qt::Key_7:
 		{
-			feature_points_.begin_draw();
 			if (dimension_ == 2u)
-				surface_.show_level_sets(feature_points_, surface_.scalar_field_);
+				surface_.show_level_sets();
 			else
-				volume_.show_level_sets(feature_points_, volume_.scalar_field_);
-			feature_points_.end_draw();
+				volume_.show_level_sets();
 			break;
 		}
 		default:

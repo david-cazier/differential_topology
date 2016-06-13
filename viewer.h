@@ -30,7 +30,7 @@
 #include <QKeyEvent>
 
 #include <gui/morse_complex.h>
-#include <gui/feature_points.h>
+//#include <gui/feature_points.h>
 #include <gui/graph.h>
 
 #include <cgogn/rendering/topo_drawer.h>
@@ -81,7 +81,6 @@ private:
 
 	//	std::vector<MorseSmallComplex<Vec3, CMap3>::Vertex> selected_vertices_;
 
-	FeaturePoints<Vec3> feature_points_;
 	Graph reeb_graph_;
 
 	bool map_rendering_;

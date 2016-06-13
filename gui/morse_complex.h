@@ -55,9 +55,8 @@
 #include <cgogn/geometry/algos/curvature.h>
 #include <cgogn/helper_functions.h>
 
-#include <gui/feature_points.h>
-
-#include <cgogn/topology/algos/topology_analyser.h>
+#include <cgogn/topology/types/adjacency_cache.h>
+#include <cgogn/topology/algos/features.h>
 
 template <typename VEC3, typename MAP>
 class MorseSmallComplex
@@ -79,6 +78,8 @@ public:
 	MAP map_;
 	static const unsigned int dimension_ = MAP::DIMENSION;
 
+	cgogn::topology::AdjacencyCache<MAP> adjacency_cache_;
+
 	VertexAttribute<Vec3> vertex_position_;
 	VertexAttribute<Vec3> vertex_normal_;
 	VertexAttribute<Vec3> vertex_color_;
@@ -95,6 +96,9 @@ public:
 
 	std::unique_ptr<cgogn::rendering::MapRender> surface_render_;
 
+	std::unique_ptr<cgogn::rendering::DisplayListDrawer> features_drawer_;
+	std::unique_ptr<cgogn::rendering::DisplayListDrawer::Renderer> features_renderer_;
+
 	std::unique_ptr<cgogn::rendering::VBO> vbo_pos_;
 	std::unique_ptr<cgogn::rendering::VBO> vbo_color_;
 	std::unique_ptr<cgogn::rendering::VBO> vbo_scalar_;
@@ -108,6 +112,7 @@ public:
 
 	MorseSmallComplex(QOpenGLFunctions_3_3_Core* ogl33):
 		map_(),
+		adjacency_cache_(map_),
 		vertex_position_(),
 		vertex_normal_(),
 		vertex_color_(),
@@ -129,6 +134,7 @@ public:
 	{
 		volume_drawer_.reset();
 		surface_render_.reset();
+		features_drawer_.reset();
 		vbo_pos_.reset();
 		vbo_color_.reset();
 		vbo_scalar_.reset();
@@ -187,6 +193,9 @@ public:
 		}
 		else
 			cgogn_log_warning("draw_flat") << "invalid dimension";
+
+		features_drawer_ = cgogn::make_unique<cgogn::rendering::DisplayListDrawer>();
+		features_renderer_ = features_drawer_->generate_renderer();
 	}
 
 	template <typename T, typename std::enable_if<T::DIMENSION == 2>::type* = nullptr>
@@ -224,16 +233,18 @@ public:
 			cgogn_log_warning("update_topology") << "invalid dimension";
 	}
 
-	void update_color(VertexAttribute<Scalar> scalar)
+	void update_scalar_field(bool level_sets = false, bool morse_complex = false)
 	{
+		// Search the maximal and minimal value of the scalar field
 		Scalar min = std::numeric_limits<Scalar>::max();
 		Scalar max = std::numeric_limits<Scalar>::min();
-		for(auto& v : scalar)
+		for(auto& v : scalar_field_)
 		{
 			min = std::min(min, v);
 			max = std::max(max, v);
 		}
 
+		// Update the surface or volume rendering
 		if (dimension_ == 2u)
 		{
 			param_scalar_->min_value_ = min;
@@ -253,13 +264,96 @@ public:
 			map_.foreach_cell([&](Vertex v)
 			{
 				std::array<float,3> color = cgogn::color_map_blue_green_red(
-							cgogn::numerics::scale_to_0_1(scalar[v], min, max));
+							cgogn::numerics::scale_to_0_1(scalar_field_[v], min, max));
 				vertex_color_[v] = Vec3(color[0], color[1], color[2]);
 			});
 			volume_drawer_->update_face<Vec3>(map_, vertex_position_, vertex_color_);
 		}
 		else
 			cgogn_log_warning("draw_flat") << "invalid dimension";
+
+		features_drawer_->new_list();
+
+		// Draw the critical points
+		cgogn::topology::ScalarField<Scalar, MAP> scalar_field(map_, adjacency_cache_, scalar_field_);
+		scalar_field.critical_vertex_analysis();
+		draw_vertices(scalar_field.get_maxima(), 1.0f, 1.0f, 1.0f, 1.0f);
+		if (scalar_field.get_minima().size() < 100u)
+			draw_vertices(scalar_field.get_minima(), 1.0f, 0.0f, 0.0f, 1.0f);
+		else
+			draw_vertices(scalar_field.get_minima(), 1.0f, 0.0f, 0.0f, 0.1f);
+		draw_vertices(scalar_field.get_saddles(), 1.0f, 1.0f, 0.0f, 0.4f);
+
+		// Draw the level sets
+		if (level_sets)
+		{
+			std::vector<Edge> level_lines;
+			scalar_field.extract_level_sets(level_lines);
+			draw_edges(level_lines, 1.0f, 1.0f, 1.0f);
+		}
+
+		// Draw the ascending and descending manyfold of the morse complex
+		if (morse_complex)
+		{
+			std::vector<Edge> morse_lines;
+			scalar_field.extract_descending_manifold(morse_lines);
+			draw_edges(morse_lines, 0.5f, 0.5f, 1.0f);
+			morse_lines.clear();
+			scalar_field.extract_ascending_manifold(morse_lines);
+			draw_edges(morse_lines, 1.0f, 0.5f, 0.0f);
+		}
+
+		features_drawer_->end_list();
+	}
+
+	void draw_edges(const std::vector<Edge>& edges,
+					float r, float g, float b)
+	{
+		Scalar width = 10.0f * bb_.max_size()/50.0f;
+		if (!edges.empty()) {
+			features_drawer_->line_width(width);
+			features_drawer_->begin(GL_LINES);
+			features_drawer_->color3f(r, g, b);
+
+			for (auto& e: edges) {
+				features_drawer_->vertex3fv(vertex_position_[Vertex(e.dart)]);
+				features_drawer_->vertex3fv(vertex_position_[Vertex(map_.phi1(e.dart))]);
+			}
+			features_drawer_->end();
+		}
+	}
+
+	void draw_vertices(const std::vector<Vertex>& vertices,
+					   float r, float g, float b, float ratio, int shift=0)
+	{
+		Scalar radius = ratio*bb_.max_size()/50.0f;
+		if (!vertices.empty()) {
+			features_drawer_->ball_size(radius);
+			features_drawer_->begin(GL_POINTS);
+			features_drawer_->color3f(r, g, b);
+
+			for (auto& v: vertices) {
+				switch(shift) {
+					case  1 :
+						features_drawer_->vertex3fv(vertex_position_[v]+Vec3(radius/Scalar(2),-radius/Scalar(2),Scalar(0)));
+						break;
+					case  2 :
+						features_drawer_->vertex3fv(vertex_position_[v]+Vec3(-radius/Scalar(2),radius/Scalar(2),Scalar(0)));
+						break;
+					case  3 :
+						features_drawer_->vertex3fv(vertex_position_[v]+Vec3(radius/Scalar(2),radius/Scalar(2),Scalar(0)));
+						break;
+					default :
+						features_drawer_->vertex3fv(vertex_position_[v]);
+				}
+			}
+			features_drawer_->end();
+		}
+	}
+
+	void draw_features(const QMatrix4x4& proj, const QMatrix4x4& view)
+	{
+		features_renderer_->draw(proj, view, ogl33_);
 	}
 
 	void draw(const QMatrix4x4& proj, const QMatrix4x4& view)
@@ -344,191 +438,174 @@ public:
 	void import(const std::string& filename)
 	{
 		import_concrete<MAP>(filename);
-
+		adjacency_cache_.init();
 		scalar_field_ = map_.template add_attribute<Scalar, Vertex::ORBIT>("scalar_field_");
 		edge_metric_ = map_.template add_attribute<Scalar, Edge::ORBIT>("edge_metric");
 	}
 
-	void height_function(FeaturePoints<Vec3>& fp)
+	void height_function()
 	{
 		map_.foreach_cell([&] (Vertex v)
 		{
 			scalar_field_[v] = vertex_position_[v][0];
 		});
 
-		update_color(scalar_field_);
-		fp.draw_critical_points(map_, scalar_field_, vertex_position_);
+		update_scalar_field();
 	}
 
-	void distance_to_boundary_function(FeaturePoints<Vec3>& fp)
+	void distance_to_boundary_function()
+	{
+		VertexAttribute<Scalar> features_field;
+		features_field = map_.template add_attribute<Scalar, Vertex::ORBIT>("features_field");
+
+		// Find features for the edge_metric
+		std::vector<Vertex> features;
+		compute_length(edge_metric_);
+
+		Vertex center = cgogn::geometry::central_vertex<Vec3, MAP>(map_, vertex_position_);
+		cgogn::topology::FeaturesFinder<Scalar, MAP> features_finder(map_, adjacency_cache_, edge_metric_);
+		features_finder.get_filtered_features(center, features_field, features);
+
+		VertexAttribute<Scalar> boundary_field;
+		boundary_field = map_.template add_attribute<Scalar, Vertex::ORBIT>("boundary_field");
+		cgogn::topology::DistanceField<Scalar, MAP> distance_field(map_, adjacency_cache_, edge_metric_);
+		distance_field.distance_to_boundary(boundary_field);
+
+		cgogn::topology::ScalarField<Scalar, MAP> scalar_field(map_, adjacency_cache_, boundary_field);
+		scalar_field.critical_vertex_analysis();
+
+		for (Vertex v : scalar_field.get_maxima())
+			features.push_back(v);
+
+		distance_field.distance_to_features(features, scalar_field_);
+
+		for (auto& s : scalar_field_) s = Scalar(1) - s;
+
+		update_scalar_field(false, true);
+
+		map_.remove_attribute(features_field);
+		map_.remove_attribute(boundary_field);
+	}
+
+	void distance_to_center_function()
 	{
 		compute_length(edge_metric_);
 
-		cgogn::topology::DistanceField<Scalar, MAP> distance_field(map_,edge_metric_);
-		distance_field.distance_to_boundary(scalar_field_);
-		update_color(scalar_field_);
-
-		fp.draw_critical_points(map_, scalar_field_, vertex_position_);
-
-		std::vector<Edge> ascending_1_manifold;
-		//		cgogn::topology::extract_ascending_manifold<Scalar>(map_ , scalar_field_, ascending_1_manifold);
-		//		fp.draw_edges(map_, ascending_1_manifold, vertex_position_, 1.0f, 0.5f, 0.0f);
-
-		std::vector<Edge> descending_1_manifold;
-		//		cgogn::topology::extract_descending_manifold<Scalar>(map_ , scalar_field_, descending_1_manifold);
-		//		fp.draw_edges(map_, descending_1_manifold, vertex_position_, 0.5f, 0.5f, 1.0f);
-	}
-
-	void distance_to_center_function(FeaturePoints<Vec3>& fp)
-	{
-		compute_length(edge_metric_);
-
-		cgogn::topology::DistanceField<Scalar, MAP> distance_field(map_,edge_metric_);
+		cgogn::topology::DistanceField<Scalar, MAP> distance_field(map_, adjacency_cache_, edge_metric_);
 		distance_field.distance_to_center(vertex_position_, scalar_field_);
 
-		update_color(scalar_field_);
-		fp.draw_critical_points(map_, scalar_field_, vertex_position_);
+		update_scalar_field();
 	}
 
-	void edge_length_weighted_geodesic_distance_function(FeaturePoints<VEC3>& fp)
+	void edge_length_weighted_geodesic_distance_function()
 	{
 		// Find features for the edge_metric
 		std::vector<Vertex> features;
 		compute_length(edge_metric_);
 
 		Vertex center = cgogn::geometry::central_vertex<Vec3, MAP>(map_, vertex_position_);
-		cgogn::topology::TopologyAnalyser<Scalar, MAP> topo_analyser(map_, edge_metric_);
-		topo_analyser.get_filtered_features(center, scalar_field_, features);
+		cgogn::topology::FeaturesFinder<Scalar, MAP> features_finder(map_, adjacency_cache_, edge_metric_);
+		features_finder.get_filtered_features(center, scalar_field_, features);
 
 		// Build the scalar field from the selected features
-		cgogn::topology::DistanceField<Scalar, MAP> distance_field(map_,edge_metric_);
+		cgogn::topology::DistanceField<Scalar, MAP> distance_field(map_, adjacency_cache_, edge_metric_);
 		distance_field.distance_to_features(features, scalar_field_);
 
 		for (auto& s : scalar_field_) s = Scalar(1) - s;
 
-		// Draw the result
-		update_color(scalar_field_);
-		fp.draw_critical_points(map_, scalar_field_, vertex_position_);
+		update_scalar_field();
 	}
 
-	void curvature_weighted_geodesic_distance_function_2d(FeaturePoints<VEC3>& fp)
+	void curvature_weighted_geodesic_distance_function_2d()
 	{
 		// Find features for the edge_metric
 		std::vector<Vertex> features;
 		compute_curvature<MAP>(edge_metric_);
 
 		Vertex center = cgogn::geometry::central_vertex<Vec3, MAP>(map_, vertex_position_);
-		cgogn::topology::TopologyAnalyser<Scalar, MAP> topo_analyser(map_, edge_metric_);
-		topo_analyser.get_filtered_features(center, scalar_field_, features);
+		cgogn::topology::FeaturesFinder<Scalar, MAP> features_finder(map_, adjacency_cache_, edge_metric_);
+		features_finder.get_filtered_features(center, scalar_field_, features);
 
 		// Build the scalar field from the selected features
-		cgogn::topology::DistanceField<Scalar, MAP> distance_field(map_, edge_metric_);
+		cgogn::topology::DistanceField<Scalar, MAP> distance_field(map_, adjacency_cache_, edge_metric_);
 		distance_field.distance_to_features(features, scalar_field_);
 
 		for (auto& s : scalar_field_) s = Scalar(1) - s;
 
-		// Draw the result
-		update_color(scalar_field_);
-		fp.draw_critical_points(map_, scalar_field_, vertex_position_);
+		update_scalar_field();
 	}
 
-	void curvature_weighted_geodesic_distance_function_3d(FeaturePoints<VEC3>& fp)
+	void curvature_weighted_geodesic_distance_function_3d()
 	{
 		// Find features for the edge_metric
 		std::vector<Vertex> features;
 
 		Vertex center = cgogn::geometry::central_vertex<Vec3, MAP>(map_, vertex_position_);
-		cgogn::topology::TopologyAnalyser<Scalar, MAP> topo_analyser(map_);
-		topo_analyser.get_filtered_features(center, scalar_field_, features);
+		cgogn::topology::FeaturesFinder<Scalar, MAP> features_finder(map_, adjacency_cache_);
+		features_finder.get_filtered_features(center, scalar_field_, features);
 
 		// Build the scalar field from the selected features
-		cgogn::topology::DistanceField<Scalar, MAP> distance_field(map_);
+		cgogn::topology::DistanceField<Scalar, MAP> distance_field(map_, adjacency_cache_);
 		distance_field.distance_to_features(features, scalar_field_);
 
 		for (auto& s : scalar_field_) s = Scalar(1) - s;
 
-		// Draw the result
-		update_color(scalar_field_);
-		fp.draw_critical_points(map_, scalar_field_, vertex_position_);
+		update_scalar_field();
 	}
 
-	void edge_length_weighted_morse_function(FeaturePoints<VEC3>& fp)
+	void edge_length_weighted_morse_function()
 	{
 		// Find features for the edge_metric
 		std::vector<Vertex> features;
 		compute_length(edge_metric_);
 
 		Vertex center = cgogn::geometry::central_vertex<Vec3, MAP>(map_, vertex_position_);
-		cgogn::topology::TopologyAnalyser<Scalar, MAP> topo_analyser(map_, edge_metric_);
-		topo_analyser.get_filtered_features(center, scalar_field_, features);
+		cgogn::topology::FeaturesFinder<Scalar, MAP> features_finder(map_, adjacency_cache_, edge_metric_);
+		features_finder.get_filtered_features(center, scalar_field_, features);
 
 		// Build the scalar field from the selected features
-		cgogn::topology::DistanceField<Scalar, MAP> distance_field(map_, edge_metric_);
+		cgogn::topology::DistanceField<Scalar, MAP> distance_field(map_, adjacency_cache_, edge_metric_);
 		distance_field.morse_distance_to_features(features, scalar_field_);
 
-		// Draw the morse function and its critical points
-		update_color(scalar_field_);
-
-		fp.draw_critical_points(map_, scalar_field_, vertex_position_);
-
-		std::vector<Edge> ascending_1_manifold;
-		//		cgogn::topology::extract_ascending_manifold<Scalar>(map_ , scalar_field_, ascending_1_manifold);
-		//		fp.draw_edges(map_, ascending_1_manifold, vertex_position_, 1.0f, 0.5f, 0.0f);
-
-		std::vector<Edge> descending_1_manifold;
-		//		cgogn::topology::extract_descending_manifold<Scalar>(map_ , scalar_field_, descending_1_manifold);
-		//		fp.draw_edges(map_, descending_1_manifold, vertex_position_, 0.5f, 0.5f, 1.0f);
+		update_scalar_field(false, true);
 	}
 
-	void curvature_weighted_morse_function_2d(FeaturePoints<VEC3>& fp)
+	void curvature_weighted_morse_function_2d()
 	{
 		// Find features for the edge_metric
 		std::vector<Vertex> features;
 		compute_curvature<MAP>(edge_metric_);
 
 		Vertex center = cgogn::geometry::central_vertex<Vec3, MAP>(map_, vertex_position_);
-		cgogn::topology::TopologyAnalyser<Scalar, MAP> topo_analyser(map_, edge_metric_);
-		topo_analyser.get_filtered_features(center, scalar_field_, features);
+		cgogn::topology::FeaturesFinder<Scalar, MAP> features_finder(map_, adjacency_cache_, edge_metric_);
+		features_finder.get_filtered_features(center, scalar_field_, features);
 
 		// Build the scalar field from the selected features
-		cgogn::topology::DistanceField<Scalar, MAP> distance_field(map_, edge_metric_);
+		cgogn::topology::DistanceField<Scalar, MAP> distance_field(map_, adjacency_cache_, edge_metric_);
 		distance_field.morse_distance_to_features(features, scalar_field_);
 
-		// Draw the morse function and its critical points
-		update_color(scalar_field_);
-
-		fp.draw_critical_points(map_, scalar_field_, vertex_position_);
+		update_scalar_field();
 	}
 
-	void curvature_weighted_morse_function_3d(FeaturePoints<VEC3>& fp)
+	void curvature_weighted_morse_function_3d()
 	{
 		// Find features for the edge_metric
 		std::vector<Vertex> features;
 
 		Vertex center = cgogn::geometry::central_vertex<Vec3, MAP>(map_, vertex_position_);
-		cgogn::topology::TopologyAnalyser<Scalar, MAP> topo_analyser(map_, edge_metric_);
-		topo_analyser.get_filtered_features(center, scalar_field_, features);
+		cgogn::topology::FeaturesFinder<Scalar, MAP> features_finder(map_, adjacency_cache_, edge_metric_);
+		features_finder.get_filtered_features(center, scalar_field_, features);
 
 		// Build the scalar field from the selected features
-		cgogn::topology::DistanceField<Scalar, MAP> distance_field(map_);
+		cgogn::topology::DistanceField<Scalar, MAP> distance_field(map_, adjacency_cache_);
 		distance_field.morse_distance_to_features(features, scalar_field_);
 
-		// Draw the morse function and its critical points
-		update_color(scalar_field_);
-
-		fp.draw_critical_points(map_, scalar_field_, vertex_position_);
+		update_scalar_field();
 	}
 
-	void show_level_sets(FeaturePoints<VEC3>& fp,
-						 const VertexAttribute<Scalar>& scalar)
+	void show_level_sets()
 	{
-		std::vector<Edge> level_lines;
-		cgogn::topology::ScalarField<Scalar, MAP> scalar_field(map_, scalar);
-		scalar_field.extract_level_sets(level_lines);
-
-		update_color(scalar);
-		fp.draw_critical_points(map_, scalar, vertex_position_);
-		fp.draw_edges(map_, level_lines, vertex_position_, 1.0f, 1.0f, 1.0f);
+		update_scalar_field(true);
 	}
 
 	void compute_length(EdgeAttribute<Scalar>& length)
@@ -604,8 +681,6 @@ public:
 			else
 				kI[v] = (2 / M_PI) * std::atan((k1[v] + k2[v]) / (k1[v] - k2[v]));
 		});
-
-		update_color(kI);
 
 		//build a metric to feed dijkstra
 		Scalar avg_e(0);

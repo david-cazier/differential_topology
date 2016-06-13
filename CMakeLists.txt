@@ -21,16 +21,12 @@ set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
 list(APPEND CMAKE_PREFIX_PATH "${CGOGN_DEBUG_BUILD_DIR}")
 
-message(${CMAKE_PREFIX_PATH})
-
 find_package(Qt5 5.5.0 COMPONENTS Widgets REQUIRED)
 find_package(QOGLViewer REQUIRED)
 find_package(cgogn_core REQUIRED)
 find_package(cgogn_geometry REQUIRED)
 find_package(cgogn_io REQUIRED)
 find_package(cgogn_rendering REQUIRED)
-
-message(${QOGLViewer_INCLUDE_DIRS})
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC -std=c++11")
 
@@ -42,13 +38,9 @@ set(HEADER_FILES
 	cgogn/graph_render.h
 	cgogn/helper_functions.h
 
-	cgogn/differential_topology/pl_functions.h
 	cgogn/differential_topology/reeb_graph.h
 
 	gui/morse_complex.h
-#	gui/volume.h
-#	gui/surface.h
-	gui/feature_points.h
 	gui/graph.h
 	)
 
