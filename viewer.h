@@ -30,7 +30,6 @@
 #include <QKeyEvent>
 
 #include <gui/morse_complex.h>
-//#include <gui/feature_points.h>
 #include <gui/graph.h>
 
 #include <cgogn/rendering/topo_drawer.h>
@@ -92,6 +91,4 @@ private:
 	bool graph_edges_rendering_;
 
 	bool feature_points_rendering_;
-
-	float expl_;
 };

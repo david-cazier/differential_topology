@@ -516,7 +516,8 @@ public:
 		update_scalar_field();
 	}
 
-	void curvature_weighted_geodesic_distance_function_2d()
+	template <typename T, typename std::enable_if<T::DIMENSION == 2>::type* = nullptr>
+	void curvature_weighted_geodesic_distance_function()
 	{
 		// Find features for the edge_metric
 		std::vector<Vertex> features;
@@ -535,7 +536,8 @@ public:
 		update_scalar_field();
 	}
 
-	void curvature_weighted_geodesic_distance_function_3d()
+	template <typename T, typename std::enable_if<T::DIMENSION == 3>::type* = nullptr>
+	void curvature_weighted_geodesic_distance_function()
 	{
 		// Find features for the edge_metric
 		std::vector<Vertex> features;
@@ -551,6 +553,11 @@ public:
 		for (auto& s : scalar_field_) s = Scalar(1) - s;
 
 		update_scalar_field();
+	}
+
+	void curvature_weighted_geodesic_distance_function()
+	{
+		curvature_weighted_geodesic_distance_function<MAP>();
 	}
 
 	void edge_length_weighted_morse_function()
@@ -570,7 +577,8 @@ public:
 		update_scalar_field(false, true);
 	}
 
-	void curvature_weighted_morse_function_2d()
+	template <typename T, typename std::enable_if<T::DIMENSION == 2>::type* = nullptr>
+	void curvature_weighted_morse_function()
 	{
 		// Find features for the edge_metric
 		std::vector<Vertex> features;
@@ -587,7 +595,8 @@ public:
 		update_scalar_field();
 	}
 
-	void curvature_weighted_morse_function_3d()
+	template <typename T, typename std::enable_if<T::DIMENSION == 3>::type* = nullptr>
+	void curvature_weighted_morse_function()
 	{
 		// Find features for the edge_metric
 		std::vector<Vertex> features;
@@ -601,6 +610,11 @@ public:
 		distance_field.morse_distance_to_features(features, scalar_field_);
 
 		update_scalar_field();
+	}
+
+	void curvature_weighted_morse_function()
+	{
+		curvature_weighted_morse_function<MAP>();
 	}
 
 	void show_level_sets()

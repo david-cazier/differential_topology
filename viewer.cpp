@@ -41,8 +41,7 @@ Viewer::Viewer() :
 	topo_rendering_(false),
 	graph_vertices_rendering_(false),
 	graph_edges_rendering_(false),
-	feature_points_rendering_(true),
-	expl_(0.8f)
+    feature_points_rendering_(true)
 {}
 
 Viewer::~Viewer()
@@ -156,12 +155,6 @@ void Viewer::keyPressEvent(QKeyEvent *e)
 		case Qt::Key_T:
 			topo_rendering_ = !topo_rendering_;
 			break;
-		case Qt::Key_Plus:
-			expl_ += 0.05f;
-			break;
-		case Qt::Key_Minus:
-			expl_ -= 0.05f;
-			break;
 		case Qt::Key_0:
 		{
 			if (dimension_ == 2u)
@@ -189,9 +182,9 @@ void Viewer::keyPressEvent(QKeyEvent *e)
 		case Qt::Key_3:
 		{
 			if (dimension_ == 2u)
-				surface_.curvature_weighted_geodesic_distance_function_2d();
+				surface_.curvature_weighted_geodesic_distance_function<CMap2>();
 			else
-				volume_.curvature_weighted_geodesic_distance_function_3d();
+				volume_.curvature_weighted_geodesic_distance_function<CMap3>();
 			break;
 		}
 		case Qt::Key_4:
@@ -205,9 +198,9 @@ void Viewer::keyPressEvent(QKeyEvent *e)
 		case Qt::Key_5:
 		{
 			if (dimension_ == 2u)
-				surface_.curvature_weighted_morse_function_2d();
+				surface_.curvature_weighted_morse_function<CMap2>();
 			else
-				volume_.curvature_weighted_morse_function_3d();
+				volume_.curvature_weighted_morse_function<CMap3>();
 			break;
 		}
 		case Qt::Key_6:
