@@ -81,26 +81,19 @@ public:
 		map_(),
 		adjacency_cache_(map_),
 		vertex_position_(),
-		vertex_normal_(),
-		vertex_color_(),
 		scalar_field_(),
 		edge_metric_(),
 		bb_(),
-		volume_drawer_(nullptr),
-		volume_renderer_(nullptr),
-		surface_render_(nullptr),
+		map_render_(nullptr),
 		vbo_pos_(nullptr),
 		vbo_color_(nullptr),
 		vbo_scalar_(nullptr),
 		vbo_sphere_sz_(nullptr),
 		level_line_drawer_(nullptr),
 		level_line_renderer_(nullptr),
-		topo_drawer_(nullptr),
-		topo_renderer_(nullptr),
 		map_rendering_(true),
 		vertices_rendering_(false),
 		edge_rendering_(false),
-		topo_rendering_(false),
 		feature_points_rendering_(true)
 	{}
 
@@ -109,8 +102,7 @@ public:
 
 	virtual ~TopologicalAnalyser()
 	{
-		volume_drawer_.reset();
-		surface_render_.reset();
+		map_render_.reset();
 		features_drawer_.reset();
 		vbo_pos_.reset();
 		vbo_color_.reset();
@@ -122,66 +114,39 @@ public:
 	{
 		glClearColor(0.1f,0.1f,0.3f,0.0f);
 
-		if (dimension_ == 2)
-		{
-			vbo_pos_ = cgogn::make_unique<cgogn::rendering::VBO>(3);
-			cgogn::rendering::update_vbo(vertex_position_, vbo_pos_.get());
+		vbo_pos_ = cgogn::make_unique<cgogn::rendering::VBO>(3);
+		update_geometry();
 
-			vbo_color_ = cgogn::make_unique<cgogn::rendering::VBO>(3);
-			cgogn::rendering::update_vbo(scalar_field_, vbo_color_.get(), [] (double s) -> std::array<float,3>
-			{
-				return {float(s), float(s), float(s)};
-			});
+		vbo_color_ = cgogn::make_unique<cgogn::rendering::VBO>(3);
+		vbo_scalar_ = cgogn::make_unique<cgogn::rendering::VBO>(1);
+		vbo_sphere_sz_ = cgogn::make_unique<cgogn::rendering::VBO>(1);
+		update_color();
 
-			vbo_scalar_ = cgogn::make_unique<cgogn::rendering::VBO>(1);
-			cgogn::rendering::update_vbo(scalar_field_, vbo_scalar_.get());
+		map_render_ = cgogn::make_unique<cgogn::rendering::MapRender>();
+		update_topology();
 
-			// fill a sphere size vbo
-			vbo_sphere_sz_ = cgogn::make_unique<cgogn::rendering::VBO>(1);
-			cgogn::rendering::update_vbo(scalar_field_, vbo_sphere_sz_.get(),[&] (double s) -> float
-			{
-				return bb_.max_size()/1000.0f * (2.0 + s);
-			});
+		param_point_sprite_ = cgogn::rendering::ShaderPointSprite::generate_param();
+		param_point_sprite_->color_  = QColor(255,0,0);
+		param_point_sprite_->size_ = 2.0f;
+		param_point_sprite_->set_position_vbo(vbo_pos_.get());
 
-			surface_render_ = cgogn::make_unique<cgogn::rendering::MapRender>();
-			surface_render_->init_primitives<Vec3>(map_, cgogn::rendering::POINTS);
-			surface_render_->init_primitives<Vec3>(map_, cgogn::rendering::LINES);
-			surface_render_->init_primitives<Vec3>(map_, cgogn::rendering::TRIANGLES, &vertex_position_);
+		param_edge_ = cgogn::rendering::ShaderBoldLine::generate_param();
+		param_edge_->color_ = QColor(10,10,80);
+		param_edge_->width_= 1.5f;
+		param_edge_->set_position_vbo(vbo_pos_.get());
 
-			param_point_sprite_ = cgogn::rendering::ShaderPointSpriteColorSize::generate_param();
-			param_point_sprite_->set_all_vbos(vbo_pos_.get(),vbo_color_.get(),vbo_sphere_sz_.get());
-
-			param_edge_ = cgogn::rendering::ShaderBoldLine::generate_param();
-			param_edge_->color_ = QColor(10,10,40);
-			param_edge_->width_= 1.5f;
-			param_edge_->set_position_vbo(vbo_pos_.get());
-
-			param_scalar_ = cgogn::rendering::ShaderScalarPerVertex::generate_param();
-			param_scalar_->color_map_ = cgogn::rendering::ShaderScalarPerVertex::ColorMap::BGR;
-			param_scalar_->show_iso_lines_ = true;
-			param_scalar_->min_value_ = 0.0f;
-			param_scalar_->max_value_ = 0.0f;
-			param_scalar_->set_all_vbos(vbo_pos_.get(), vbo_scalar_.get());
-		}
-		else if (dimension_ == 3u)
-		{
-			volume_drawer_ = cgogn::make_unique<cgogn::rendering::VolumeDrawerColor>();
-			volume_drawer_->update_face<Vec3>(map_, vertex_position_, vertex_color_);
-			volume_drawer_->update_edge<Vec3>(map_, vertex_position_);
-			volume_renderer_ = volume_drawer_->generate_renderer();
-		}
+		param_scalar_ = cgogn::rendering::ShaderScalarPerVertex::generate_param();
+		param_scalar_->color_map_ = cgogn::rendering::ShaderScalarPerVertex::ColorMap::BGR;
+		param_scalar_->show_iso_lines_ = true;
+		param_scalar_->min_value_ = 0.0f;
+		param_scalar_->max_value_ = 0.0f;
+		param_scalar_->set_all_vbos(vbo_pos_.get(), vbo_scalar_.get());
 
 		features_drawer_ = cgogn::make_unique<cgogn::rendering::DisplayListDrawer>();
 		features_renderer_ = features_drawer_->generate_renderer();
 
-		// drawer for simple old-school g1 rendering
 		level_line_drawer_ = cgogn::make_unique<cgogn::rendering::DisplayListDrawer>();
 		level_line_renderer_ = level_line_drawer_->generate_renderer();
-
-		topo_drawer_ = cgogn::make_unique<cgogn::rendering::TopoDrawer>();
-		topo_renderer_ = topo_drawer_->generate_renderer();
-
-		topo_drawer_->update<Vec3>(map_, vertex_position_);
 	}
 
 	virtual void draw()
@@ -195,91 +160,63 @@ public:
 		glPolygonOffset(1.0f, 2.0f);
 		if (map_rendering_)
 		{
-			if (dimension_ == 2u)
-			{
-				param_scalar_->bind(proj,view);
-				surface_render_->draw(cgogn::rendering::TRIANGLES);
-				param_scalar_->release();
-			}
-			else if (dimension_ == 3u)
-			{
-				volume_renderer_->set_explode_volume(1.0f);
-				volume_renderer_->draw_faces(proj, view, this);
-			}
+			param_scalar_->bind(proj,view);
+			map_render_->draw(cgogn::rendering::TRIANGLES);
+			param_scalar_->release();
 		}
 		glDisable(GL_POLYGON_OFFSET_FILL);
 
 		if (vertices_rendering_)
 		{
-			if (dimension_ == 2u)
-			{
-				param_point_sprite_->bind(proj,view);
-				surface_render_->draw(cgogn::rendering::POINTS);
-				param_point_sprite_->release();
-			}
+			param_point_sprite_->bind(proj,view);
+			map_render_->draw(cgogn::rendering::POINTS);
+			param_point_sprite_->release();
+		}
+
+		if (edge_rendering_)
+		{
+			param_edge_->bind(proj,view);
+			glEnable(GL_BLEND);
+			glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+			map_render_->draw(cgogn::rendering::LINES);
+			glDisable(GL_BLEND);
+			param_edge_->release();
 		}
 
 		if(feature_points_rendering_)
 			features_renderer_->draw(proj, view, this);
-
-		if(topo_rendering_)
-			topo_renderer_->draw(proj, view, this);
-
-		if (edge_rendering_)
-		{
-			if (dimension_ == 2u)
-			{
-				param_edge_->bind(proj,view);
-				glEnable(GL_BLEND);
-				glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-				surface_render_->draw(cgogn::rendering::LINES);
-				glDisable(GL_BLEND);
-				param_edge_->release();
-			}
-			else if (dimension_ == 3u)
-			{
-				volume_renderer_->draw_edges(proj, view, this);
-			}
-		}
-	}
-
-	template <typename T, typename std::enable_if<T::DIMENSION == 2>::type* = nullptr>
-	void update_geometry_concrete()
-	{
-		cgogn::rendering::update_vbo(vertex_position_, vbo_pos_.get());
-	}
-
-	template <typename T, typename std::enable_if<T::DIMENSION == 3>::type* = nullptr>
-	void update_geometry_concrete()
-	{
-		volume_drawer_->update_face<Vec3>(map_, vertex_position_, vertex_color_);
-		volume_drawer_->update_edge<Vec3>(map_, vertex_position_);
 	}
 
 	void update_geometry()
 	{
-		update_geometry_concrete<MAP>();
+		cgogn::rendering::update_vbo(vertex_position_, vbo_pos_.get());
 	}
 
 	void update_topology()
 	{
-		if (dimension_ == 2u)
+		map_render_->init_primitives<Vec3>(map_, cgogn::rendering::POINTS);
+		map_render_->init_primitives<Vec3>(map_, cgogn::rendering::LINES);
+		map_render_->init_primitives<Vec3>(map_, cgogn::rendering::TRIANGLES, &vertex_position_);
+	}
+
+	void update_color()
+	{
+		cgogn::rendering::update_vbo(scalar_field_, vbo_scalar_.get());
+		cgogn::rendering::update_vbo(scalar_field_, vbo_color_.get(), [] (double s) -> std::array<float,3>
 		{
-			surface_render_->init_primitives<Vec3>(map_, cgogn::rendering::POINTS);
-			surface_render_->init_primitives<Vec3>(map_, cgogn::rendering::LINES);
-			surface_render_->init_primitives<Vec3>(map_, cgogn::rendering::TRIANGLES);
-		}
-		else if (dimension_ == 3u)
+			return {float(s), float(s), float(s)};
+		});
+		cgogn::rendering::update_vbo(scalar_field_, vbo_sphere_sz_.get(),[&] (double s) -> float
 		{
-			volume_drawer_->update_face<Vec3>(map_, vertex_position_, vertex_color_);
-			volume_drawer_->update_edge<Vec3>(map_, vertex_position_);
-		}
-		else
-			cgogn_log_warning("update_topology") << "invalid dimension";
+			return bb_.max_size()/1000.0f * (2.0 + s);
+		});
+
 	}
 
 	void update_scalar_field(bool level_sets = false, bool morse_complex = false)
 	{
+		update_color();
+
 		// Search the maximal and minimal value of the scalar field
 		Scalar min = std::numeric_limits<Scalar>::max();
 		Scalar max = std::numeric_limits<Scalar>::min();
@@ -290,32 +227,8 @@ public:
 		}
 
 		// Update the surface or volume rendering
-		if (dimension_ == 2u)
-		{
-			param_scalar_->min_value_ = min;
-			param_scalar_->max_value_ = max;
-			cgogn::rendering::update_vbo(scalar_field_, vbo_scalar_.get());
-			cgogn::rendering::update_vbo(scalar_field_, vbo_color_.get(), [] (double s) -> std::array<float,3>
-			{
-				return {float(s), float(s), float(s)};
-			});
-			cgogn::rendering::update_vbo(scalar_field_, vbo_sphere_sz_.get(),[&] (double s) -> float
-			{
-				return bb_.max_size()/1000.0f * (2.0 + s);
-			});
-		}
-		else if (dimension_ == 3u)
-		{
-			map_.foreach_cell([&](Vertex v)
-			{
-				std::array<float,3> color = cgogn::color_map_blue_green_red(
-							cgogn::numerics::scale_to_0_1(scalar_field_[v], min, max));
-				vertex_color_[v] = Vec3(color[0], color[1], color[2]);
-			});
-			volume_drawer_->update_face<Vec3>(map_, vertex_position_, vertex_color_);
-		}
-		else
-			cgogn_log_warning("draw_flat") << "invalid dimension";
+		param_scalar_->min_value_ = min;
+		param_scalar_->max_value_ = max;
 
 		features_drawer_->new_list();
 
@@ -411,9 +324,6 @@ public:
 			case Qt::Key_A:
 				feature_points_rendering_ = !feature_points_rendering_;
 				break;
-			case Qt::Key_T:
-				topo_rendering_ = !topo_rendering_;
-				break;
 			case Qt::Key_0:
 			{
 				if (dimension_ == 2u)
@@ -459,45 +369,37 @@ public:
 
 	virtual void closeEvent(QCloseEvent*)
 	{
-		topo_drawer_.reset();
-		topo_renderer_.reset();
 	}
 
 	template <typename T, typename std::enable_if<T::DIMENSION == 2>::type* = nullptr>
 	void import_concrete(const std::string& filename)
 	{
 		cgogn::io::import_surface<Vec3>(map_, filename);
-		vertex_position_ = map_.template get_attribute<Vec3, Vertex::ORBIT>("position");
-		if (!vertex_position_.is_valid())
-		{
-			cgogn_log_error("import") << "Missing attribute position. Aborting.";
-			std::exit(EXIT_FAILURE);
-		}
-		vertex_normal_ = map_.template add_attribute<Vec3, Vertex::ORBIT>("normal");
-
-		cgogn::geometry::compute_normal<Vec3>(map_, vertex_position_, vertex_normal_);
 	}
 
 	template <typename T, typename std::enable_if<T::DIMENSION == 3>::type* = nullptr>
 	void import_concrete(const std::string& filename)
 	{
 		cgogn::io::import_volume<Vec3>(map_, filename);
-		vertex_position_ = map_.template get_attribute<Vec3, Vertex::ORBIT>("position");
-		vertex_color_ = map_.template add_attribute<Vec3, Vertex::ORBIT>("color");
-
-		map_.foreach_cell([&](Vertex v)
-		{
-			vertex_color_[v] = vertex_position_[v];
-		});
 	}
 
 	void import(const std::string& filename)
 	{
 		import_concrete<MAP>(filename);
+
+		vertex_position_ = map_.template get_attribute<Vec3, Vertex::ORBIT>("position");
+		if (!vertex_position_.is_valid())
+		{
+			cgogn_log_error("import") << "Missing attribute position. Aborting.";
+			std::exit(EXIT_FAILURE);
+		}
+
 		adjacency_cache_.init();
 		scalar_field_ = map_.template add_attribute<Scalar, Vertex::ORBIT>("scalar_field_");
 		edge_metric_ = map_.template add_attribute<Scalar, Edge::ORBIT>("edge_metric");
 		cgogn::geometry::compute_AABB(vertex_position_, bb_);
+
+		height_function();
 
 		setSceneRadius(bb_.diag_size()/2.0);
 		Vec3 center = bb_.center();
@@ -701,6 +603,7 @@ public:
 
 		VertexAttribute<Scalar> kmax = map_.template add_attribute<Scalar, Vertex::ORBIT>("kmax");
 		VertexAttribute<Scalar> kmin = map_.template add_attribute<Scalar, Vertex::ORBIT>("kmin");
+		VertexAttribute<Vec3> vertex_normal = map_.template add_attribute<Vec3, Vertex::ORBIT>("vertex_normal");
 		VertexAttribute<Vec3> Kmax = map_.template add_attribute<Vec3, Vertex::ORBIT>("Kmax");
 		VertexAttribute<Vec3> Kmin = map_.template add_attribute<Vec3, Vertex::ORBIT>("Kmin");
 		VertexAttribute<Vec3> knormal = map_.template add_attribute<Vec3, Vertex::ORBIT>("knormal");
@@ -714,7 +617,7 @@ public:
 
 		Scalar radius = Scalar(2.0) * meanEdgeLength;
 
-		cgogn::geometry::compute_curvature<Vec3>(map_,radius, vertex_position_, vertex_normal_,edgeangle,edgeaera,kmax,kmin,Kmax,Kmin,knormal);
+		cgogn::geometry::compute_curvature<Vec3>(map_,radius, vertex_position_, vertex_normal, edgeangle,edgeaera,kmax,kmin,Kmax,Kmin,knormal);
 
 		//compute kmean
 		VertexAttribute<Scalar> kmean = map_.template add_attribute<Scalar, Vertex::ORBIT>("kmean");
@@ -788,6 +691,7 @@ public:
 		map_.remove_attribute(edgeaera);
 		map_.remove_attribute(kmax);
 		map_.remove_attribute(kmin);
+		map_.remove_attribute(vertex_normal);
 		map_.remove_attribute(Kmax);
 		map_.remove_attribute(Kmin);
 		map_.remove_attribute(knormal);
@@ -806,18 +710,18 @@ private:
 	cgogn::topology::AdjacencyCache<MAP> adjacency_cache_;
 
 	VertexAttribute<Vec3> vertex_position_;
-	VertexAttribute<Vec3> vertex_normal_;
-	VertexAttribute<Vec3> vertex_color_;
 	VertexAttribute<Scalar> scalar_field_;
 
 	EdgeAttribute<Scalar> edge_metric_;
 
 	cgogn::geometry::AABB<Vec3> bb_;
 
-	std::unique_ptr<cgogn::rendering::VolumeDrawerColor> volume_drawer_;
-	std::unique_ptr<cgogn::rendering::VolumeDrawerColor::Renderer> volume_renderer_;
+	std::unique_ptr<cgogn::rendering::VBO> vbo_pos_;
+	std::unique_ptr<cgogn::rendering::VBO> vbo_color_;
+	std::unique_ptr<cgogn::rendering::VBO> vbo_scalar_;
+	std::unique_ptr<cgogn::rendering::VBO> vbo_sphere_sz_;
 
-	std::unique_ptr<cgogn::rendering::MapRender> surface_render_;
+	std::unique_ptr<cgogn::rendering::MapRender> map_render_;
 
 	std::unique_ptr<cgogn::rendering::DisplayListDrawer> features_drawer_;
 	std::unique_ptr<cgogn::rendering::DisplayListDrawer::Renderer> features_renderer_;
@@ -825,21 +729,12 @@ private:
 	std::unique_ptr<cgogn::rendering::DisplayListDrawer> level_line_drawer_;
 	std::unique_ptr<cgogn::rendering::DisplayListDrawer::Renderer> level_line_renderer_;
 
-	std::unique_ptr<cgogn::rendering::TopoDrawer> topo_drawer_;
-	std::unique_ptr<cgogn::rendering::TopoDrawer::Renderer> topo_renderer_;
-
-	std::unique_ptr<cgogn::rendering::VBO> vbo_pos_;
-	std::unique_ptr<cgogn::rendering::VBO> vbo_color_;
-	std::unique_ptr<cgogn::rendering::VBO> vbo_scalar_;
-	std::unique_ptr<cgogn::rendering::VBO> vbo_sphere_sz_;
-
 	std::unique_ptr<cgogn::rendering::ShaderBoldLine::Param> param_edge_;
 	std::unique_ptr<cgogn::rendering::ShaderScalarPerVertex::Param> param_scalar_;
-	std::unique_ptr<cgogn::rendering::ShaderPointSpriteColorSize::Param> param_point_sprite_;
+	std::unique_ptr<cgogn::rendering::ShaderPointSprite::Param> param_point_sprite_;
 
 	bool map_rendering_;
 	bool vertices_rendering_;
 	bool edge_rendering_;
-	bool topo_rendering_;
 	bool feature_points_rendering_;
 };
