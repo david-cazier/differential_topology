@@ -86,14 +86,13 @@ public:
 		bb_(),
 		map_render_(nullptr),
 		vbo_pos_(nullptr),
-		vbo_color_(nullptr),
 		vbo_scalar_(nullptr),
-		vbo_sphere_sz_(nullptr),
 		level_line_drawer_(nullptr),
 		level_line_renderer_(nullptr),
+		first_drawing_(true),
 		map_rendering_(true),
 		vertices_rendering_(false),
-		edge_rendering_(false),
+		edge_rendering_(true),
 		feature_points_rendering_(true)
 	{}
 
@@ -105,9 +104,7 @@ public:
 		map_render_.reset();
 		features_drawer_.reset();
 		vbo_pos_.reset();
-		vbo_color_.reset();
 		vbo_scalar_.reset();
-		vbo_sphere_sz_.reset();
 	}
 
 	virtual void init()
@@ -116,14 +113,6 @@ public:
 
 		vbo_pos_ = cgogn::make_unique<cgogn::rendering::VBO>(3);
 		update_geometry();
-
-		vbo_color_ = cgogn::make_unique<cgogn::rendering::VBO>(3);
-		vbo_scalar_ = cgogn::make_unique<cgogn::rendering::VBO>(1);
-		vbo_sphere_sz_ = cgogn::make_unique<cgogn::rendering::VBO>(1);
-		update_color();
-
-		map_render_ = cgogn::make_unique<cgogn::rendering::MapRender>();
-		update_topology();
 
 		param_point_sprite_ = cgogn::rendering::ShaderPointSprite::generate_param();
 		param_point_sprite_->color_  = QColor(255,0,0);
@@ -135,12 +124,19 @@ public:
 		param_edge_->width_= 1.5f;
 		param_edge_->set_position_vbo(vbo_pos_.get());
 
+		vbo_scalar_ = cgogn::make_unique<cgogn::rendering::VBO>(1);
+		cgogn::rendering::update_vbo(scalar_field_, vbo_scalar_.get());
+
 		param_scalar_ = cgogn::rendering::ShaderScalarPerVertex::generate_param();
 		param_scalar_->color_map_ = cgogn::rendering::ShaderScalarPerVertex::ColorMap::BGR;
 		param_scalar_->show_iso_lines_ = true;
 		param_scalar_->min_value_ = 0.0f;
 		param_scalar_->max_value_ = 0.0f;
 		param_scalar_->set_all_vbos(vbo_pos_.get(), vbo_scalar_.get());
+		update_color();
+
+		map_render_ = cgogn::make_unique<cgogn::rendering::MapRender>();
+		update_topology();
 
 		features_drawer_ = cgogn::make_unique<cgogn::rendering::DisplayListDrawer>();
 		features_renderer_ = features_drawer_->generate_renderer();
@@ -151,6 +147,12 @@ public:
 
 	virtual void draw()
 	{
+		if (first_drawing_)
+		{
+			first_drawing_ = false;
+			height_function();
+		}
+
 		QMatrix4x4 proj;
 		QMatrix4x4 view;
 		camera()->getProjectionMatrix(proj);
@@ -201,22 +203,6 @@ public:
 
 	void update_color()
 	{
-		cgogn::rendering::update_vbo(scalar_field_, vbo_scalar_.get());
-		cgogn::rendering::update_vbo(scalar_field_, vbo_color_.get(), [] (double s) -> std::array<float,3>
-		{
-			return {float(s), float(s), float(s)};
-		});
-		cgogn::rendering::update_vbo(scalar_field_, vbo_sphere_sz_.get(),[&] (double s) -> float
-		{
-			return bb_.max_size()/1000.0f * (2.0 + s);
-		});
-
-	}
-
-	void update_scalar_field(bool level_sets = false, bool morse_complex = false)
-	{
-		update_color();
-
 		// Search the maximal and minimal value of the scalar field
 		Scalar min = std::numeric_limits<Scalar>::max();
 		Scalar max = std::numeric_limits<Scalar>::min();
@@ -225,10 +211,60 @@ public:
 			min = std::min(min, v);
 			max = std::max(max, v);
 		}
+		// Update the shader parameters
+		param_scalar_->min_value_ = float(min);
+		param_scalar_->max_value_ = float(max);
 
-		// Update the surface or volume rendering
-		param_scalar_->min_value_ = min;
-		param_scalar_->max_value_ = max;
+		// Update de VBO
+		cgogn::rendering::update_vbo(scalar_field_, vbo_scalar_.get());
+	}
+
+	void draw_segments(const std::vector<Edge>& edges, float r, float g, float b)
+	{
+		float width = 10.0f * float(bb_.max_size())/50.0f;
+		features_drawer_->line_width(width);
+		features_drawer_->begin(GL_LINES);
+		features_drawer_->color3f(r, g, b);
+
+		for (auto& e: edges) {
+			features_drawer_->vertex3fv(vertex_position_[Vertex(e.dart)]);
+			features_drawer_->vertex3fv(vertex_position_[Vertex(map_.phi1(e.dart))]);
+		}
+		features_drawer_->end();
+	}
+
+	void draw_vertices(const std::vector<Vertex>& vertices,
+					   float r, float g, float b, float ratio, int shift=0)
+	{
+		Scalar radius = ratio*bb_.max_size()/50.0f;
+		features_drawer_->ball_size(radius);
+		features_drawer_->begin(GL_POINTS);
+		features_drawer_->color3f(r, g, b);
+
+		for (auto& v: vertices) {
+			switch(shift) {
+				case 0 :
+					features_drawer_->vertex3fv(vertex_position_[v]);
+					break;
+				case 1 :
+					features_drawer_->vertex3fv(vertex_position_[v]+Vec3(radius/Scalar(2),-radius/Scalar(2),Scalar(0)));
+					break;
+				case 2 :
+					features_drawer_->vertex3fv(vertex_position_[v]+Vec3(-radius/Scalar(2),radius/Scalar(2),Scalar(0)));
+					break;
+				case 3 :
+					features_drawer_->vertex3fv(vertex_position_[v]+Vec3(radius/Scalar(2),radius/Scalar(2),Scalar(0)));
+					break;
+				default:
+					break;
+			}
+		}
+		features_drawer_->end();
+	}
+
+	void draw_scalar_field(bool level_sets = false, bool morse_complex = false)
+	{
+		update_color();
 
 		features_drawer_->new_list();
 
@@ -247,7 +283,7 @@ public:
 		{
 			std::vector<Edge> level_lines;
 			scalar_field.extract_level_sets(level_lines);
-			draw_edges(level_lines, 1.0f, 1.0f, 1.0f);
+			draw_segments(level_lines, 1.0f, 1.0f, 1.0f);
 		}
 
 		// Draw the ascending and descending manyfold of the morse complex
@@ -255,58 +291,13 @@ public:
 		{
 			std::vector<Edge> morse_lines;
 			scalar_field.extract_descending_manifold(morse_lines);
-			draw_edges(morse_lines, 0.5f, 0.5f, 1.0f);
+			draw_segments(morse_lines, 0.5f, 0.5f, 1.0f);
 			morse_lines.clear();
 			scalar_field.extract_ascending_manifold(morse_lines);
-			draw_edges(morse_lines, 1.0f, 0.5f, 0.0f);
+			draw_segments(morse_lines, 1.0f, 0.5f, 0.0f);
 		}
 
 		features_drawer_->end_list();
-	}
-
-	void draw_edges(const std::vector<Edge>& edges,
-					float r, float g, float b)
-	{
-		Scalar width = 10.0f * bb_.max_size()/50.0f;
-		if (!edges.empty()) {
-			features_drawer_->line_width(width);
-			features_drawer_->begin(GL_LINES);
-			features_drawer_->color3f(r, g, b);
-
-			for (auto& e: edges) {
-				features_drawer_->vertex3fv(vertex_position_[Vertex(e.dart)]);
-				features_drawer_->vertex3fv(vertex_position_[Vertex(map_.phi1(e.dart))]);
-			}
-			features_drawer_->end();
-		}
-	}
-
-	void draw_vertices(const std::vector<Vertex>& vertices,
-					   float r, float g, float b, float ratio, int shift=0)
-	{
-		Scalar radius = ratio*bb_.max_size()/50.0f;
-		if (!vertices.empty()) {
-			features_drawer_->ball_size(radius);
-			features_drawer_->begin(GL_POINTS);
-			features_drawer_->color3f(r, g, b);
-
-			for (auto& v: vertices) {
-				switch(shift) {
-					case  1 :
-						features_drawer_->vertex3fv(vertex_position_[v]+Vec3(radius/Scalar(2),-radius/Scalar(2),Scalar(0)));
-						break;
-					case  2 :
-						features_drawer_->vertex3fv(vertex_position_[v]+Vec3(-radius/Scalar(2),radius/Scalar(2),Scalar(0)));
-						break;
-					case  3 :
-						features_drawer_->vertex3fv(vertex_position_[v]+Vec3(radius/Scalar(2),radius/Scalar(2),Scalar(0)));
-						break;
-					default :
-						features_drawer_->vertex3fv(vertex_position_[v]);
-				}
-			}
-			features_drawer_->end();
-		}
 	}
 
 	virtual void keyPressEvent(QKeyEvent *e)
@@ -374,18 +365,22 @@ public:
 	template <typename T, typename std::enable_if<T::DIMENSION == 2>::type* = nullptr>
 	void import_concrete(const std::string& filename)
 	{
+		cgogn_log_info("import") << "2D.";
 		cgogn::io::import_surface<Vec3>(map_, filename);
 	}
 
 	template <typename T, typename std::enable_if<T::DIMENSION == 3>::type* = nullptr>
 	void import_concrete(const std::string& filename)
 	{
+		cgogn_log_info("import") << "3D.";
 		cgogn::io::import_volume<Vec3>(map_, filename);
 	}
 
 	void import(const std::string& filename)
 	{
+		cgogn_log_info("import") << "Begin.";
 		import_concrete<MAP>(filename);
+		cgogn_log_info("import") << "End.";
 
 		vertex_position_ = map_.template get_attribute<Vec3, Vertex::ORBIT>("position");
 		if (!vertex_position_.is_valid())
@@ -398,8 +393,6 @@ public:
 		scalar_field_ = map_.template add_attribute<Scalar, Vertex::ORBIT>("scalar_field_");
 		edge_metric_ = map_.template add_attribute<Scalar, Edge::ORBIT>("edge_metric");
 		cgogn::geometry::compute_AABB(vertex_position_, bb_);
-
-		height_function();
 
 		setSceneRadius(bb_.diag_size()/2.0);
 		Vec3 center = bb_.center();
@@ -414,7 +407,7 @@ public:
 			scalar_field_[v] = vertex_position_[v][0];
 		});
 
-		update_scalar_field();
+		draw_scalar_field();
 	}
 
 	void distance_to_boundary_function()
@@ -445,7 +438,7 @@ public:
 
 		for (auto& s : scalar_field_) s = Scalar(1) - s;
 
-		update_scalar_field(false, true);
+		draw_scalar_field(false, true);
 
 		map_.remove_attribute(features_field);
 		map_.remove_attribute(boundary_field);
@@ -458,7 +451,7 @@ public:
 		cgogn::topology::DistanceField<Scalar, MAP> distance_field(map_, adjacency_cache_, edge_metric_);
 		distance_field.distance_to_center(vertex_position_, scalar_field_);
 
-		update_scalar_field();
+		draw_scalar_field();
 	}
 
 	void edge_length_weighted_geodesic_distance_function()
@@ -477,7 +470,7 @@ public:
 
 		for (auto& s : scalar_field_) s = Scalar(1) - s;
 
-		update_scalar_field();
+		draw_scalar_field();
 	}
 
 	template <typename T, typename std::enable_if<T::DIMENSION == 2>::type* = nullptr>
@@ -497,7 +490,7 @@ public:
 
 		for (auto& s : scalar_field_) s = Scalar(1) - s;
 
-		update_scalar_field();
+		draw_scalar_field();
 	}
 
 	template <typename T, typename std::enable_if<T::DIMENSION == 3>::type* = nullptr>
@@ -516,7 +509,7 @@ public:
 
 		for (auto& s : scalar_field_) s = Scalar(1) - s;
 
-		update_scalar_field();
+		draw_scalar_field();
 	}
 
 	void curvature_weighted_geodesic_distance_function()
@@ -538,7 +531,7 @@ public:
 		cgogn::topology::DistanceField<Scalar, MAP> distance_field(map_, adjacency_cache_, edge_metric_);
 		distance_field.morse_distance_to_features(features, scalar_field_);
 
-		update_scalar_field(false, true);
+		draw_scalar_field(false, true);
 	}
 
 	template <typename T, typename std::enable_if<T::DIMENSION == 2>::type* = nullptr>
@@ -556,7 +549,7 @@ public:
 		cgogn::topology::DistanceField<Scalar, MAP> distance_field(map_, adjacency_cache_, edge_metric_);
 		distance_field.morse_distance_to_features(features, scalar_field_);
 
-		update_scalar_field();
+		draw_scalar_field();
 	}
 
 	template <typename T, typename std::enable_if<T::DIMENSION == 3>::type* = nullptr>
@@ -573,7 +566,7 @@ public:
 		cgogn::topology::DistanceField<Scalar, MAP> distance_field(map_, adjacency_cache_);
 		distance_field.morse_distance_to_features(features, scalar_field_);
 
-		update_scalar_field();
+		draw_scalar_field();
 	}
 
 	void curvature_weighted_morse_function()
@@ -583,7 +576,7 @@ public:
 
 	void show_level_sets()
 	{
-		update_scalar_field(true);
+		draw_scalar_field(true);
 	}
 
 	void compute_length(EdgeAttribute<Scalar>& length)
@@ -717,9 +710,7 @@ private:
 	cgogn::geometry::AABB<Vec3> bb_;
 
 	std::unique_ptr<cgogn::rendering::VBO> vbo_pos_;
-	std::unique_ptr<cgogn::rendering::VBO> vbo_color_;
 	std::unique_ptr<cgogn::rendering::VBO> vbo_scalar_;
-	std::unique_ptr<cgogn::rendering::VBO> vbo_sphere_sz_;
 
 	std::unique_ptr<cgogn::rendering::MapRender> map_render_;
 
@@ -730,9 +721,10 @@ private:
 	std::unique_ptr<cgogn::rendering::DisplayListDrawer::Renderer> level_line_renderer_;
 
 	std::unique_ptr<cgogn::rendering::ShaderBoldLine::Param> param_edge_;
-	std::unique_ptr<cgogn::rendering::ShaderScalarPerVertex::Param> param_scalar_;
 	std::unique_ptr<cgogn::rendering::ShaderPointSprite::Param> param_point_sprite_;
+	std::unique_ptr<cgogn::rendering::ShaderScalarPerVertex::Param> param_scalar_;
 
+	bool first_drawing_;
 	bool map_rendering_;
 	bool vertices_rendering_;
 	bool edge_rendering_;
