@@ -21,67 +21,31 @@
 *                                                                              *
 *******************************************************************************/
 
-#ifndef SELECTION_COLLECTOR_CRITERION_H_
-#define SELECTION_COLLECTOR_CRITERION_H_
+#include "topogical_analysis.h"
 
-#include <cgogn/core/basic/dart.h>
+using CMap3 = cgogn::CMap3<cgogn::DefaultMapTraits>;
 
-namespace cgogn
+int main(int argc, char** argv)
 {
-
-namespace selection
-{
-
-class CollectorCriterion
-{
-public:
-	CollectorCriterion() {}
-	virtual ~CollectorCriterion() {}
-	virtual void init(Dart center) = 0;
-	virtual bool is_inside(Dart d) = 0;
-};
-
-// tests if the distance between vertices is below some threshold
-template <typename VEC3, typename MAP>
-class CollectorCriterion_VertexWithinSphere : public CollectorCriterion
-{
-	using Vertex = typename MAP::Vertex;
-	using Edge = typename MAP::Edge;
-	using Face = typename MAP::Face;
-
-	template <typename T>
-	using VertexAttribute = typename MAP::template VertexAttribute<T>;
-	template <typename T>
-	using EdgeAttribute = typename MAP::template EdgeAttribute<T>;
-
-	using Scalar = typename VEC3::Scalar;
-
-private:
-	const VertexAttribute<VEC3>& vertexPositions;
-	Scalar threshold;
-
-public:
-	VEC3 centerPosition;
-
-public:
-	CollectorCriterion_VertexWithinSphere(const VertexAttribute<VEC3>& p, Scalar th) :
-		vertexPositions(p), threshold(th)//, centerPosition(0)
-	{}
-
-	void init(Dart center)
+	std::string filename;
+	if (argc < 2)
 	{
-		centerPosition = vertexPositions[Vertex(center)];
+		cgogn_log_info("topogical_analysis") << "USAGE: " << argv[0] << " [filename]";
+		filename = std::string(DEFAULT_MESH_PATH) + std::string("tet/hand.tet");
+		cgogn_log_info("topogical_analysis") << "Using default mesh \"" << filename << "\".";
 	}
+	else
+		filename = std::string(argv[1]);
 
-	bool is_inside(Dart d)
-	{
-		return (vertexPositions[Vertex(d)] - centerPosition).norm() < threshold ;
-	}
-};
+	QApplication application(argc, argv);
+	qoglviewer::init_ogl_context();
 
+	// Instantiate the viewer.
+	TopologicalAnalyser<CMap3> viewer;
+	viewer.setWindowTitle("Topological Analysis");
+	viewer.import(filename);
+	viewer.show();
 
-} //namespace selection
-
-} // namespace cgogn
-
-#endif // SELECTION_COLLECTOR_CRITERION_H_
+	// Run main loop.
+	return application.exec();
+}

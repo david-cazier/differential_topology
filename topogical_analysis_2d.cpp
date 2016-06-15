@@ -21,74 +21,31 @@
 *                                                                              *
 *******************************************************************************/
 
-#include <ui_viewer.h>
+#include "topogical_analysis.h"
 
-#include <QApplication>
-#include <QMatrix4x4>
+using CMap2 = cgogn::CMap2<cgogn::DefaultMapTraits>;
 
-#include <QOGLViewer/qoglviewer.h>
-#include <QKeyEvent>
-
-#include <gui/morse_complex.h>
-#include <gui/graph.h>
-
-#include <cgogn/rendering/topo_drawer.h>
-
-#include <cgogn/geometry/algos/bounding_box.h>
-#include <cgogn/rendering/drawer.h>
-
-#include <cgogn/topology/types/critical_point.h>
-
-
-#define DEFAULT_MESH_PATH CGOGN_STR(CGOGN_TEST_MESHES_PATH)
-
-class Viewer : public QOGLViewer
+int main(int argc, char** argv)
 {
-public:
-	using Vec3 = Eigen::Vector3d;
-	using Scalar = Eigen::Vector3d::Scalar;
-	using CMap2 = cgogn::CMap2<cgogn::DefaultMapTraits>;
-	using CMap3 = cgogn::CMap3<cgogn::DefaultMapTraits>;
+	std::string filename;
+	if (argc < 2)
+	{
+		cgogn_log_info("topogical_analysis") << "USAGE: " << argv[0] << " [filename]";
+		filename = std::string(DEFAULT_MESH_PATH) + std::string("tet/hand.tet");
+		cgogn_log_info("topogical_analysis") << "Using default mesh \"" << filename << "\".";
+	}
+	else
+		filename = std::string(argv[1]);
 
-public:
-	Viewer();
-	Viewer(const Viewer&) = delete;
-	Viewer& operator=(const Viewer&) = delete;
+	QApplication application(argc, argv);
+	qoglviewer::init_ogl_context();
 
-	virtual ~Viewer();
+	// Instantiate the viewer.
+	TopologicalAnalyser<CMap2> viewer;
+	viewer.setWindowTitle("Topological Analysis");
+	viewer.import(filename);
+	viewer.show();
 
-	virtual void draw();
-	virtual void init();
-
-	virtual void keyPressEvent(QKeyEvent *e);
-	virtual void mousePressEvent(QMouseEvent* e);
-	virtual void closeEvent(QCloseEvent *e);
-
-	void import(const std::string& surfaceMesh);
-
-private:
-	MorseSmallComplex<Vec3, CMap2> surface_;
-	MorseSmallComplex<Vec3, CMap3> volume_;
-	unsigned int dimension_;
-
-	cgogn::geometry::AABB<Vec3> bb_;
-	std::unique_ptr<cgogn::rendering::DisplayListDrawer> level_line_drawer_;
-	std::unique_ptr<cgogn::rendering::DisplayListDrawer::Renderer> level_line_renderer_;
-
-	std::unique_ptr<cgogn::rendering::TopoDrawer> topo_drawer_;
-	std::unique_ptr<cgogn::rendering::TopoDrawer::Renderer> topo_renderer_;
-
-	//	std::vector<MorseSmallComplex<Vec3, CMap3>::Vertex> selected_vertices_;
-
-	Graph reeb_graph_;
-
-	bool map_rendering_;
-	bool vertices_rendering_;
-	bool edge_rendering_;
-	bool topo_rendering_;
-
-	bool graph_vertices_rendering_;
-	bool graph_edges_rendering_;
-
-	bool feature_points_rendering_;
-};
+	// Run main loop.
+	return application.exec();
+}

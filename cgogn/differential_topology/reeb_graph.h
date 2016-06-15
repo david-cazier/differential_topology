@@ -151,7 +151,7 @@ public:
 
 		corresponding_vertex_[n] = v;
 		function_value_[n] = w;
-		is_finalized_.set_value(n, false);
+//		is_finalized_.set_value(n, false);
 
 //		highest_arc_[Edge(v.dart)] = n;
 

@@ -30,7 +30,6 @@
 #include <cgogn/io/map_import.h>
 #include <cgogn/io/map_export.h>
 
-
 #include <cgogn/rendering/map_render.h>
 
 #include <cgogn/geometry/algos/normal.h>
@@ -89,7 +88,7 @@ public:
 
 	cgogn::geometry::BoundingBox<Vec3> bb_;
 
-	std::unique_ptr<cgogn::rendering::MapRender> render_;
+	std::unique_ptr<cgogn::rendering::MapRender> surface_render_;
 
 	std::unique_ptr<cgogn::rendering::VBO> vbo_pos_;
 	std::unique_ptr<cgogn::rendering::VBO> vbo_norm_;
@@ -113,7 +112,7 @@ public:
 		scalar_field_(),
 		edge_metric_(),
 		bb_(),
-		render_(nullptr),
+		surface_render_(nullptr),
 		vbo_pos_(nullptr),
 		vbo_norm_(nullptr),
 		vbo_color_(nullptr),
@@ -124,7 +123,7 @@ public:
 
 	~Surface()
 	{
-		render_.reset();
+		surface_render_.reset();
 		vbo_pos_.reset();
 		vbo_norm_.reset();
 		vbo_color_.reset();
@@ -178,10 +177,10 @@ public:
 			return bb_.diag_size()/1000.0 * (1.0 + 2.0*std::abs(n[2]));
 		});
 
-		render_ = cgogn::make_unique<cgogn::rendering::MapRender>();
-		render_->init_primitives<Vec3>(map_, cgogn::rendering::POINTS);
-		render_->init_primitives<Vec3>(map_, cgogn::rendering::LINES);
-		render_->init_primitives<Vec3>(map_, cgogn::rendering::TRIANGLES, &vertex_position_);
+		surface_render_ = cgogn::make_unique<cgogn::rendering::MapRender>();
+		surface_render_->init_primitives<Vec3>(map_, cgogn::rendering::POINTS);
+		surface_render_->init_primitives<Vec3>(map_, cgogn::rendering::LINES);
+		surface_render_->init_primitives<Vec3>(map_, cgogn::rendering::TRIANGLES, &vertex_position_);
 
 		param_point_sprite_ = cgogn::rendering::ShaderPointSpriteColorSize::generate_param();
 		param_point_sprite_->set_all_vbos(vbo_pos_.get(),vbo_color_.get(),vbo_sphere_sz_.get());
@@ -214,9 +213,9 @@ public:
 	void update_topology()
 	{
 
-		render_->init_primitives<Vec3>(map_, cgogn::rendering::POINTS);
-		render_->init_primitives<Vec3>(map_, cgogn::rendering::LINES);
-		render_->init_primitives<Vec3>(map_, cgogn::rendering::TRIANGLES);
+		surface_render_->init_primitives<Vec3>(map_, cgogn::rendering::POINTS);
+		surface_render_->init_primitives<Vec3>(map_, cgogn::rendering::LINES);
+		surface_render_->init_primitives<Vec3>(map_, cgogn::rendering::TRIANGLES);
 	}
 
 	void update_color(VertexAttribute<Scalar> scalar)
@@ -240,21 +239,21 @@ public:
 	void draw_phong(const QMatrix4x4& proj, const QMatrix4x4& view)
 	{
 		param_phong_->bind(proj,view);
-		render_->draw(cgogn::rendering::TRIANGLES);
+		surface_render_->draw(cgogn::rendering::TRIANGLES);
 		param_phong_->release();
 	}
 
 	void draw_flat(const QMatrix4x4& proj, const QMatrix4x4& view)
 	{
 		param_flat_->bind(proj,view);
-		render_->draw(cgogn::rendering::TRIANGLES);
+		surface_render_->draw(cgogn::rendering::TRIANGLES);
 		param_flat_->release();
 	}
 
 	void draw_vertices(const QMatrix4x4& proj, const QMatrix4x4& view)
 	{
 		param_point_sprite_->bind(proj,view);
-		render_->draw(cgogn::rendering::POINTS);
+		surface_render_->draw(cgogn::rendering::POINTS);
 		param_point_sprite_->release();
 	}
 
@@ -262,15 +261,14 @@ public:
 	{
 		param_edge_->bind(proj,view);
 		//param_edge_->set_width(2.5f);
-		render_->draw(cgogn::rendering::LINES);
+		surface_render_->draw(cgogn::rendering::LINES);
 		param_edge_->release();
-
 	}
 
 	void draw_normals(const QMatrix4x4& proj, const QMatrix4x4& view)
 	{
 		param_normal_->bind(proj,view);
-		render_->draw(cgogn::rendering::POINTS);
+		surface_render_->draw(cgogn::rendering::POINTS);
 		param_normal_->release();
 	}
 

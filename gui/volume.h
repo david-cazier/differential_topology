@@ -36,6 +36,7 @@
 
 #include <cgogn/geometry/algos/normal.h>
 
+#include <cgogn/geometry/algos/centroid.h>
 #include <cgogn/geometry/algos/angle.h>
 #include <cgogn/geometry/algos/area.h>
 #include <cgogn/geometry/algos/length.h>
@@ -103,25 +104,6 @@ public:
 	{
 		volume_drawer_.reset();
 	}
-
-	template <typename T, typename MAP>
-	inline T map_centroid(MAP& map, VertexAttribute<T>& attribute)
-	{
-		T result;
-		result.setZero();
-		unsigned int count = 0;
-
-		map.foreach_cell([&](typename MAP::Vertex v)
-		{
-			result += attribute[v];
-			++count;
-		});
-
-		result /= typename T::Scalar(count);
-
-		return result;
-	}
-
 
 	void init()
 	{
@@ -201,81 +183,37 @@ public:
 		return bb_;
 	}
 
-	Vertex central_vertex()
-	{
-		Vec3 barycenter = map_centroid<Vec3>(map_, vertex_position_);
-
-		Scalar min_distance = std::numeric_limits<Scalar>::max();
-		Vertex min_vertex;
-
-		map_.foreach_cell([&](Vertex v)
-		{
-			Vec3 diffenre = vertex_position_[v] - barycenter;
-			Scalar distance = diffenre.norm();
-
-			if(distance < min_distance)
-			{
-				min_distance = distance;
-				min_vertex = v;
-			}
-		});
-		return min_vertex;
-	}
-
-	Vertex find_source(Vertex v,
-					   VertexAttribute<Scalar>& scalar_field,
-					   VertexAttribute<Vertex>& path_to_source)
-	{
-		Vertex u = v;
-		while (scalar_field[u] > Scalar(0)) {
-			u = path_to_source[u];
-		}
-		return u;
-	}
-
-	Vertex farthest_extremity(const std::vector<Vertex> vertices,
-							  VertexAttribute<Scalar>& scalar_field,
-							  VertexAttribute<Vertex>& path_to_sources)
-	{
-		cgogn::dijkstra_compute_paths<Scalar>(map_, edge_metric_, vertices, scalar_field, path_to_sources);
-
-		Scalar max_distance = Scalar(0);
-		Vertex extremity = vertices[0];
-		map_.foreach_cell([&](Vertex v)
-		{
-			Scalar distance = scalar_field[v];
-			if(distance > max_distance) {
-				max_distance = distance;
-				extremity = v;
-			}
-		});
-
-		return extremity;
-	}
-
 	// Search a couple of vertices that maximizes their geodesic distance
 	// and compute their respective scalar field (geodesic distance to themselves)
 	Scalar maximal_diameter(Vertex& v1, VertexAttribute<Scalar>& scalar_field1,
 							Vertex& v2, VertexAttribute<Scalar>& scalar_field2,
 							VertexAttribute<Vertex>& path_to_sources)
 	{
+		cgogn::topology::DistanceField<Scalar, CMap3> distance_field(map_, edge_metric_);
+		Scalar max_distance;
+
 		// Init v1 with a vertex near the center of the mesh
-		v1 = central_vertex();
+		v1 = cgogn::geometry::central_vertex<Vec3, CMap3>(map_, vertex_position_);
 
 		// Init v2 with the farthest vertice from v1
-		v2 = farthest_extremity({v1}, scalar_field1, path_to_sources);
+		distance_field.dijkstra_compute_paths({v1}, scalar_field1, path_to_sources);
+		v2 = distance_field.find_maximum(scalar_field1);
+		max_distance = scalar_field1[v2];
 
 		// Try to optimize these two vertices by maximizing their distance
-		Scalar maximal = scalar_field1[v2];
-		Scalar current = maximal;
+		Scalar current_distance = max_distance;
 		do {
-			v1 = farthest_extremity({v2}, scalar_field2, path_to_sources);
-			v2 = farthest_extremity({v1}, scalar_field1, path_to_sources);
-			current = maximal;
-			maximal = scalar_field1[v2];
-		} while (current < maximal);
+			current_distance = max_distance;
 
-		return maximal;
+			distance_field.dijkstra_compute_paths({v2}, scalar_field2, path_to_sources);
+			v1 = distance_field.find_maximum(scalar_field2);
+
+			distance_field.dijkstra_compute_paths({v1}, scalar_field1, path_to_sources);
+			v2 = distance_field.find_maximum(scalar_field1);
+			max_distance = scalar_field1[v2];
+		} while (current_distance < max_distance);
+
+		return max_distance;
 	}
 
 	// Remove the vertices whose distance to local minima (their sources)
@@ -305,7 +243,9 @@ public:
 		// A vertex that is near a source has been found
 		if (min_dist <= threshold)
 		{
-			Vertex source = find_source(min_vertex, scalar_field, path_to_sources);
+			Vertex source = min_vertex;
+			while (path_to_sources[source].dart != source.dart)
+				source = path_to_sources[source];
 			filtered.push_back(source);
 		}
 		// Replace the initial vertices by the filtered ones
@@ -374,7 +314,8 @@ public:
 		// Build a scalar field from {v1, v2}
 		features.push_back(v1);
 		features.push_back(v2);
-		cgogn::dijkstra_compute_paths<Scalar>(map_, edge_metric_, features, scalar_field, path_to_sources);
+		cgogn::topology::DistanceField<Scalar, CMap3> distance_field(map_, edge_metric_);
+		distance_field.dijkstra_compute_paths(features, scalar_field, path_to_sources);
 
 		// Initialize the sets of vertices filtered from f1 and f2 with v1 and v2
 		std::vector<Vertex> vertices_f1_filtered;
@@ -394,12 +335,14 @@ public:
 		Scalar actual_distance = max_distance;
 		// std::cout << "Distances: (" << max_distance << ") 1.0 ";
 		while (target_distance < actual_distance && !(vertices_f1.empty() && vertices_f2.empty())) {
-			Vertex v = farthest_extremity(features, scalar_field, path_to_sources);
+			// std::cout << "Find_features : actual_distance " << actual_distance << std::endl;
+			distance_field.dijkstra_compute_paths(features, scalar_field, path_to_sources);
+			Vertex v = distance_field.find_maximum(scalar_field);
 			features.push_back(v);
 			actual_distance = scalar_field[v];
 			filter_distance = std::min(filter_distance, target_distance / Scalar(3));
 			// std::cout << actual_distance/max_distance << " ";
-			cgogn::dijkstra_compute_paths<Scalar>(map_, edge_metric_, features, scalar_field, path_to_sources);
+			distance_field.dijkstra_compute_paths(features, scalar_field, path_to_sources);
 			features_filter(vertices_f1, vertices_f1_filtered, filter_distance, scalar_field, path_to_sources);
 			features_filter(vertices_f2, vertices_f2_filtered, filter_distance, scalar_field, path_to_sources);
 		}
@@ -437,7 +380,8 @@ public:
 	{
 		compute_length(edge_metric_);
 
-		cgogn::distance_to_boundary_pl_function<Scalar>(map_, edge_metric_, scalar_field_);
+		cgogn::topology::DistanceField<Scalar, CMap3> distance_field(map_,edge_metric_);
+		distance_field.distance_to_boundary(scalar_field_);
 		update_color(scalar_field_);
 
 		fp.draw_critical_points(map_, scalar_field_, vertex_position_);
@@ -455,8 +399,8 @@ public:
 	{
 		compute_length(edge_metric_);
 
-		Vertex v0 = central_vertex();
-		cgogn::geodesic_distance_pl_function<Scalar>(map_, { v0 }, edge_metric_, scalar_field_);
+		cgogn::topology::DistanceField<Scalar, CMap3> distance_field(map_,edge_metric_);
+		distance_field.distance_to_center(vertex_position_, scalar_field_);
 
 		update_color(scalar_field_);
 		fp.draw_critical_points(map_, scalar_field_, vertex_position_);
@@ -470,7 +414,8 @@ public:
 		find_features(fp, scalar_field_, features);
 
 		// Build the scalar field from the selected features
-		cgogn::geodesic_distance_pl_function<Scalar>(map_, features, edge_metric_, scalar_field_);
+		cgogn::topology::DistanceField<Scalar, CMap3> distance_field(map_,edge_metric_);
+		distance_field.dijkstra_compute_distances(features, scalar_field_);
 
 		for (auto& s : scalar_field_) s = Scalar(1) - s;
 
@@ -487,7 +432,8 @@ public:
 		find_features(fp, scalar_field_, features);
 
 		// Build the scalar field from the selected features
-		cgogn::geodesic_distance_pl_function<Scalar>(map_, features, edge_metric_, scalar_field_);
+		cgogn::topology::DistanceField<Scalar, CMap3> distance_field(map_);
+		distance_field.dijkstra_compute_distances(features, scalar_field_);
 
 		for (auto& s : scalar_field_) s = Scalar(1) - s;
 
@@ -555,15 +501,9 @@ public:
 		find_features(fp, dist_to_feature, features);
 
 		// Etape 2
-		// 1 initial function with Feature vertices as seeds
-		cgogn::normalized_geodesic_distance_pl_function<Scalar>(map_, features, edge_metric, dist_to_feature);
-
-		// 2 inverse the normalized distance so that the maxima are on the features
-		for (auto& s : dist_to_feature) s = Scalar(1) - s;
-
-		// 3 function perturbation (to remove extra minima and saddles)
 		// Run dijkstra using dist_to_feature in place of estimated geodesic distances
-		cgogn::dijkstra_to_morse_function<Scalar>(map_, dist_to_feature, scalar_field);
+		cgogn::topology::DistanceField<Scalar, CMap3> distance_field(map_, edge_metric);
+		distance_field.dijkstra_to_morse_function(features, scalar_field);
 
 		map_.remove_attribute(dist_to_feature);
 	}
