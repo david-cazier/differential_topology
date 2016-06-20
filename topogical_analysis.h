@@ -196,9 +196,9 @@ public:
 
 	void update_topology()
 	{
-		map_render_->init_primitives<Vec3>(map_, cgogn::rendering::POINTS);
-		map_render_->init_primitives<Vec3>(map_, cgogn::rendering::LINES);
-		map_render_->init_primitives<Vec3>(map_, cgogn::rendering::TRIANGLES, &vertex_position_);
+		map_render_->init_primitives(map_, cgogn::rendering::POINTS);
+		map_render_->init_primitives(map_, cgogn::rendering::LINES);
+		map_render_->init_primitives(map_, cgogn::rendering::TRIANGLES);
 	}
 
 	void update_color()

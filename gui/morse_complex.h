@@ -165,9 +165,9 @@ public:
 			});
 
 			surface_render_ = cgogn::make_unique<cgogn::rendering::MapRender>();
-			surface_render_->init_primitives<Vec3>(map_, cgogn::rendering::POINTS);
-			surface_render_->init_primitives<Vec3>(map_, cgogn::rendering::LINES);
-			surface_render_->init_primitives<Vec3>(map_, cgogn::rendering::TRIANGLES, &vertex_position_);
+			surface_render_->init_primitives(map_, cgogn::rendering::POINTS);
+			surface_render_->init_primitives(map_, cgogn::rendering::LINES);
+			surface_render_->init_primitives(map_, cgogn::rendering::TRIANGLES);
 
 			param_point_sprite_ = cgogn::rendering::ShaderPointSpriteColorSize::generate_param();
 			param_point_sprite_->set_all_vbos(vbo_pos_.get(),vbo_color_.get(),vbo_sphere_sz_.get());
@@ -220,9 +220,9 @@ public:
 	{
 		if (dimension_ == 2u)
 		{
-			surface_render_->init_primitives<Vec3>(map_, cgogn::rendering::POINTS);
-			surface_render_->init_primitives<Vec3>(map_, cgogn::rendering::LINES);
-			surface_render_->init_primitives<Vec3>(map_, cgogn::rendering::TRIANGLES);
+			surface_render_->init_primitives(map_, cgogn::rendering::POINTS);
+			surface_render_->init_primitives(map_, cgogn::rendering::LINES);
+			surface_render_->init_primitives(map_, cgogn::rendering::TRIANGLES);
 		}
 		else if (dimension_ == 3u)
 		{
