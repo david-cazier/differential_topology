@@ -21,8 +21,6 @@
 *                                                                              *
 *******************************************************************************/
 
-#include <ui_viewer.h>
-
 #include <QApplication>
 #include <QMatrix4x4>
 

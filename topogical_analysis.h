@@ -27,32 +27,22 @@
 
 #include <QOGLViewer/qoglviewer.h>
 
-#include <cgogn/helper_functions.h>
-#include <cgogn/core/cmap/cmap3.h>
-#include <cgogn/core/utils/definitions.h>
 #include <cgogn/core/utils/numerics.h>
+#include <cgogn/core/cmap/cmap3.h>
 #include <cgogn/io/map_import.h>
 #include <cgogn/io/map_export.h>
 
 #include <cgogn/rendering/map_render.h>
 #include <cgogn/rendering/drawer.h>
-#include <cgogn/rendering/volume_drawer.h>
-#include <cgogn/rendering/topo_drawer.h>
 
 #include <cgogn/rendering/shaders/shader_scalar_per_vertex.h>
-#include <cgogn/rendering/shaders/shader_flat.h>
-#include <cgogn/rendering/shaders/shader_phong.h>
+#include <cgogn/rendering/shaders/shader_bold_line.h>
 #include <cgogn/rendering/shaders/shader_point_sprite.h>
-#include <cgogn/rendering/shaders/shader_vector_per_vertex.h>
-#include <cgogn/rendering/shaders/vbo.h>
 
 #include <cgogn/geometry/algos/angle.h>
-#include <cgogn/geometry/algos/area.h>
-#include <cgogn/geometry/algos/normal.h>
 #include <cgogn/geometry/algos/length.h>
 #include <cgogn/geometry/algos/curvature.h>
 #include <cgogn/geometry/algos/bounding_box.h>
-#include <cgogn/geometry/algos/ear_triangulation.h>
 
 #include <cgogn/topology/types/adjacency_cache.h>
 #include <cgogn/topology/algos/features.h>
@@ -84,15 +74,14 @@ public:
 		scalar_field_(),
 		edge_metric_(),
 		bb_(),
-		map_render_(nullptr),
 		vbo_pos_(nullptr),
 		vbo_scalar_(nullptr),
-		level_line_drawer_(nullptr),
-		level_line_renderer_(nullptr),
-		first_drawing_(true),
+		map_render_(nullptr),
+		features_drawer_(nullptr),
+		features_renderer_(nullptr),
 		map_rendering_(true),
 		vertices_rendering_(false),
-		edge_rendering_(true),
+		edge_rendering_(false),
 		feature_points_rendering_(true)
 	{}
 
@@ -101,10 +90,11 @@ public:
 
 	virtual ~TopologicalAnalyser()
 	{
-		map_render_.reset();
-		features_drawer_.reset();
 		vbo_pos_.reset();
 		vbo_scalar_.reset();
+		map_render_.reset();
+		features_drawer_.reset();
+		features_renderer_.reset();
 	}
 
 	virtual void init()
@@ -112,11 +102,13 @@ public:
 		glClearColor(0.1f,0.1f,0.3f,0.0f);
 
 		vbo_pos_ = cgogn::make_unique<cgogn::rendering::VBO>(3);
-		update_geometry();
+		cgogn::rendering::update_vbo(vertex_position_, vbo_pos_.get());
+
+		float size = float(bb_.max_size()) / 500.0f;
 
 		param_point_sprite_ = cgogn::rendering::ShaderPointSprite::generate_param();
-		param_point_sprite_->color_  = QColor(255,0,0);
-		param_point_sprite_->size_ = 2.0f;
+		param_point_sprite_->color_ = QColor(180,180,180);
+		param_point_sprite_->size_ = size;
 		param_point_sprite_->set_position_vbo(vbo_pos_.get());
 
 		param_edge_ = cgogn::rendering::ShaderBoldLine::generate_param();
@@ -141,22 +133,24 @@ public:
 		features_drawer_ = cgogn::make_unique<cgogn::rendering::DisplayListDrawer>();
 		features_renderer_ = features_drawer_->generate_renderer();
 
-		level_line_drawer_ = cgogn::make_unique<cgogn::rendering::DisplayListDrawer>();
-		level_line_renderer_ = level_line_drawer_->generate_renderer();
+		lines_drawer_ = cgogn::make_unique<cgogn::rendering::DisplayListDrawer>();
+		lines_renderer_ = lines_drawer_->generate_renderer();
+
+		distance_to_center_function();
 	}
 
 	virtual void draw()
 	{
-		if (first_drawing_)
-		{
-			first_drawing_ = false;
-			height_function();
-		}
-
 		QMatrix4x4 proj;
 		QMatrix4x4 view;
 		camera()->getProjectionMatrix(proj);
 		camera()->getModelViewMatrix(view);
+
+		if(feature_points_rendering_)
+		{
+			features_renderer_->draw(proj, view, this);
+			lines_renderer_->draw(proj, view, this);
+		}
 
 		glEnable(GL_POLYGON_OFFSET_FILL);
 		glPolygonOffset(1.0f, 2.0f);
@@ -185,13 +179,6 @@ public:
 			param_edge_->release();
 		}
 
-		if(feature_points_rendering_)
-			features_renderer_->draw(proj, view, this);
-	}
-
-	void update_geometry()
-	{
-		cgogn::rendering::update_vbo(vertex_position_, vbo_pos_.get());
 	}
 
 	void update_topology()
@@ -221,22 +208,21 @@ public:
 
 	void draw_segments(const std::vector<Edge>& edges, float r, float g, float b)
 	{
-		float width = 10.0f * float(bb_.max_size())/50.0f;
-		features_drawer_->line_width(width);
-		features_drawer_->begin(GL_LINES);
-		features_drawer_->color3f(r, g, b);
+		lines_drawer_->line_width(2.0f);
+		lines_drawer_->begin(GL_LINES);
+		lines_drawer_->color3f(r, g, b);
 
 		for (auto& e: edges) {
-			features_drawer_->vertex3fv(vertex_position_[Vertex(e.dart)]);
-			features_drawer_->vertex3fv(vertex_position_[Vertex(map_.phi1(e.dart))]);
+			lines_drawer_->vertex3fv(vertex_position_[Vertex(e.dart)]);
+			lines_drawer_->vertex3fv(vertex_position_[Vertex(map_.phi1(e.dart))]);
 		}
-		features_drawer_->end();
+		lines_drawer_->end();
 	}
 
 	void draw_vertices(const std::vector<Vertex>& vertices,
 					   float r, float g, float b, float ratio, int shift=0)
 	{
-		Scalar radius = ratio*bb_.max_size()/50.0f;
+		float radius = ratio * float(bb_.max_size()) / 50.0f;
 		features_drawer_->ball_size(radius);
 		features_drawer_->begin(GL_POINTS);
 		features_drawer_->color3f(r, g, b);
@@ -266,19 +252,17 @@ public:
 	{
 		update_color();
 
-		features_drawer_->new_list();
-
 		// Draw the critical points
+		features_drawer_->new_list();
 		cgogn::topology::ScalarField<Scalar, MAP> scalar_field(map_, adjacency_cache_, scalar_field_);
 		scalar_field.critical_vertex_analysis();
 		draw_vertices(scalar_field.get_maxima(), 1.0f, 1.0f, 1.0f, 1.0f);
-		if (scalar_field.get_minima().size() < 100u)
-			draw_vertices(scalar_field.get_minima(), 1.0f, 0.0f, 0.0f, 1.0f);
-		else
-			draw_vertices(scalar_field.get_minima(), 1.0f, 0.0f, 0.0f, 0.1f);
+		draw_vertices(scalar_field.get_minima(), 1.0f, 0.0f, 0.0f, 1.0f);
 		draw_vertices(scalar_field.get_saddles(), 1.0f, 1.0f, 0.0f, 0.4f);
+		features_drawer_->end_list();
 
 		// Draw the level sets
+		lines_drawer_->new_list();
 		if (level_sets)
 		{
 			std::vector<Edge> level_lines;
@@ -296,8 +280,7 @@ public:
 			scalar_field.extract_ascending_manifold(morse_lines);
 			draw_segments(morse_lines, 1.0f, 0.5f, 0.0f);
 		}
-
-		features_drawer_->end_list();
+		lines_drawer_->end_list();
 	}
 
 	virtual void keyPressEvent(QKeyEvent *e)
@@ -318,7 +301,7 @@ public:
 			case Qt::Key_0:
 			{
 				if (dimension_ == 2u)
-					height_function();
+					two_features_geodesic_distance_function();
 				else
 					distance_to_boundary_function();
 				break;
@@ -450,6 +433,25 @@ public:
 
 		cgogn::topology::DistanceField<Scalar, MAP> distance_field(map_, adjacency_cache_, edge_metric_);
 		distance_field.distance_to_center(vertex_position_, scalar_field_);
+
+		draw_scalar_field();
+	}
+
+	void two_features_geodesic_distance_function()
+	{
+		// Find features for the edge_metric
+		std::vector<Vertex> features;
+		compute_length(edge_metric_);
+
+		Vertex center = cgogn::geometry::central_vertex<Vec3, MAP>(map_, vertex_position_);
+		cgogn::topology::FeaturesFinder<Scalar, MAP> features_finder(map_, adjacency_cache_, edge_metric_);
+		features_finder.get_maximal_diameter(center, features);
+
+		// Build the scalar field from the selected features
+		cgogn::topology::DistanceField<Scalar, MAP> distance_field(map_, adjacency_cache_, edge_metric_);
+		distance_field.distance_to_features(features, scalar_field_);
+
+		for (auto& s : scalar_field_) s = Scalar(1) - s;
 
 		draw_scalar_field();
 	}
@@ -717,14 +719,13 @@ private:
 	std::unique_ptr<cgogn::rendering::DisplayListDrawer> features_drawer_;
 	std::unique_ptr<cgogn::rendering::DisplayListDrawer::Renderer> features_renderer_;
 
-	std::unique_ptr<cgogn::rendering::DisplayListDrawer> level_line_drawer_;
-	std::unique_ptr<cgogn::rendering::DisplayListDrawer::Renderer> level_line_renderer_;
+	std::unique_ptr<cgogn::rendering::DisplayListDrawer> lines_drawer_;
+	std::unique_ptr<cgogn::rendering::DisplayListDrawer::Renderer> lines_renderer_;
 
 	std::unique_ptr<cgogn::rendering::ShaderBoldLine::Param> param_edge_;
 	std::unique_ptr<cgogn::rendering::ShaderPointSprite::Param> param_point_sprite_;
 	std::unique_ptr<cgogn::rendering::ShaderScalarPerVertex::Param> param_scalar_;
 
-	bool first_drawing_;
 	bool map_rendering_;
 	bool vertices_rendering_;
 	bool edge_rendering_;
