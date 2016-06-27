@@ -392,6 +392,25 @@ public:
 		draw_scalar_field();
 	}
 
+	void distance_to_basic_features()
+	{
+		// Find features for the edge_metric
+		std::vector<Vertex> features;
+		compute_length(edge_metric_);
+
+		Vertex center = cgogn::geometry::central_vertex<Vec3, MAP>(map_, vertex_position_);
+		cgogn::topology::FeaturesFinder<Scalar, MAP> features_finder(map_, adjacency_cache_, edge_metric_);
+		features_finder.get_basic_features(center, features);
+
+		// Build the scalar field from the selected features
+		cgogn::topology::DistanceField<Scalar, MAP> distance_field(map_, adjacency_cache_, edge_metric_);
+		distance_field.distance_to_features(features, scalar_field_);
+
+		for (auto& s : scalar_field_) s = Scalar(1) - s;
+
+		draw_scalar_field();
+	}
+
 	void distance_to_boundary_function()
 	{
 		VertexAttribute<Scalar> features_field;
