@@ -79,6 +79,7 @@ public:
 		map_render_(nullptr),
 		features_drawer_(nullptr),
 		features_renderer_(nullptr),
+		features_proximity(0.3f),
 		map_rendering_(true),
 		vertices_rendering_(false),
 		edge_rendering_(false),
@@ -348,22 +349,20 @@ public:
 	template <typename T, typename std::enable_if<T::DIMENSION == 2>::type* = nullptr>
 	void import_concrete(const std::string& filename)
 	{
-		cgogn_log_info("import") << "2D.";
 		cgogn::io::import_surface<Vec3>(map_, filename);
+		cgogn_log_info("import") << "2D mesh imported";
 	}
 
 	template <typename T, typename std::enable_if<T::DIMENSION == 3>::type* = nullptr>
 	void import_concrete(const std::string& filename)
 	{
-		cgogn_log_info("import") << "3D.";
 		cgogn::io::import_volume<Vec3>(map_, filename);
+		cgogn_log_info("import") << "3D mesh imported";
 	}
 
 	void import(const std::string& filename)
 	{
-		cgogn_log_info("import") << "Begin.";
 		import_concrete<MAP>(filename);
-		cgogn_log_info("import") << "End.";
 
 		vertex_position_ = map_.template get_attribute<Vec3, Vertex::ORBIT>("position");
 		if (!vertex_position_.is_valid())
@@ -404,7 +403,7 @@ public:
 
 		Vertex center = cgogn::geometry::central_vertex<Vec3, MAP>(map_, vertex_position_);
 		cgogn::topology::FeaturesFinder<Scalar, MAP> features_finder(map_, adjacency_cache_, edge_metric_);
-		features_finder.get_filtered_features(center, features_field, features);
+		features_finder.get_filtered_features(center, features_proximity, features_field, features);
 
 		VertexAttribute<Scalar> boundary_field;
 		boundary_field = map_.template add_attribute<Scalar, Vertex::ORBIT>("boundary_field");
@@ -464,7 +463,7 @@ public:
 
 		Vertex center = cgogn::geometry::central_vertex<Vec3, MAP>(map_, vertex_position_);
 		cgogn::topology::FeaturesFinder<Scalar, MAP> features_finder(map_, adjacency_cache_, edge_metric_);
-		features_finder.get_filtered_features(center, scalar_field_, features);
+		features_finder.get_filtered_features(center, features_proximity, scalar_field_, features);
 
 		// Build the scalar field from the selected features
 		cgogn::topology::DistanceField<Scalar, MAP> distance_field(map_, adjacency_cache_, edge_metric_);
@@ -484,7 +483,7 @@ public:
 
 		Vertex center = cgogn::geometry::central_vertex<Vec3, MAP>(map_, vertex_position_);
 		cgogn::topology::FeaturesFinder<Scalar, MAP> features_finder(map_, adjacency_cache_, edge_metric_);
-		features_finder.get_filtered_features(center, scalar_field_, features);
+		features_finder.get_filtered_features(center, features_proximity, scalar_field_, features);
 
 		// Build the scalar field from the selected features
 		cgogn::topology::DistanceField<Scalar, MAP> distance_field(map_, adjacency_cache_, edge_metric_);
@@ -503,7 +502,7 @@ public:
 
 		Vertex center = cgogn::geometry::central_vertex<Vec3, MAP>(map_, vertex_position_);
 		cgogn::topology::FeaturesFinder<Scalar, MAP> features_finder(map_, adjacency_cache_);
-		features_finder.get_filtered_features(center, scalar_field_, features);
+		features_finder.get_filtered_features(center, features_proximity, scalar_field_, features);
 
 		// Build the scalar field from the selected features
 		cgogn::topology::DistanceField<Scalar, MAP> distance_field(map_, adjacency_cache_);
@@ -527,7 +526,7 @@ public:
 
 		Vertex center = cgogn::geometry::central_vertex<Vec3, MAP>(map_, vertex_position_);
 		cgogn::topology::FeaturesFinder<Scalar, MAP> features_finder(map_, adjacency_cache_, edge_metric_);
-		features_finder.get_filtered_features(center, scalar_field_, features);
+		features_finder.get_filtered_features(center, features_proximity, scalar_field_, features);
 
 		// Build the scalar field from the selected features
 		cgogn::topology::DistanceField<Scalar, MAP> distance_field(map_, adjacency_cache_, edge_metric_);
@@ -545,7 +544,7 @@ public:
 
 		Vertex center = cgogn::geometry::central_vertex<Vec3, MAP>(map_, vertex_position_);
 		cgogn::topology::FeaturesFinder<Scalar, MAP> features_finder(map_, adjacency_cache_, edge_metric_);
-		features_finder.get_filtered_features(center, scalar_field_, features);
+		features_finder.get_filtered_features(center, features_proximity, scalar_field_, features);
 
 		// Build the scalar field from the selected features
 		cgogn::topology::DistanceField<Scalar, MAP> distance_field(map_, adjacency_cache_, edge_metric_);
@@ -562,7 +561,7 @@ public:
 
 		Vertex center = cgogn::geometry::central_vertex<Vec3, MAP>(map_, vertex_position_);
 		cgogn::topology::FeaturesFinder<Scalar, MAP> features_finder(map_, adjacency_cache_, edge_metric_);
-		features_finder.get_filtered_features(center, scalar_field_, features);
+		features_finder.get_filtered_features(center, features_proximity, scalar_field_, features);
 
 		// Build the scalar field from the selected features
 		cgogn::topology::DistanceField<Scalar, MAP> distance_field(map_, adjacency_cache_);
@@ -726,6 +725,7 @@ private:
 	std::unique_ptr<cgogn::rendering::ShaderPointSprite::Param> param_point_sprite_;
 	std::unique_ptr<cgogn::rendering::ShaderScalarPerVertex::Param> param_scalar_;
 
+	Scalar features_proximity;
 	bool map_rendering_;
 	bool vertices_rendering_;
 	bool edge_rendering_;
