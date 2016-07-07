@@ -80,6 +80,7 @@ public:
 		features_drawer_(nullptr),
 		features_renderer_(nullptr),
 		features_proximity(0.3f),
+		nb_(0u),
 		map_rendering_(true),
 		vertices_rendering_(false),
 		edge_rendering_(false),
@@ -189,6 +190,10 @@ public:
 		map_render_->init_primitives(map_, cgogn::rendering::TRIANGLES);
 	}
 
+	/**
+	 * @brief transform the scalar field so that its values lie between 0 and 1
+	 * and inverse the min and max.
+	 */
 	void update_color()
 	{
 		// Search the maximal and minimal value of the scalar field
@@ -257,9 +262,17 @@ public:
 		features_drawer_->new_list();
 		cgogn::topology::ScalarField<Scalar, MAP> scalar_field(map_, adjacency_cache_, scalar_field_);
 		scalar_field.critical_vertex_analysis();
-		draw_vertices(scalar_field.get_maxima(), 1.0f, 1.0f, 1.0f, 1.0f);
-		draw_vertices(scalar_field.get_minima(), 1.0f, 0.0f, 0.0f, 1.0f);
-		draw_vertices(scalar_field.get_saddles(), 1.0f, 1.0f, 0.0f, 0.4f);
+		draw_vertices(scalar_field.get_maxima(), 1.0f, 1.0f, 1.0f, 0.4f, 1u);
+		draw_vertices(scalar_field.get_minima(), 1.0f, 0.0f, 0.0f, 0.4f, 1u);
+		draw_vertices(scalar_field.get_saddles(), 1.0f, 1.0f, 0.0f, 0.4f, 1u);
+
+		std::vector<Vertex> MS_complex_boundary;
+		scalar_field.extract_ascending_3_manifold(MS_complex_boundary);
+		draw_vertices(MS_complex_boundary, 1.0f, 0.0f, 1.0f, 0.2f);
+		MS_complex_boundary.clear();
+		scalar_field.extract_descending_3_manifold(MS_complex_boundary);
+		draw_vertices(MS_complex_boundary, 1.0f, 0.6f, 0.0f, 0.2f);
+
 		features_drawer_->end_list();
 
 		// Draw the level sets
@@ -275,12 +288,43 @@ public:
 		if (morse_complex)
 		{
 			std::vector<Edge> morse_lines;
-			scalar_field.extract_descending_manifold(morse_lines);
+			scalar_field.extract_descending_1_manifold(morse_lines);
 			draw_segments(morse_lines, 0.5f, 0.5f, 1.0f);
 			morse_lines.clear();
-			scalar_field.extract_ascending_manifold(morse_lines);
+			scalar_field.extract_ascending_1_manifold(morse_lines);
 			draw_segments(morse_lines, 1.0f, 0.5f, 0.0f);
 		}
+		lines_drawer_->end_list();
+	}
+
+	void draw_scalar_field2(std::vector<Vertex>& features1, std::vector<Vertex>& features2)
+	{
+		update_color();
+
+		// Draw the critical points
+		features_drawer_->new_list();
+		cgogn::topology::ScalarField<Scalar, MAP> scalar_field(map_, adjacency_cache_, scalar_field_);
+		scalar_field.critical_vertex_analysis();
+		draw_vertices(scalar_field.get_maxima(), 1.0f, 1.0f, 1.0f, 0.4f);
+		draw_vertices(scalar_field.get_minima(), 1.0f, 0.0f, 0.0f, 0.1f);
+		draw_vertices(scalar_field.get_saddles(), 1.0f, 1.0f, 0.0f, 0.2f);
+		draw_vertices(features1, 1.0f, 0.0f, 1.0f, 0.6f, 1);
+		draw_vertices(features2, 0.0f, 1.0f, 1.0f, 0.6f, 2);
+
+		std::vector<Vertex> MS_complex_boundary;
+		scalar_field.extract_ascending_3_manifold(MS_complex_boundary);
+		draw_vertices(MS_complex_boundary, 1.0f, 0.0f, 1.0f, 0.2f);
+
+		features_drawer_->end_list();
+
+		// Draw the ascending and descending manyfold of the morse complex
+		lines_drawer_->new_list();
+		std::vector<Edge> morse_lines;
+		scalar_field.extract_descending_1_manifold(morse_lines);
+		draw_segments(morse_lines, 0.5f, 0.5f, 1.0f);
+		morse_lines.clear();
+		scalar_field.extract_ascending_1_manifold(morse_lines);
+		draw_segments(morse_lines, 1.0f, 0.5f, 0.0f);
 		lines_drawer_->end_list();
 	}
 
@@ -298,6 +342,14 @@ public:
 				break;
 			case Qt::Key_A:
 				feature_points_rendering_ = !feature_points_rendering_;
+				break;
+			case Qt::Key_Plus:
+				++nb_;
+				draw_scalar_field(false, false);
+				break;
+			case Qt::Key_Minus:
+				if (nb_>0) --nb_;
+				draw_scalar_field(false, false);
 				break;
 			case Qt::Key_0:
 			{
@@ -319,7 +371,8 @@ public:
 			}
 			case Qt::Key_3:
 			{
-				curvature_weighted_geodesic_distance_function();
+				edge_length_weighted_geodesic_distance_function2();
+				//				curvature_weighted_geodesic_distance_function();
 				break;
 			}
 			case Qt::Key_4:
@@ -400,7 +453,7 @@ public:
 
 		Vertex center = cgogn::geometry::central_vertex<Vec3, MAP>(map_, vertex_position_);
 		cgogn::topology::FeaturesFinder<Scalar, MAP> features_finder(map_, adjacency_cache_, edge_metric_);
-		features_finder.get_basic_features(center, features);
+		features_finder.basic_features(center, features);
 
 		// Build the scalar field from the selected features
 		cgogn::topology::DistanceField<Scalar, MAP> distance_field(map_, adjacency_cache_, edge_metric_);
@@ -413,46 +466,101 @@ public:
 
 	void distance_to_boundary_function()
 	{
-		VertexAttribute<Scalar> features_field;
-		features_field = map_.template add_attribute<Scalar, Vertex::ORBIT>("features_field");
-
-		// Find features for the edge_metric
-		std::vector<Vertex> features;
 		compute_length(edge_metric_);
-
-		Vertex center = cgogn::geometry::central_vertex<Vec3, MAP>(map_, vertex_position_);
-		cgogn::topology::FeaturesFinder<Scalar, MAP> features_finder(map_, adjacency_cache_, edge_metric_);
-		features_finder.get_filtered_features(center, features_proximity, features_field, features);
+		cgogn::topology::DistanceField<Scalar, MAP> distance_field(map_, adjacency_cache_, edge_metric_);
 
 		VertexAttribute<Scalar> boundary_field;
 		boundary_field = map_.template add_attribute<Scalar, Vertex::ORBIT>("boundary_field");
-		cgogn::topology::DistanceField<Scalar, MAP> distance_field(map_, adjacency_cache_, edge_metric_);
-		distance_field.distance_to_boundary(boundary_field);
+
+		std::vector<Vertex> boundary_vertices;
+		map_.foreach_cell([&](Vertex v)
+		{
+			if (map_.is_incident_to_boundary(v))
+				boundary_vertices.push_back(v);
+		});
+		distance_field.distance_to_features(boundary_vertices, boundary_field);
 
 		cgogn::topology::ScalarField<Scalar, MAP> scalar_field(map_, adjacency_cache_, boundary_field);
 		scalar_field.critical_vertex_analysis();
 
-		for (Vertex v : scalar_field.get_maxima())
+		std::vector<Vertex> features;
+		for (Vertex v : boundary_vertices)
 			features.push_back(v);
+
+		std::vector<Vertex> features1;
+		std::vector<Vertex> features2;
+		Scalar min_max = std::numeric_limits<Scalar>::max();
+		for (Vertex v : scalar_field.get_maxima())
+		{
+			min_max = std::min(min_max, boundary_field[v]);
+			features.push_back(v);
+			features1.push_back(v);
+			cgogn_log_info("feature+1") << boundary_field[v];
+		}
+		Scalar target_distance = 0.9 * min_max;
+
+		distance_field.distance_to_features(features, boundary_field);
+		scalar_field.critical_vertex_analysis();
+		for (Vertex v : scalar_field.get_maxima())
+		{
+			if (boundary_field[v] > target_distance)
+			{
+				features.push_back(v);
+				features2.push_back(v);
+				cgogn_log_info("feature+2") << boundary_field[v];
+			}
+		}
 
 		distance_field.distance_to_features(features, scalar_field_);
 
-		for (auto& s : scalar_field_) s = Scalar(1) - s;
+		Scalar actual_distance;
+		Vertex max_vertex;
+		int i = 0;
+		do {
+			max_vertex = distance_field.find_maximum(scalar_field_);
+			actual_distance = scalar_field_[max_vertex];
+			cgogn_log_info("actual_distance") << actual_distance;
+			if (i>0 && actual_distance > target_distance)
+			{
+				boundary_vertices.push_back(max_vertex);
+				features.push_back(max_vertex);
+				distance_field.distance_to_features(boundary_vertices, scalar_field_);
+				--i;
+			}
 
-		draw_scalar_field(false, true);
+		} while (i>0 && actual_distance > target_distance);
 
-		map_.remove_attribute(features_field);
+//		distance_field.distance_to_features(features, scalar_field_);
+//		for (auto& s : scalar_field_) s = Scalar(1) - s;
+
+		draw_scalar_field2(features1, features2);
+
 		map_.remove_attribute(boundary_field);
 	}
 
 	void distance_to_center_function()
 	{
 		compute_length(edge_metric_);
-
 		cgogn::topology::DistanceField<Scalar, MAP> distance_field(map_, adjacency_cache_, edge_metric_);
-		distance_field.distance_to_center(vertex_position_, scalar_field_);
 
-		draw_scalar_field();
+		if (dimension_ == 2u)
+		{
+			Vertex center = cgogn::geometry::central_vertex<Vec3, MAP>(map_, vertex_position_);
+			distance_field.distance_to_features({center}, scalar_field_);
+		}
+		else
+		{
+			cgogn::topology::FeaturesFinder<Scalar, MAP> features_finder(map_, adjacency_cache_, edge_metric_);
+			Vertex center = features_finder.central_vertex();
+			distance_field.distance_to_features({center}, scalar_field_);
+//			distance_field.distance_to_boundary(scalar_field_);
+//			Vertex center = distance_field.find_maximum(scalar_field_);
+//			distance_field.distance_to_features({center}, scalar_field_);
+//			edge_metric_normalize();
+//			distance_field.distance_to_features({center}, scalar_field_);
+		}
+
+		draw_scalar_field(false, true);
 	}
 
 	void two_features_geodesic_distance_function()
@@ -474,6 +582,34 @@ public:
 		draw_scalar_field();
 	}
 
+	void scalar_field_inverse_normalize()
+	{
+		Scalar min = std::numeric_limits<Scalar>::max();
+		Scalar max = std::numeric_limits<Scalar>::min();
+
+		for(auto& v : scalar_field_)
+		{
+			min = std::min(min, v);
+			max = std::max(max, v);
+		}
+		Scalar delta = max - min;
+		Scalar diff  = max - Scalar(2)*min;
+
+		for (auto& s : scalar_field_) s = (diff - s) / delta;
+	}
+
+	void edge_metric_normalize()
+	{
+		scalar_field_inverse_normalize();
+
+		map_.foreach_cell([&](Edge e)
+		{
+			std::pair<Vertex,Vertex> p = map_.vertices(e);
+			Scalar weight = Scalar(0.5f)*(scalar_field_[p.first]+scalar_field_[p.second]);
+			edge_metric_[e] *= weight;
+		});
+	}
+
 	void edge_length_weighted_geodesic_distance_function()
 	{
 		// Find features for the edge_metric
@@ -482,13 +618,37 @@ public:
 
 		Vertex center = cgogn::geometry::central_vertex<Vec3, MAP>(map_, vertex_position_);
 		cgogn::topology::FeaturesFinder<Scalar, MAP> features_finder(map_, adjacency_cache_, edge_metric_);
-		features_finder.get_filtered_features(center, features_proximity, scalar_field_, features);
+		features_finder.filtered_features(center, features_proximity, scalar_field_, features);
+
 
 		// Build the scalar field from the selected features
 		cgogn::topology::DistanceField<Scalar, MAP> distance_field(map_, adjacency_cache_, edge_metric_);
 		distance_field.distance_to_features(features, scalar_field_);
 
-		for (auto& s : scalar_field_) s = Scalar(1) - s;
+		scalar_field_inverse_normalize();
+		//		for (auto& s : scalar_field_) s = Scalar(1) - s;
+
+		draw_scalar_field();
+	}
+
+	void edge_length_weighted_geodesic_distance_function2()
+	{
+		// Find features for the edge_metric
+		std::vector<Vertex> features;
+		compute_length(edge_metric_);
+
+		Vertex center = cgogn::geometry::central_vertex<Vec3, MAP>(map_, vertex_position_);
+		cgogn::topology::FeaturesFinder<Scalar, MAP> features_finder(map_, adjacency_cache_, edge_metric_);
+		features_finder.filtered_features(center, features_proximity, scalar_field_, features);
+
+		edge_metric_normalize();
+
+		// Build the scalar field from the selected features
+		cgogn::topology::DistanceField<Scalar, MAP> distance_field(map_, adjacency_cache_, edge_metric_);
+		distance_field.distance_to_features(features, scalar_field_);
+
+		scalar_field_inverse_normalize();
+		//		for (auto& s : scalar_field_) s = Scalar(1) - s;
 
 		draw_scalar_field();
 	}
@@ -502,7 +662,7 @@ public:
 
 		Vertex center = cgogn::geometry::central_vertex<Vec3, MAP>(map_, vertex_position_);
 		cgogn::topology::FeaturesFinder<Scalar, MAP> features_finder(map_, adjacency_cache_, edge_metric_);
-		features_finder.get_filtered_features(center, features_proximity, scalar_field_, features);
+		features_finder.filtered_features(center, features_proximity, scalar_field_, features);
 
 		// Build the scalar field from the selected features
 		cgogn::topology::DistanceField<Scalar, MAP> distance_field(map_, adjacency_cache_, edge_metric_);
@@ -521,7 +681,7 @@ public:
 
 		Vertex center = cgogn::geometry::central_vertex<Vec3, MAP>(map_, vertex_position_);
 		cgogn::topology::FeaturesFinder<Scalar, MAP> features_finder(map_, adjacency_cache_);
-		features_finder.get_filtered_features(center, features_proximity, scalar_field_, features);
+		features_finder.filtered_features(center, features_proximity, scalar_field_, features);
 
 		// Build the scalar field from the selected features
 		cgogn::topology::DistanceField<Scalar, MAP> distance_field(map_, adjacency_cache_);
@@ -545,11 +705,14 @@ public:
 
 		Vertex center = cgogn::geometry::central_vertex<Vec3, MAP>(map_, vertex_position_);
 		cgogn::topology::FeaturesFinder<Scalar, MAP> features_finder(map_, adjacency_cache_, edge_metric_);
-		features_finder.get_filtered_features(center, features_proximity, scalar_field_, features);
+		features_finder.filtered_features(center, features_proximity, scalar_field_, features);
+		edge_metric_normalize();
 
 		// Build the scalar field from the selected features
 		cgogn::topology::DistanceField<Scalar, MAP> distance_field(map_, adjacency_cache_, edge_metric_);
 		distance_field.morse_distance_to_features(features, scalar_field_);
+
+		for (auto& s : scalar_field_) s = Scalar(1) - s;
 
 		draw_scalar_field(false, true);
 	}
@@ -563,7 +726,7 @@ public:
 
 		Vertex center = cgogn::geometry::central_vertex<Vec3, MAP>(map_, vertex_position_);
 		cgogn::topology::FeaturesFinder<Scalar, MAP> features_finder(map_, adjacency_cache_, edge_metric_);
-		features_finder.get_filtered_features(center, features_proximity, scalar_field_, features);
+		features_finder.filtered_features(center, features_proximity, scalar_field_, features);
 
 		// Build the scalar field from the selected features
 		cgogn::topology::DistanceField<Scalar, MAP> distance_field(map_, adjacency_cache_, edge_metric_);
@@ -580,7 +743,7 @@ public:
 
 		Vertex center = cgogn::geometry::central_vertex<Vec3, MAP>(map_, vertex_position_);
 		cgogn::topology::FeaturesFinder<Scalar, MAP> features_finder(map_, adjacency_cache_, edge_metric_);
-		features_finder.get_filtered_features(center, features_proximity, scalar_field_, features);
+		features_finder.filtered_features(center, features_proximity, scalar_field_, features);
 
 		// Build the scalar field from the selected features
 		cgogn::topology::DistanceField<Scalar, MAP> distance_field(map_, adjacency_cache_);
@@ -745,6 +908,8 @@ private:
 	std::unique_ptr<cgogn::rendering::ShaderScalarPerVertex::Param> param_scalar_;
 
 	Scalar features_proximity;
+
+	unsigned int nb_;
 	bool map_rendering_;
 	bool vertices_rendering_;
 	bool edge_rendering_;
