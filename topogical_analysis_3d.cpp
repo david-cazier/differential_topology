@@ -31,7 +31,7 @@ int main(int argc, char** argv)
 	if (argc < 2)
 	{
 		cgogn_log_info("topogical_analysis") << "USAGE: " << argv[0] << " [filename]";
-		filename = std::string(DEFAULT_MESH_PATH) + std::string("tet/hand.tet");
+		filename = std::string(DEFAULT_MESH_PATH) + std::string("/tet/hand.tet");
 		cgogn_log_info("topogical_analysis") << "Using default mesh \"" << filename << "\".";
 	}
 	else

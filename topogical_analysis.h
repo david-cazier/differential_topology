@@ -29,6 +29,7 @@
 
 #include <cgogn/core/utils/numerics.h>
 #include <cgogn/core/cmap/cmap3.h>
+//#include <cgogn/core/cmap/cmap3_tetra.h>
 #include <cgogn/io/map_import.h>
 #include <cgogn/io/map_export.h>
 
@@ -467,6 +468,39 @@ public:
 	void distance_to_boundary_function()
 	{
 		compute_length(edge_metric_);
+
+		std::vector<Vertex> boundary_vertices;
+		map_.foreach_cell([&](Vertex v)
+		{
+			if (map_.is_incident_to_boundary(v))
+				boundary_vertices.push_back(v);
+		});
+
+		VertexAttribute<Scalar> boundary_field;
+		boundary_field = map_.template add_attribute<Scalar, Vertex::ORBIT>("boundary_field");
+
+		cgogn::topology::DistanceField<Scalar, MAP> distance_field(map_, adjacency_cache_, edge_metric_);
+		distance_field.distance_to_features(boundary_vertices, boundary_field);
+
+		cgogn::topology::ScalarField<Scalar, MAP> scalar_field(map_, adjacency_cache_, boundary_field);
+		scalar_field.critical_vertex_analysis();
+
+		std::vector<Vertex> features;
+		for (Vertex v : scalar_field.get_maxima())
+			features.push_back(v);
+
+		distance_field.morse_distance_to_features(features, scalar_field_);
+
+		for (auto& s : scalar_field_) s = Scalar(1) - s;
+
+		draw_scalar_field();
+
+		map_.remove_attribute(boundary_field);
+	}
+
+	void distance_to_boundary_function2()
+	{
+		compute_length(edge_metric_);
 		cgogn::topology::DistanceField<Scalar, MAP> distance_field(map_, adjacency_cache_, edge_metric_);
 
 		VertexAttribute<Scalar> boundary_field;
@@ -625,8 +659,8 @@ public:
 		cgogn::topology::DistanceField<Scalar, MAP> distance_field(map_, adjacency_cache_, edge_metric_);
 		distance_field.distance_to_features(features, scalar_field_);
 
-		scalar_field_inverse_normalize();
-		//		for (auto& s : scalar_field_) s = Scalar(1) - s;
+		// scalar_field_inverse_normalize();
+		// for (auto& s : scalar_field_) s = Scalar(1) - s;
 
 		draw_scalar_field();
 	}
